@@ -1,0 +1,44 @@
+{
+  "name": "hashhouse",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Unified hashing algorithm library for agents",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "bin": {
+    "hh": "./dist/cli.mjs"
+  },
+  "pi": {
+    "extensions": ["./packages/pi/extensions/*.ts"]
+  },
+  "engines": {
+    "node": ">=25"
+  },
+  "packageManager": "pnpm@10.33.4",
+  "scripts": {
+    "build": "obuild",
+    "dev": "obuild --stub",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest --run"
+  },
+  "dependencies": {
+    "citty": "latest",
+    "consola": "latest",
+    "@noble/hashes": "2.2.0"
+  },
+  "devDependencies": {
+    "obuild": "latest",
+    "typescript": "latest",
+    "vitest": "latest",
+    "tsx": "latest",
+    "@types/node": "latest",
+    "typebox": "latest",
+    "@earendil-works/pi-coding-agent": "latest",
+    "@earendil-works/pi-tui": "latest"
+  }
+}
