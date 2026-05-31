@@ -188,6 +188,49 @@ ok("has('nonexistent') === false", !lib.has("nonexistent"));
   ok("blake3 info has no key option", !info.options.some((o) => o.name === "key"));
 }
 
+// 13. Tool execution via mock Pi
+{
+  const tools = {};
+  const fakePi = { registerTool(def) { tools[def.name] = def; } };
+  const ext = await import(path.join(ROOT, "packages", "pi", "extensions", "hashhouse.ts"));
+  ext.default(fakePi);
+  ok("mock Pi: 4 tools registered", Object.keys(tools).length === 4);
+
+  // hash_compute
+  const r1 = await tools.hash_compute.execute("tc1", { algorithm: "sha256", input: "hello" });
+  ok("hash_compute sha256 hello → 2cf24d...", r1.content[0].text === "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+  ok("hash_compute details", r1.details.algorithm === "sha256" && r1.details.operation === "hash");
+
+  // hash_hmac
+  const r2 = await tools.hash_hmac.execute("tc2", { algorithm: "sha256", input: "data", key: "secret" });
+  ok("hash_hmac returns hmac operation", r2.details.operation === "hmac");
+  ok("hash_hmac returns 64 hex chars", /^[a-f0-9]{64}$/.test(r2.content[0].text));
+
+  // hash_verify match
+  const r3 = await tools.hash_verify.execute("tc3", { algorithm: "sha256", input: "abc", expected: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" });
+  ok("hash_verify match → ✓ MATCH", r3.content[0].text.includes("MATCH") && r3.details.match === true);
+
+  // hash_verify mismatch
+  const r4 = await tools.hash_verify.execute("tc4", { algorithm: "sha256", input: "abc", expected: "0000000000000000000000000000000000000000000000000000000000000000" });
+  ok("hash_verify mismatch → ✗ MISMATCH", r4.content[0].text.includes("MISMATCH") && r4.details.match === false);
+
+  // hash_algorithms
+  const r5 = await tools.hash_algorithms.execute("tc5", {});
+  ok("hash_algorithms → 16 lines", r5.content[0].text.split("\n").length === 16);
+
+  // hash_algorithms with filter
+  const r6 = await tools.hash_algorithms.execute("tc6", { family: "legacy" });
+  ok("hash_algorithms legacy → md5+sha1", r6.content[0].text.includes("md5") && r6.content[0].text.includes("sha1"));
+
+  // error handling
+  const r7 = await tools.hash_compute.execute("tc7", { algorithm: "nonexistent", input: "test" });
+  ok("hash_compute unknown → clean error", r7.content[0].text.includes("Unknown algorithm"));
+
+  // HMAC unsupported algorithm
+  const r8 = await tools.hash_hmac.execute("tc8", { algorithm: "blake3", input: "data", key: "secret" });
+  ok("hash_hmac blake3 → unsupported error", r8.content[0].text.includes("does not support HMAC"));
+}
+
 // Summary
 console.log(`\n  ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
