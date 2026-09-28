@@ -1,6 +1,6 @@
 {
   "name": "@agntn/hashes",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Hash, HMAC and key derivation algorithms for agents",
   "keywords": [
     "omp-extension",
