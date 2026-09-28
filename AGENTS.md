@@ -31,7 +31,7 @@ Keep AGENTS.md updated with project status.
 - `pnpm build` - `vp pack`
 - `pnpm dev` - `vp pack --watch`
 - `pnpm lint` - build, then `vp lint` and `vp fmt --check`
-- `pnpm fmt` - `vp lint --fix` and `vp fmt`
+- `pnpm fmt` - build, then `vp lint --fix` and `vp fmt` (the autofix workflow runs it on a clean checkout)
 - `pnpm typecheck` - library, build, extensions, tests
 - `pnpm test` - `vp test run`
 - `pnpm release` - test, build, and release

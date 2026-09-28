@@ -47,7 +47,7 @@
   "scripts": {
     "build": "vp pack",
     "dev": "vp pack --watch",
-    "fmt": "vp lint --fix && vp fmt",
+    "fmt": "pnpm build && vp lint --fix && vp fmt",
     "lint": "pnpm build && vp lint && vp fmt --check",
     "typecheck": "tsc --noEmit && pnpm build && tsc -p tsconfig.extensions.json && tsc -p test/tsconfig.json",
     "test": "vp test run",
