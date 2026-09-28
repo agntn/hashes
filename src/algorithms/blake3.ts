@@ -1,13 +1,15 @@
-import { blake3 as hashFn } from "@noble/hashes/blake3.js";
-import { defineNobleAlgorithm } from "../core/noble.ts";
+import { blake3 } from "@noble/hashes/blake3.js";
+import { NobleHash } from "../core/noble.ts";
 
-export const blake3 = defineNobleAlgorithm({
-  name: "blake3",
-  label: "BLAKE3",
-  description: "BLAKE3, an extremely fast cryptographic hash, parallelizable, 256-bit output",
-  family: "cryptographic",
-  hashFn,
-  digestLength: 32,
-  hmac: false,
-  securityNote: "256-bit security level, Merkle tree structure for parallelism",
-});
+export class Blake3 extends NobleHash {
+  static readonly key = "blake3";
+  protected readonly hashFn = blake3;
+  protected override readonly hmac = false;
+  protected readonly about = {
+    label: "BLAKE3",
+    description: "BLAKE3, an extremely fast cryptographic hash, parallelizable, 256-bit output",
+    family: "cryptographic",
+    digestLength: 32,
+    securityNote: "256-bit security level, Merkle tree structure for parallelism",
+  } as const;
+}

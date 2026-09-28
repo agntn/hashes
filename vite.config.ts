@@ -21,12 +21,10 @@ export default defineConfig({
               name: [
                 "AlgorithmInfo",
                 "DigestDetails",
-                "FixedAlgorithmDefinition",
-                "HashAlgorithm",
+                "Hash",
                 "HashInput",
                 "HashOptions",
                 "HashResult",
-                "NobleAlgorithmDefinition",
                 "ToolResult",
               ],
             },

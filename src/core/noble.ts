@@ -1,31 +1,14 @@
 import { hmac } from "@noble/hashes/hmac.js";
 import type { CHash } from "@noble/hashes/utils.js";
 import { ENCODING_OPTION, encodeDigest, guarded, toBytes } from "./digest.ts";
-import type {
-  AlgorithmEntry,
-  AlgorithmInfo,
-  HashAlgorithm,
-  HashFamily,
-  HashInput,
-  HashOption,
-  HashOptions,
-  HashResult,
-} from "./types.ts";
+import { Hash } from "./hash.ts";
+import type { AlgorithmInfo, HashInput, HashOption, HashOptions, HashResult } from "./types.ts";
 
-/** Everything that tells one @noble/hashes-backed algorithm from another. */
-export interface NobleAlgorithmDefinition {
-  name: string;
-  label: string;
-  description: string;
-  family: HashFamily;
-  /** The noble hash, such as `sha256` or `blake2b`. */
-  hashFn: CHash;
-  digestLength?: number;
-  /** Whether HMAC mode is offered. Default: true. */
-  hmac?: boolean;
-  securityNote?: string;
-  options?: HashOption[];
-}
+/** What an algorithm tells about itself besides its name, options and HMAC support. */
+export type HashAbout = Pick<
+  AlgorithmInfo,
+  "label" | "description" | "family" | "digestLength" | "securityNote"
+>;
 
 const KEY_OPTION: HashOption = {
   name: "key",
@@ -34,52 +17,46 @@ const KEY_OPTION: HashOption = {
   description: "HMAC key; enables HMAC mode",
 };
 
-/**
- * Builds a hash algorithm over a @noble/hashes function, with HMAC through `@noble/hashes/hmac`.
- *
- * @param definition - The algorithm's metadata and noble hash.
- * @returns {HashAlgorithm} The algorithm.
- */
-function makeNobleAlgorithm(definition: NobleAlgorithmDefinition): HashAlgorithm {
-  const hmacSupported = definition.hmac ?? true;
-  return {
-    name: () => definition.name,
-    info: (): AlgorithmInfo => ({
-      name: definition.name,
-      label: definition.label,
-      description: definition.description,
-      family: definition.family,
-      ...(definition.digestLength === undefined ? {} : { digestLength: definition.digestLength }),
-      hmac: hmacSupported,
-      options: [
-        ENCODING_OPTION,
-        ...(hmacSupported ? [KEY_OPTION] : []),
-        ...(definition.options ?? []),
-      ],
-      ...(definition.securityNote === undefined ? {} : { securityNote: definition.securityNote }),
-    }),
-    hash: (input: HashInput, options?: HashOptions): HashResult =>
-      guarded(definition.name, () => {
-        const data = toBytes(input);
-        const encoding = options?.encoding ?? "hex";
-        if (options?.key === undefined) {
-          return encodeDigest(definition.hashFn(data), definition.name, "hash", encoding);
-        }
-        if (!hmacSupported) {
-          throw new Error(`${definition.name} has no HMAC mode`);
-        }
-        const raw = hmac(definition.hashFn, toBytes(options.key), data);
-        return encodeDigest(raw, definition.name, "hmac", encoding, { hmac: true });
-      }),
-  };
-}
+/** Base class for an algorithm over a @noble/hashes function, with HMAC through `@noble/hashes/hmac`. */
+export abstract class NobleHash extends Hash {
+  /** The noble hash, such as `sha256` or `blake2b`. */
+  protected abstract readonly hashFn: CHash;
+  /** Label, description, family, digest length and security note. */
+  protected abstract readonly about: HashAbout;
+  /** Whether HMAC mode is offered. */
+  protected readonly hmac: boolean = true;
 
-/**
- * Declares a built-in noble-backed algorithm for the registry to seed.
- *
- * @param definition - The algorithm's metadata and noble hash.
- * @returns {AlgorithmEntry} The registry entry.
- */
-export function defineNobleAlgorithm(definition: NobleAlgorithmDefinition): AlgorithmEntry {
-  return { name: definition.name, create: () => makeNobleAlgorithm(definition) };
+  /**
+   * Describes the algorithm.
+   *
+   * @returns {AlgorithmInfo} Its metadata.
+   */
+  info(): AlgorithmInfo {
+    return {
+      name: this.key,
+      ...this.about,
+      hmac: this.hmac,
+      options: this.hmac ? [ENCODING_OPTION, KEY_OPTION] : [ENCODING_OPTION],
+    };
+  }
+
+  /**
+   * Hashes the input, or computes its HMAC when a key is given.
+   *
+   * @param input - Text or bytes.
+   * @param options - Encoding and HMAC key.
+   * @returns {HashResult} The digest.
+   */
+  hash(input: HashInput, options?: HashOptions): HashResult {
+    return guarded(this.key, () => {
+      const data = toBytes(input);
+      const encoding = options?.encoding ?? "hex";
+      if (options?.key === undefined) {
+        return encodeDigest(this.hashFn(data), this.key, "hash", encoding);
+      }
+      if (!this.hmac) throw new Error(`${this.key} has no HMAC mode`);
+      const raw = hmac(this.hashFn, toBytes(options.key), data);
+      return encodeDigest(raw, this.key, "hmac", encoding, { hmac: true });
+    });
+  }
 }

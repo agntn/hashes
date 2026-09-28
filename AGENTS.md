@@ -9,7 +9,7 @@ Keep AGENTS.md updated with project status.
 ## Status
 
 - Aligned with `_template` and moved to Vite+ in the shape of `@agntn/explorers` (#143): `vp pack` builds, `vp lint` and `vp fmt` run the shared `@agntn/ox` policy from `vite.config.ts`, `vp test` runs Vitest 5.
-- The registry is seeded from `src/algorithms/index.ts` on first use; importing the package registers nothing, so `sideEffects` is `false`.
+- Algorithms are classes, like ciphers and chains: `Hash` is the base, `NobleHash` wraps a `@noble/hashes` function, `ChecksumHash` a digest computed here, and each class carries a static `key`. The registry is seeded from the class list in `src/algorithms/index.ts` on first use; importing the package mutates nothing, so `sideEffects` is `false`.
 - MCP, AI SDK, Pi and OMP share the executors in `src/tool-operations.ts`. MCP and Pi share the TypeBox schemas in `packages/shared/tool-schemas.ts`; OMP restates them with `pi.typebox`, and `test/omp-extension.test.ts` holds both to the same accept/reject answers.
 - A local MCP server runs `src/` from the built bin inside a checkout, like `_template`; `HASHES_DIST=1` keeps the bundle. `test/cli.test.ts` proves both modes and each guard.
 - Fixed during the refactor, each with a regression test: XXH64 used a wrong `PRIME64_2` and skipped `round()` in the merge and tail steps, so it never produced XXH64 (now identical to the reference `xxhash` on 603 inputs); verify lowercased base64 before comparing; the tools drew a KDF salt and never returned it; pbkdf2 looked `digest` up through `Object.prototype`; a malformed hex salt shrank silently; `--version` hashed the flag; `-` for stdin was documented but not implemented.
@@ -39,7 +39,7 @@ Keep AGENTS.md updated with project status.
 ## Structure
 
 ```
-src/core/                - types, errors, registry, name resolution, digest helpers, verify
+src/core/                - Hash, NobleHash, ChecksumHash, types, errors, registry, name resolution, digest helpers, verify
 src/algorithms/          - one file per built-in algorithm, plus the builtins list in index.ts
 src/commands/            - citty subcommands
 src/tool-operations.ts   - executors shared by every agent surface
@@ -52,8 +52,8 @@ test/fixtures/           - typed Pi and OMP extension test hosts from _template
 
 ## Adding an algorithm
 
-1. Create `src/algorithms/<name>.ts` exporting an `AlgorithmEntry`: `defineNobleAlgorithm()` for a `@noble/hashes` function, `defineFixedAlgorithm()` for a fixed-length digest computed here. A KDF declares `SALT_OPTION`, which is what makes the tools take and require a salt.
-2. Add it to `builtins` in `src/algorithms/index.ts` and its name to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
+1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `NobleHash` for a `@noble/hashes` function, `ChecksumHash` for a fixed-length digest computed here, `Hash` for anything else. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
+2. Add the class to `builtins` in `src/algorithms/index.ts` and its key to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
 3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.
 

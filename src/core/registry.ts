@@ -1,53 +1,52 @@
 import { builtins } from "../algorithms/index.ts";
 import { UnknownAlgorithmError } from "./errors.ts";
-import type { HashAlgorithm, HashAlgorithmFactory } from "./types.ts";
+import type { Hash, HashConstructor } from "./hash.ts";
 
-let factories: Map<string, HashAlgorithmFactory> | undefined;
-const instances = new Map<string, HashAlgorithm>();
+let classes: Map<string, HashConstructor> | undefined;
+const instances = new Map<string, Hash>();
 
 /**
- * The factory map, seeded with the built-ins on first use. Importing the package mutates no
+ * The class map, seeded with the built-ins on first use. Importing the package mutates no
  * shared state, which is what `sideEffects: false` promises; the algorithm modules themselves
  * are still imported with the package.
  *
- * @returns {Map<string, HashAlgorithmFactory>} Registered factories by name.
+ * @returns {Map<string, HashConstructor>} Registered classes by key.
  */
-function registry(): Map<string, HashAlgorithmFactory> {
-  factories ??= new Map(builtins.map((entry) => [entry.name, entry.create] as const));
-  return factories;
+function registry(): Map<string, HashConstructor> {
+  classes ??= new Map(builtins.map((HashClass) => [HashClass.key, HashClass] as const));
+  return classes;
 }
 
 /**
- * Registers a hash algorithm factory, replacing any algorithm under the same name.
+ * Registers a hash algorithm class under its `key`, replacing any algorithm with the same key.
  *
- * @param name - Exact registry name.
- * @param factory - Creates the algorithm.
+ * @param HashClass - The class, with a static `key`.
  */
-export function register(name: string, factory: HashAlgorithmFactory): void {
-  registry().set(name, factory);
-  instances.delete(name);
+export function register(HashClass: HashConstructor): void {
+  registry().set(HashClass.key, HashClass);
+  instances.delete(HashClass.key);
 }
 
 /**
- * Creates a hash algorithm by exact name, cached per name.
+ * Creates a hash algorithm by exact key, cached per key.
  *
- * @param name - Exact registry name.
- * @returns {HashAlgorithm} The cached algorithm instance.
+ * @param name - Exact registry key.
+ * @returns {Hash} The cached algorithm instance.
  */
-export function create(name: string): HashAlgorithm {
+export function create(name: string): Hash {
   const cached = instances.get(name);
   if (cached) return cached;
-  const factory = registry().get(name);
-  if (!factory) throw new UnknownAlgorithmError(name, algorithms());
-  const algorithm = factory();
+  const HashClass = registry().get(name);
+  if (!HashClass) throw new UnknownAlgorithmError(name, algorithms());
+  const algorithm = new HashClass();
   instances.set(name, algorithm);
   return algorithm;
 }
 
 /**
- * Lists the registered algorithm names: the built-ins in listing order, then registrations.
+ * Lists the registered algorithm keys: the built-ins in listing order, then registrations.
  *
- * @returns {string[]} Registered names.
+ * @returns {string[]} Registered keys.
  */
 export function algorithms(): string[] {
   return [...registry().keys()];
@@ -56,8 +55,8 @@ export function algorithms(): string[] {
 /**
  * Checks whether an algorithm is registered.
  *
- * @param name - Exact registry name.
- * @returns {boolean} Whether the name is registered.
+ * @param name - Exact registry key.
+ * @returns {boolean} Whether the key is registered.
  */
 export function has(name: string): boolean {
   return registry().has(name);

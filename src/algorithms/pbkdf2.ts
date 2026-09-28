@@ -12,7 +12,8 @@ import {
   type SaltOptions,
 } from "../core/digest.ts";
 import { InvalidOptionError } from "../core/errors.ts";
-import type { AlgorithmEntry, HashAlgorithm, HashInput, HashOptions } from "../core/types.ts";
+import { Hash } from "../core/hash.ts";
+import type { AlgorithmInfo, HashInput, HashOptions, HashResult } from "../core/types.ts";
 
 /** Hashes PBKDF2 runs HMAC over. A null prototype, so `constructor` is no digest. */
 const DIGESTS: Readonly<Record<string, CHash>> = Object.assign(Object.create(null) as object, {
@@ -47,44 +48,60 @@ function digestHash(digest: string): CHash {
   return hashFn;
 }
 
-const algorithm: HashAlgorithm = {
-  name: () => "pbkdf2",
-  info: () => ({
-    name: "pbkdf2",
-    label: "PBKDF2",
-    description: "PBKDF2 password-based KDF, the NIST standard with configurable iterations",
-    family: "password",
-    hmac: false,
-    options: [
-      ENCODING_OPTION,
-      SALT_OPTION,
-      {
-        name: "iterations",
-        type: "number",
-        required: false,
-        default: 600000,
-        description: "Iteration count (OWASP: >=600000 with sha256, >=220000 with sha512)",
-      },
-      {
-        name: "digest",
-        type: "string",
-        required: false,
-        default: "sha512",
-        description: `Underlying hash: ${Object.keys(DIGESTS).join(", ")}`,
-      },
-      {
-        name: "keyLength",
-        type: "number",
-        required: false,
-        default: 64,
-        description: "Output key length in bytes",
-      },
-    ],
-    securityNote:
-      "OWASP Password Storage Cheat Sheet: >=600000 iterations with HMAC-SHA256, >=220000 with HMAC-SHA512.",
-  }),
-  hash: (input: HashInput, options?: Readonly<Pbkdf2Options>) =>
-    guarded("pbkdf2", () => {
+export class Pbkdf2 extends Hash {
+  static readonly key = "pbkdf2";
+
+  /**
+   * Describes the algorithm.
+   *
+   * @returns {AlgorithmInfo} Its metadata.
+   */
+  info(): AlgorithmInfo {
+    return {
+      name: this.key,
+      label: "PBKDF2",
+      description: "PBKDF2 password-based KDF, the NIST standard with configurable iterations",
+      family: "password",
+      hmac: false,
+      options: [
+        ENCODING_OPTION,
+        SALT_OPTION,
+        {
+          name: "iterations",
+          type: "number",
+          required: false,
+          default: 600000,
+          description: "Iteration count (OWASP: >=600000 with sha256, >=220000 with sha512)",
+        },
+        {
+          name: "digest",
+          type: "string",
+          required: false,
+          default: "sha512",
+          description: `Underlying hash: ${Object.keys(DIGESTS).join(", ")}`,
+        },
+        {
+          name: "keyLength",
+          type: "number",
+          required: false,
+          default: 64,
+          description: "Output key length in bytes",
+        },
+      ],
+      securityNote:
+        "OWASP Password Storage Cheat Sheet: >=600000 iterations with HMAC-SHA256, >=220000 with HMAC-SHA512.",
+    };
+  }
+
+  /**
+   * Derives a key from the input.
+   *
+   * @param input - Text or bytes.
+   * @param options - Encoding, salt and cost parameters.
+   * @returns {HashResult} The derived key.
+   */
+  hash(input: HashInput, options?: Readonly<Pbkdf2Options>): HashResult {
+    return guarded(this.key, () => {
       const {
         iterations = 600_000,
         digest = "sha512",
@@ -97,13 +114,12 @@ const algorithm: HashAlgorithm = {
       const hashFn = digestHash(digest);
       const salt = resolveSalt(options);
       const raw = noblePbkdf2(hashFn, toBytes(input), salt, { c: iterations, dkLen: keyLength });
-      return encodeDigest(raw, "pbkdf2", "hash", encoding, {
+      return encodeDigest(raw, this.key, "hash", encoding, {
         iterations,
         digest,
         keyLength,
         salt: Buffer.from(salt).toString("hex"),
       });
-    }),
-};
-
-export const pbkdf2: AlgorithmEntry = { name: "pbkdf2", create: () => algorithm };
+    });
+  }
+}

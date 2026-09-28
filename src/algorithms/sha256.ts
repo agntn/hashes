@@ -1,13 +1,15 @@
-import { sha256 as hashFn } from "@noble/hashes/sha2.js";
-import { defineNobleAlgorithm } from "../core/noble.ts";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { NobleHash } from "../core/noble.ts";
 
-export const sha256 = defineNobleAlgorithm({
-  name: "sha256",
-  label: "SHA-256",
-  description:
-    "SHA-2 family 256-bit hash, widely used for digital signatures, certificates, and integrity checks",
-  family: "cryptographic",
-  hashFn,
-  digestLength: 32,
-  securityNote: "256-bit security level",
-});
+export class Sha256 extends NobleHash {
+  static readonly key = "sha256";
+  protected readonly hashFn = sha256;
+  protected readonly about = {
+    label: "SHA-256",
+    description:
+      "SHA-2 family 256-bit hash, widely used for digital signatures, certificates, and integrity checks",
+    family: "cryptographic",
+    digestLength: 32,
+    securityNote: "256-bit security level",
+  } as const;
+}

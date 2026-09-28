@@ -1,6 +1,6 @@
 /** XXH64 in plain TypeScript, after the xxHash specification by Yann Collet. */
 import { InvalidOptionError } from "../core/errors.ts";
-import { defineFixedAlgorithm } from "../core/digest.ts";
+import { ChecksumHash } from "../core/checksum.ts";
 import type { HashOptions } from "../core/types.ts";
 
 /** Options xxHash takes besides the encoding. */
@@ -123,15 +123,17 @@ function seedValue(seed: number | bigint | undefined): bigint {
   return value;
 }
 
-export const xxhash = defineFixedAlgorithm<XxhashOptions>({
-  name: "xxhash",
-  label: "xxHash (XXH64)",
-  description:
-    "xxHash 64-bit, an extremely fast non-cryptographic hash used in databases and compression",
-  family: "non-cryptographic",
-  digestLength: 8,
-  securityNote: "NOT for security: fast hash for hash tables, bloom filters, checksums",
-  options: [
+export class Xxhash extends ChecksumHash<XxhashOptions> {
+  static readonly key = "xxhash";
+  protected readonly about = {
+    label: "xxHash (XXH64)",
+    description:
+      "xxHash 64-bit, an extremely fast non-cryptographic hash used in databases and compression",
+    family: "non-cryptographic",
+    digestLength: 8,
+    securityNote: "NOT for security: fast hash for hash tables, bloom filters, checksums",
+  } as const;
+  protected override readonly options = [
     {
       name: "seed",
       type: "number",
@@ -139,11 +141,28 @@ export const xxhash = defineFixedAlgorithm<XxhashOptions>({
       default: 0,
       description: "Seed value for xxHash",
     },
-  ],
-  compute: (bytes, options) => {
+  ] as const;
+
+  /**
+   * Computes XXH64 with the seed option.
+   *
+   * @param bytes - Bytes to hash.
+   * @param options - The seed.
+   * @returns {Uint8Array} The hash, big-endian.
+   */
+  protected digest(bytes: Uint8Array, options?: Readonly<XxhashOptions>): Uint8Array {
     const digest = new Uint8Array(8);
     new DataView(digest.buffer).setBigUint64(0, xxh64(bytes, seedValue(options?.seed)));
     return digest;
-  },
-  reported: (options) => ({ seed: options?.seed ?? 0 }),
-});
+  }
+
+  /**
+   * Reports the seed with the digest.
+   *
+   * @param options - The seed.
+   * @returns {Record<string, unknown>} The seed used.
+   */
+  protected override reported(options?: Readonly<XxhashOptions>): Record<string, unknown> {
+    return { seed: options?.seed ?? 0 };
+  }
+}

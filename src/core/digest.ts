@@ -1,15 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { InvalidOptionError, normalizeError } from "./errors.ts";
-import type {
-  AlgorithmEntry,
-  AlgorithmInfo,
-  HashAlgorithm,
-  HashInput,
-  HashOption,
-  HashOptions,
-  HashResult,
-  OutputEncoding,
-} from "./types.ts";
+import type { AlgorithmInfo, HashInput, HashOption, HashResult, OutputEncoding } from "./types.ts";
 
 /** The `encoding` option every algorithm takes. */
 export const ENCODING_OPTION: HashOption = {
@@ -131,47 +122,4 @@ export function resolveSalt(options?: Readonly<SaltOptions>): Uint8Array {
     throw new InvalidOptionError("salt", salt, "must be whole bytes in hex");
   }
   return Buffer.from(salt, encoding);
-}
-
-/** An algorithm with a fixed-length digest computed in this package, such as a checksum. */
-export interface FixedAlgorithmDefinition<Options extends HashOptions = HashOptions> {
-  name: string;
-  label: string;
-  description: string;
-  family: AlgorithmInfo["family"];
-  digestLength: number;
-  securityNote: string;
-  /** Options besides `encoding`. */
-  options?: HashOption[];
-  /** Computes the raw digest. */
-  compute: (bytes: Uint8Array, options: Readonly<Options> | undefined) => Uint8Array;
-  /** Options to report in the result besides the encoding. */
-  reported?: (options: Readonly<Options> | undefined) => Record<string, unknown>;
-}
-
-/**
- * Declares a built-in algorithm whose digest this package computes itself.
- *
- * @param definition - The algorithm's metadata and digest function.
- * @returns {AlgorithmEntry} The registry entry.
- */
-export function defineFixedAlgorithm<Options extends HashOptions>(
-  definition: FixedAlgorithmDefinition<Options>,
-): AlgorithmEntry {
-  const { compute, reported, options = [], ...info } = definition;
-  const algorithm: HashAlgorithm = {
-    name: () => info.name,
-    info: () => ({ ...info, hmac: false, options: [ENCODING_OPTION, ...options] }),
-    hash: (input: HashInput, hashOptions?: Readonly<Options>) =>
-      guarded(info.name, () =>
-        encodeDigest(
-          compute(toBytes(input), hashOptions),
-          info.name,
-          "hash",
-          hashOptions?.encoding ?? "hex",
-          reported?.(hashOptions),
-        ),
-      ),
-  };
-  return { name: info.name, create: () => algorithm };
 }

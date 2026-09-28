@@ -69,22 +69,3 @@ export interface AlgorithmInfo {
   /** Package a registered algorithm needs beyond this one; built-ins need none. */
   dependency?: string;
 }
-
-/** A hash algorithm. */
-export interface HashAlgorithm {
-  /** Algorithm name. */
-  name(): string;
-  /** Algorithm metadata. */
-  info(): AlgorithmInfo;
-  /** Compute the hash (or HMAC) of the input. */
-  hash(input: HashInput, options?: HashOptions): HashResult;
-}
-
-/** Factory function to create a hash algorithm instance. */
-export type HashAlgorithmFactory = () => HashAlgorithm;
-
-/** A built-in algorithm: its registry name and the factory the registry seeds with. */
-export interface AlgorithmEntry {
-  readonly name: string;
-  readonly create: HashAlgorithmFactory;
-}

@@ -20,7 +20,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too.
 - 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share four tools and the code behind them.
-- 🧩 **Bring your own.** Anything with `name()`, `info()` and `hash()` can be registered.
+- 🧩 **Bring your own.** Extend `NobleHash` with any `@noble/hashes` function and `register()` the class.
 
 ## 📦 Install
 
@@ -135,7 +135,28 @@ Password storage for your app. scrypt and PBKDF2 are here so you can reproduce a
 
 ## 🧩 Adding an algorithm
 
-Want a seventeenth? Implement `HashAlgorithm` and call `register("name", () => yours)`. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL or a spec, never from this package.
+Want a seventeenth? Keccak-256 is one small class:
+
+```ts
+import { keccak_256 } from "@noble/hashes/sha3.js";
+import { NobleHash, register, create } from "@agntn/hashes";
+
+class Keccak256 extends NobleHash {
+  static readonly key = "keccak256";
+  protected readonly hashFn = keccak_256;
+  protected readonly about = {
+    label: "Keccak-256",
+    description: "Ethereum's hash",
+    family: "cryptographic",
+    digestLength: 32,
+  } as const;
+}
+
+register(Keccak256);
+create("keccak256").hash("").digest; // "c5d2460186f7233c..."
+```
+
+Not a noble function? Extend `Hash` and write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL or a spec, never from this package.
 
 ## 🛠️ Development
 

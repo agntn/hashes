@@ -1,7 +1,8 @@
 import { hashFamilies } from "./algorithms.ts";
 import { InvalidOptionError, UnknownAlgorithmError } from "./errors.ts";
 import { algorithms, create, has } from "./registry.ts";
-import type { AlgorithmInfo, HashAlgorithm } from "./types.ts";
+import type { Hash } from "./hash.ts";
+import type { AlgorithmInfo } from "./types.ts";
 
 /**
  * Normalizes a user-typed algorithm name: lowercase, with spaces and underscores as hyphens,
@@ -21,9 +22,9 @@ export function normalizeAlgorithmName(name: string): string {
  * Resolves a hash algorithm from a user-typed name.
  *
  * @param preferred - Algorithm name, normalized by `normalizeAlgorithmName`.
- * @returns {HashAlgorithm} The matching algorithm.
+ * @returns {Hash} The matching algorithm.
  */
-export function resolveAlgorithm(preferred?: string): HashAlgorithm {
+export function resolveAlgorithm(preferred?: string): Hash {
   if (preferred) {
     const normalized = normalizeAlgorithmName(preferred);
     if (has(normalized)) return create(normalized);

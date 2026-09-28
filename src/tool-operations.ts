@@ -16,7 +16,7 @@ import {
   digestMatches,
   resolveAlgorithm,
   type AlgorithmInfo,
-  type HashAlgorithm,
+  type Hash,
   type HashResult,
 } from "./index.ts";
 import {
@@ -129,7 +129,7 @@ function encodingArgument(value: unknown): TextEncoding {
  * @param value - The salt as passed.
  * @returns {string | undefined} The salt in hex, when given.
  */
-function saltArgument(algorithm: HashAlgorithm, value: unknown): string | undefined {
+function saltArgument(algorithm: Hash, value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || !saltPattern.test(value)) {
     throw new InvalidOptionError("salt", value, "must be 1 to 256 bytes in hex");
@@ -144,9 +144,9 @@ function saltArgument(algorithm: HashAlgorithm, value: unknown): string | undefi
  * Resolves the algorithm argument.
  *
  * @param value - The name as passed.
- * @returns {HashAlgorithm} The algorithm.
+ * @returns {Hash} The algorithm.
  */
-function algorithmArgument(value: unknown): HashAlgorithm {
+function algorithmArgument(value: unknown): Hash {
   return resolveAlgorithm(textArgument("algorithm", value, MAX_ALGORITHM_LENGTH));
 }
 

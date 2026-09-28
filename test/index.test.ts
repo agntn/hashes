@@ -2,10 +2,13 @@ import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
-import { builtins } from "../src/algorithms/index.ts";
+import { keccak_256 } from "@noble/hashes/sha3.js";
+import { Md5, builtins } from "../src/algorithms/index.ts";
 import {
   DependencyError,
+  Hash,
   HashError,
+  NobleHash,
   InvalidOptionError,
   MissingOptionError,
   UnknownAlgorithmError,
@@ -58,7 +61,7 @@ describe("registry", () => {
       .map((file) => file.replace(/\.ts$/, ""))
       .toSorted();
 
-    expect(builtins.map((entry) => entry.name)).toEqual([...builtinAlgorithms]);
+    expect(builtins.map((HashClass) => HashClass.key)).toEqual([...builtinAlgorithms]);
     expect([...builtinAlgorithms].toSorted()).toEqual(files);
   });
 
@@ -77,19 +80,40 @@ describe("registry", () => {
     expect(has("toString")).toBe(false);
   });
 
-  it("registers an algorithm from outside the package", () => {
-    const sha256 = create("sha256");
-    register("sha256-twice", () => ({
-      name: () => "sha256-twice",
-      info: () => ({ ...sha256.info(), name: "sha256-twice" }),
-      hash: (input, options) => sha256.hash(String(sha256.hash(input).digest), options),
-    }));
+  it("registers a class from outside the package", () => {
+    class Keccak256 extends NobleHash {
+      static readonly key = "keccak256";
+      protected readonly hashFn = keccak_256;
+      protected readonly about = {
+        label: "Keccak-256",
+        description: "Keccak-256 as Ethereum uses it, before the SHA-3 padding change",
+        family: "cryptographic",
+        digestLength: 32,
+      } as const;
+    }
+    register(Keccak256);
 
-    expect(has("sha256-twice")).toBe(true);
-    expect(algorithms().at(-1)).toBe("sha256-twice");
-    expect(resolveAlgorithm("SHA256_TWICE").hash("abc").digest).toBe(
-      createHash("sha256").update(createHash("sha256").update("abc").digest("hex")).digest("hex"),
+    expect(has("keccak256")).toBe(true);
+    expect(algorithms().at(-1)).toBe("keccak256");
+    const keccak = resolveAlgorithm("KECCAK256");
+    expect(keccak).toBeInstanceOf(Keccak256);
+    expect(keccak.name()).toBe("keccak256");
+    expect(keccak.info()).toMatchObject({ name: "keccak256", hmac: true, digestLength: 32 });
+    expect(keccak.hash("").digest).toBe(
+      "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
     );
+  });
+
+  it("creates one cached instance per key, and a new one after register", () => {
+    const first = create("md5");
+    expect(create("md5")).toBe(first);
+    expect(first).toBeInstanceOf(Hash);
+
+    class Md5Again extends Md5 {}
+    register(Md5Again);
+    expect(create("md5")).toBeInstanceOf(Md5Again);
+    expect(create("md5").hash("hello").digest).toBe("5d41402abc4b2a76b9719d911017c592");
+    register(Md5);
   });
 
   it("resolves typed names: case, spaces and underscores", () => {

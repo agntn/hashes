@@ -9,7 +9,8 @@ import {
   type SaltOptions,
 } from "../core/digest.ts";
 import { InvalidOptionError } from "../core/errors.ts";
-import type { AlgorithmEntry, HashAlgorithm, HashInput, HashOptions } from "../core/types.ts";
+import { Hash } from "../core/hash.ts";
+import type { AlgorithmInfo, HashInput, HashOptions, HashResult } from "../core/types.ts";
 
 /** Options scrypt takes besides the encoding. */
 export interface ScryptOptions extends HashOptions, SaltOptions {
@@ -37,50 +38,65 @@ function costParameters(options?: Readonly<ScryptOptions>) {
   return { N, r, p, keyLength };
 }
 
-const algorithm: HashAlgorithm = {
-  name: () => "scrypt",
-  info: () => ({
-    name: "scrypt",
-    label: "scrypt",
-    description: "scrypt password-based KDF, memory-hard, resistant to hardware attacks",
-    family: "password",
-    hmac: false,
-    options: [
-      ENCODING_OPTION,
-      SALT_OPTION,
-      {
-        name: "N",
-        type: "number",
-        required: false,
-        default: 16384,
-        description: "CPU/memory cost (power of 2)",
-      },
-      { name: "r", type: "number", required: false, default: 8, description: "Block size" },
-      { name: "p", type: "number", required: false, default: 1, description: "Parallelization" },
-      {
-        name: "keyLength",
-        type: "number",
-        required: false,
-        default: 64,
-        description: "Output key length in bytes",
-      },
-    ],
-    securityNote:
-      "Memory-hard KDF. For passwords OWASP asks for N=2^17 with p=1, or N=2^14 with p=5 (r=8 in both). The default N=16384, p=1 is below that.",
-  }),
-  hash: (input: HashInput, options?: Readonly<ScryptOptions>) =>
-    guarded("scrypt", () => {
+export class Scrypt extends Hash {
+  static readonly key = "scrypt";
+
+  /**
+   * Describes the algorithm.
+   *
+   * @returns {AlgorithmInfo} Its metadata.
+   */
+  info(): AlgorithmInfo {
+    return {
+      name: this.key,
+      label: "scrypt",
+      description: "scrypt password-based KDF, memory-hard, resistant to hardware attacks",
+      family: "password",
+      hmac: false,
+      options: [
+        ENCODING_OPTION,
+        SALT_OPTION,
+        {
+          name: "N",
+          type: "number",
+          required: false,
+          default: 16384,
+          description: "CPU/memory cost (power of 2)",
+        },
+        { name: "r", type: "number", required: false, default: 8, description: "Block size" },
+        { name: "p", type: "number", required: false, default: 1, description: "Parallelization" },
+        {
+          name: "keyLength",
+          type: "number",
+          required: false,
+          default: 64,
+          description: "Output key length in bytes",
+        },
+      ],
+      securityNote:
+        "Memory-hard KDF. For passwords OWASP asks for N=2^17 with p=1, or N=2^14 with p=5 (r=8 in both). The default N=16384, p=1 is below that.",
+    };
+  }
+
+  /**
+   * Derives a key from the input.
+   *
+   * @param input - Text or bytes.
+   * @param options - Encoding, salt and cost parameters.
+   * @returns {HashResult} The derived key.
+   */
+  hash(input: HashInput, options?: Readonly<ScryptOptions>): HashResult {
+    return guarded(this.key, () => {
       const { N, r, p, keyLength } = costParameters(options);
       const salt = resolveSalt(options);
       const raw = nobleScrypt(toBytes(input), salt, { N, r, p, dkLen: keyLength });
-      return encodeDigest(raw, "scrypt", "hash", options?.encoding ?? "hex", {
+      return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
         N,
         r,
         p,
         keyLength,
         salt: Buffer.from(salt).toString("hex"),
       });
-    }),
-};
-
-export const scrypt: AlgorithmEntry = { name: "scrypt", create: () => algorithm };
+    });
+  }
+}
