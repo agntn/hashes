@@ -13,7 +13,9 @@
     "hh": "./dist/cli.mjs"
   },
   "pi": {
-    "extensions": ["./packages/pi/extensions/*.ts"]
+    "extensions": [
+      "./packages/pi/extensions/*.ts"
+    ]
   },
   "engines": {
     "node": ">=25"
@@ -27,17 +29,17 @@
     "test:run": "vitest --run"
   },
   "dependencies": {
-    "citty": "latest",
-    "consola": "latest",
+    "citty": "^0.2.2",
+    "consola": "^3.4.2",
     "@noble/hashes": "2.2.0"
   },
   "devDependencies": {
-    "obuild": "latest",
-    "typescript": "latest",
-    "vitest": "latest",
-    "tsx": "latest",
+    "obuild": "^0.4.36",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7",
+    "tsx": "^4.22.4",
     "@types/node": "latest",
-    "typebox": "latest",
+    "typebox": "^1.1.39",
     "@earendil-works/pi-coding-agent": "latest",
     "@earendil-works/pi-tui": "latest"
   }
