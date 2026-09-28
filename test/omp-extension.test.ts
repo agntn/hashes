@@ -111,6 +111,10 @@ describe("sanitizeTerminalText", () => {
     expect(clean).toContain("safe");
   });
 
+  it("turns the Unicode line and paragraph separators into spaces", () => {
+    expect(sanitizeTerminalText("a\u2028b\u2029c")).toBe("a b c");
+  });
+
   it("cuts a long preview", () => {
     expect(preview("x".repeat(100))).toBe(`${"x".repeat(39)}…`);
     expect(preview(42)).toBe("42");
