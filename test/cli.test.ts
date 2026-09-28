@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, scryptSync } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -101,6 +101,41 @@ describe("hashes CLI", () => {
       stderr: "Invalid option algorithm=blake3: has no HMAC mode\n",
     });
     expect(run(["algorithms", "--family", "nope"]).code).toBe(1);
+  });
+
+  it("passes every advertised option as a flag and refuses one the algorithm lacks", () => {
+    expect(run(["xxhash", "abc", "--seed", "1"]).stdout).toBe("bea9ca8199328908\n");
+    const scrypt = run([
+      "scrypt",
+      "pw",
+      "--salt",
+      "00112233",
+      "--N",
+      "1024",
+      "--r",
+      "1",
+      "--p",
+      "1",
+      "--keyLength",
+      "16",
+    ]);
+    expect(scrypt.stdout).toBe(
+      `${scryptSync("pw", Buffer.from("00112233", "hex"), 16, { N: 1024, r: 1, p: 1 }).toString("hex")}\n`,
+    );
+    expect(run(["sha256", "abc", "--salt", "deadbeef"])).toMatchObject({
+      code: 1,
+      stdout: "",
+      stderr: "Invalid option salt=deadbeef: sha256 takes no parameters\n",
+    });
+  });
+
+  it("verifies a KDF digest only with its salt", () => {
+    const digest = scryptSync("pw", Buffer.from("00", "hex"), 64, { N: 16384 }).toString("hex");
+    expect(run(["verify", "scrypt", "pw", digest, "--salt", "00"])).toMatchObject({ code: 0 });
+    expect(run(["verify", "scrypt", "pw", digest])).toMatchObject({
+      code: 1,
+      stderr: "Missing required option: salt (the one the expected digest was made with)\n",
+    });
   });
 
   it("lists one family and describes one algorithm", () => {

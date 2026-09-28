@@ -12,6 +12,25 @@ export const MAX_KEY_LENGTH = 10_000;
 export const MAX_ALGORITHM_LENGTH = 32;
 export const MAX_EXPECTED_LENGTH = 1_024;
 export const SALT_PATTERN = "^(?:[0-9A-Fa-f]{2}){1,256}$";
+/** Most parameters a call may pass, and the pattern of their names. */
+export const MAX_PARAMETERS = 8;
+export const PARAMETER_NAME_PATTERN = "^[A-Za-z][A-Za-z0-9]{0,31}$";
+export const MAX_PARAMETER_LENGTH = 64;
+
+/**
+ * Upper bounds on the cost parameters a model may choose. A caller of the library picks any cost;
+ * a tool call is capped so one argument cannot pin the CPU or allocate gigabytes.
+ */
+export const PARAMETER_LIMITS: Readonly<Record<string, number>> = {
+  N: 1_048_576,
+  r: 32,
+  p: 16,
+  iterations: 10_000_000,
+  keyLength: 1_024,
+};
+/** Most working memory a scrypt call may take, 128 * r * (N + p + 2) bytes. */
+export const MAX_SCRYPT_MEMORY = 256 * 1024 * 1024;
+
 export const TEXT_ENCODINGS = ["hex", "base64", "base64url"] as const;
 export const HASH_FAMILIES = ["cryptographic", "legacy", "non-cryptographic", "password"] as const;
 export const BUILTIN_ALGORITHMS =
@@ -50,6 +69,8 @@ export const PARAMETER_DESCRIPTIONS = {
   expectedEncoding: "Encoding of the expected digest (default hex)",
   verifySalt:
     "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
+  parameters:
+    "Options the algorithm takes besides encoding, key and salt, as hash_algorithms lists them: seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
   family: "Family to list. Omit to list every family",
   describe: "Registered algorithm to describe with its options. Omit to list",
 } as const;

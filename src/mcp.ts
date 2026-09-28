@@ -145,7 +145,8 @@ export function createMcpServer(): Server {
       title: TOOL_TITLES[tool.name],
       description: TOOL_DESCRIPTIONS[tool.name],
       inputSchema: schemaOf(tool.name) as Tool["inputSchema"],
-      annotations,
+      // A KDF without a salt draws a new one each call, so computing is not idempotent.
+      annotations: { ...annotations, idempotentHint: tool.name !== "hash_compute" },
     })),
   }));
 

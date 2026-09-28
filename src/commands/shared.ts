@@ -3,9 +3,15 @@ import { TEXT_ENCODINGS } from "../../packages/shared/tool-contract.ts";
 import { ENCODING_OPTION, parameterText } from "../core/digest.ts";
 import {
   InvalidOptionError,
+  builtinAlgorithms,
+  checkedParameters,
+  create,
+  parameterOptions,
+  type Hash,
   type HashInput,
   type HashResult,
   type OutputEncoding,
+  type ParameterValue,
 } from "../index.ts";
 
 const ENCODINGS: readonly OutputEncoding[] = [...TEXT_ENCODINGS, "binary"];
@@ -18,11 +24,57 @@ export const encodingArg = {
   default: "hex",
 } as const;
 
-/** The `--salt` flag the KDF commands take. */
-export const saltArg = {
-  type: "string",
-  description: "scrypt and pbkdf2: salt in hex (default: 32 random bytes, printed on stderr)",
-} as const;
+/** A string flag citty parses. */
+interface StringArg {
+  readonly type: "string";
+  readonly description: string;
+}
+
+/**
+ * One flag per option the built-in algorithms take besides encoding and key, such as `--salt`,
+ * `--seed`, `--N` or `--iterations`, each naming the algorithms that declare it.
+ *
+ * @returns {Record<string, StringArg>} The flags by option name.
+ */
+function builtinParameterArgs(): Record<string, StringArg> {
+  const flags = new Map<string, { description: string; algorithms: string[] }>();
+  for (const name of builtinAlgorithms) {
+    for (const option of parameterOptions(create(name))) {
+      const flag = flags.get(option.name) ?? { description: option.description, algorithms: [] };
+      flag.algorithms.push(name);
+      flags.set(option.name, flag);
+    }
+  }
+  return Object.fromEntries(
+    [...flags].map(([name, flag]) => [
+      name,
+      { type: "string", description: `${flag.description} (${flag.algorithms.join(", ")})` },
+    ]),
+  );
+}
+
+/** The parameter flags of `hash` and `verify`. */
+export const parameterArgs = builtinParameterArgs();
+
+/**
+ * Reads the parameter flags that were given and checks them against the algorithm, so a flag
+ * the algorithm does not take is an error instead of a digest computed without it.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param args - The parsed arguments.
+ * @returns {Record<string, ParameterValue>} The options to hash with.
+ */
+export function readParameters(
+  algorithm: Hash,
+  args: Readonly<Record<string, unknown>>,
+): Record<string, ParameterValue> {
+  const given = Object.fromEntries(
+    Object.keys(parameterArgs)
+      .filter((name) => args[name] !== undefined)
+      .map((name) => [name, args[name]] as const),
+  );
+  return checkedParameters(algorithm, given);
+}
 
 /**
  * Checks the `--encoding` flag.

@@ -8,6 +8,9 @@ import {
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
+  MAX_PARAMETER_LENGTH,
+  MAX_PARAMETERS,
+  PARAMETER_NAME_PATTERN,
   PARAMETER_DESCRIPTIONS as d,
   SALT_PATTERN,
   TEXT_ENCODINGS,
@@ -25,6 +28,17 @@ const algorithm = z.string().min(1).max(MAX_ALGORITHM_LENGTH).describe(d.algorit
 const input = z.string().max(MAX_INPUT_LENGTH).describe(d.input);
 const encoding = z.enum(TEXT_ENCODINGS).optional().describe(d.encoding);
 const salt = z.string().regex(new RegExp(SALT_PATTERN)).optional();
+const parameters = z
+  .record(
+    z.string().regex(new RegExp(PARAMETER_NAME_PATTERN)),
+    z.union([z.number().int(), z.string().max(MAX_PARAMETER_LENGTH)]),
+  )
+  .refine(
+    (value) => Object.keys(value).length <= MAX_PARAMETERS,
+    `at most ${MAX_PARAMETERS} entries`,
+  )
+  .optional()
+  .describe(d.parameters);
 
 type Output<Details> = Details & { text: string };
 
@@ -33,6 +47,7 @@ const hashComputeInput = z.strictObject({
   input,
   encoding,
   salt: salt.describe(d.salt),
+  parameters,
 });
 
 export const hashComputeTool: Tool<z.infer<typeof hashComputeInput>, Output<DigestDetails>> = tool({
@@ -66,6 +81,7 @@ const hashVerifyInput = z.strictObject({
   expected: z.string().min(1).max(MAX_EXPECTED_LENGTH).describe(d.expected),
   encoding: z.enum(TEXT_ENCODINGS).optional().describe(d.expectedEncoding),
   salt: salt.describe(d.verifySalt),
+  parameters,
 });
 
 export const hashVerifyTool: Tool<z.infer<typeof hashVerifyInput>, Output<VerifyDetails>> = tool({

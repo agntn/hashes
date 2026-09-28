@@ -25,3 +25,4 @@ export { algorithms, create, has, register } from "./registry.ts";
 export { normalizeAlgorithmName, resolveAlgorithm } from "./resolve.ts";
 export { builtinAlgorithms, hashFamilies, type BuiltinAlgorithm } from "./algorithms.ts";
 export { digestMatches } from "./verify.ts";
+export { checkedParameters, parameterOptions, type ParameterValue } from "./options.ts";

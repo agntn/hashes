@@ -9,6 +9,8 @@
 
 import type { Static } from "typebox";
 import { parameterText, takesSalt } from "./core/digest.ts";
+import { shown } from "./core/errors.ts";
+import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";
 import { algorithmInfos } from "./core/resolve.ts";
 import {
   InvalidOptionError,
@@ -17,6 +19,7 @@ import {
   resolveAlgorithm,
   type AlgorithmInfo,
   type Hash,
+  type HashOptions,
   type HashResult,
 } from "./index.ts";
 import {
@@ -24,6 +27,9 @@ import {
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
+  MAX_PARAMETERS,
+  MAX_SCRYPT_MEMORY,
+  PARAMETER_LIMITS,
   SALT_PATTERN,
   TEXT_ENCODINGS,
 } from "../packages/shared/tool-contract.ts";
@@ -50,10 +56,14 @@ export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
   hash_algorithms: Object.keys(toolSchemas.hash_algorithms.properties),
 };
 
-export type HashComputeParams = Static<typeof toolSchemas.hash_compute>;
-export type HashHmacParams = Static<typeof toolSchemas.hash_hmac>;
-export type HashVerifyParams = Static<typeof toolSchemas.hash_verify>;
-export type HashAlgorithmsParams = Static<typeof toolSchemas.hash_algorithms>;
+/** A tool's arguments as its schema declares them, read-only down to nested objects. */
+type ReadonlyValue<V> = V extends object ? Readonly<V> : V;
+type Arguments<T> = { readonly [K in keyof T]: ReadonlyValue<T[K]> };
+
+export type HashComputeParams = Arguments<Static<typeof toolSchemas.hash_compute>>;
+export type HashHmacParams = Arguments<Static<typeof toolSchemas.hash_hmac>>;
+export type HashVerifyParams = Arguments<Static<typeof toolSchemas.hash_verify>>;
+export type HashAlgorithmsParams = Arguments<Static<typeof toolSchemas.hash_algorithms>>;
 
 export interface DigestDetails {
   algorithm: string;
@@ -129,15 +139,81 @@ function encodingArgument(value: unknown): TextEncoding {
  * @param value - The salt as passed.
  * @returns {string | undefined} The salt in hex, when given.
  */
-function saltArgument(algorithm: Hash, value: unknown): string | undefined {
+function saltArgument(value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || !saltPattern.test(value)) {
     throw new InvalidOptionError("salt", value, "must be 1 to 256 bytes in hex");
   }
-  if (!takesSalt(algorithm.info())) {
-    throw new InvalidOptionError("salt", value, `${algorithm.name()} takes no salt`);
-  }
   return value;
+}
+
+/**
+ * Checks a numeric parameter against its tool limit.
+ *
+ * @param name - The parameter.
+ * @param value - Its value.
+ */
+function assertWithinLimit(name: string, value: ParameterValue): void {
+  const limit = Object.hasOwn(PARAMETER_LIMITS, name) ? PARAMETER_LIMITS[name] : undefined;
+  if (limit !== undefined && typeof value === "number" && (value < 1 || value > limit)) {
+    throw new InvalidOptionError(name, value, `must be 1 to ${limit} in a tool call`);
+  }
+}
+
+/**
+ * Checks the salt and the optional parameters against what the algorithm declares, and the cost
+ * a model may choose against the tool limits. The salt joins them, so an algorithm without a salt
+ * option refuses it by the same rule as any other undeclared parameter.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param salt - The salt argument as passed.
+ * @param parameters - The parameters argument as passed.
+ * @returns {Record<string, ParameterValue>} The options to hash with.
+ */
+function algorithmOptions(
+  algorithm: Hash,
+  salt: unknown,
+  parameters: unknown,
+): Record<string, ParameterValue> {
+  if (parameters !== undefined && (typeof parameters !== "object" || parameters === null)) {
+    throw new InvalidOptionError("parameters", parameters, "must be an object of option values");
+  }
+  const given = { ...(parameters as Readonly<Record<string, unknown>> | undefined) };
+  if (Object.keys(given).length > MAX_PARAMETERS) {
+    throw new InvalidOptionError("parameters", "(object)", `at most ${MAX_PARAMETERS} entries`);
+  }
+  const hexSalt = saltArgument(salt);
+  if (hexSalt !== undefined) given["salt"] = hexSalt;
+  const options = checkedParameters(algorithm, given);
+  for (const [name, value] of Object.entries(options)) assertWithinLimit(name, value);
+  assertScryptMemory(algorithm, options);
+  return options;
+}
+
+/**
+ * Keeps a scrypt call within `MAX_SCRYPT_MEMORY`, reading the costs the call leaves out from the
+ * algorithm's declared defaults.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The checked options.
+ */
+function assertScryptMemory(
+  algorithm: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+): void {
+  const defaults = Object.fromEntries(
+    parameterOptions(algorithm).map((option) => [option.name, option.default]),
+  );
+  if (!("N" in defaults && "r" in defaults && "p" in defaults)) return;
+  const cost = (name: string): number => Number(options[name] ?? defaults[name]);
+  const memory = 128 * cost("r") * (cost("N") + cost("p") + 2);
+  if (memory > MAX_SCRYPT_MEMORY) {
+    throw new InvalidOptionError(
+      "N",
+      cost("N"),
+      `with r and p needs ${memory} bytes, over ${MAX_SCRYPT_MEMORY} in a tool call`,
+    );
+  }
 }
 
 /**
@@ -188,13 +264,13 @@ function digestText(details: DigestDetails): string {
  * @param params - Algorithm, input, encoding and, for a KDF, the salt in hex.
  * @returns {ToolResult<DigestDetails>} The digest.
  */
-export function hashCompute(params: Readonly<HashComputeParams>): ToolResult<DigestDetails> {
+export function hashCompute(params: HashComputeParams): ToolResult<DigestDetails> {
   assertArguments("hash_compute", params);
   const algorithm = algorithmArgument(params.algorithm);
   const input = textArgument("input", params.input, MAX_INPUT_LENGTH);
   const encoding = encodingArgument(params.encoding);
-  const salt = saltArgument(algorithm, params.salt);
-  const result = algorithm.hash(input, { encoding, ...(salt === undefined ? {} : { salt }) });
+  const options = algorithmOptions(algorithm, params.salt, params.parameters);
+  const result = algorithm.hash(input, { encoding, ...options } as HashOptions);
   const details = digestDetails(result, encoding);
   return { content: [{ type: "text", text: digestText(details) }], details };
 }
@@ -225,22 +301,22 @@ export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDet
  * @param params - Algorithm, input, expected digest, its encoding and, for a KDF, the salt.
  * @returns {ToolResult<VerifyDetails>} Whether the digests match, with both of them.
  */
-export function hashVerify(params: Readonly<HashVerifyParams>): ToolResult<VerifyDetails> {
+export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> {
   assertArguments("hash_verify", params);
   const algorithm = algorithmArgument(params.algorithm);
   const input = textArgument("input", params.input, MAX_INPUT_LENGTH);
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
   const encoding = encodingArgument(params.encoding);
-  const salt = saltArgument(algorithm, params.salt);
-  if (salt === undefined && takesSalt(algorithm.info())) {
+  const options = algorithmOptions(algorithm, params.salt, params.parameters);
+  if (options["salt"] === undefined && takesSalt(algorithm.info())) {
     throw new MissingOptionError("salt (the one the expected digest was made with)");
   }
-  const result = algorithm.hash(input, { encoding, ...(salt === undefined ? {} : { salt }) });
+  const result = algorithm.hash(input, { encoding, ...options } as HashOptions);
   const details = { ...digestDetails(result, encoding), expected };
   const match = digestMatches(result, expected);
   const text = match
     ? `MATCH: ${algorithm.name()} digest equals the expected value\n${details.digest}`
-    : `MISMATCH: ${algorithm.name()} digest differs\nexpected ${expected}\nactual   ${details.digest}`;
+    : `MISMATCH: ${algorithm.name()} digest differs\nexpected ${shown(expected)}\nactual   ${details.digest}`;
   return { content: [{ type: "text", text }], details: { ...details, match } };
 }
 

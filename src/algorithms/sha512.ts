@@ -9,6 +9,6 @@ export class Sha512 extends NodeHash {
       "SHA-2 family 512-bit hash, the strongest SHA-2 variant, used for high-security applications",
     family: "cryptographic",
     digestLength: 64,
-    securityNote: "512-bit security level",
+    securityNote: "256-bit collision resistance, 512-bit preimage resistance",
   } as const;
 }

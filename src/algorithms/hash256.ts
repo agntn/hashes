@@ -10,7 +10,7 @@ export class Hash256 extends FixedHash {
     family: "cryptographic",
     digestLength: 32,
     securityNote:
-      "Printed in hex in hash order; block explorers show txids and block hashes byte-reversed",
+      "128-bit collision resistance, 256-bit preimage resistance. Printed in hash order; block explorers show txids and block hashes byte-reversed",
   } as const;
 
   /**

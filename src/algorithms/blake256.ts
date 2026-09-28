@@ -1459,7 +1459,8 @@ export class Blake256 extends FixedHash {
       "BLAKE-256 (14 rounds), the SHA-3 finalist Decred hashes blocks, transactions and addresses with",
     family: "cryptographic",
     digestLength: 32,
-    securityNote: "256-bit output; the original BLAKE, not BLAKE2 or BLAKE3",
+    securityNote:
+      "128-bit collision resistance, 256-bit preimage resistance. The original BLAKE, not BLAKE2 or BLAKE3",
   } as const;
 
   /**

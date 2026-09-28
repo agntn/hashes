@@ -12,6 +12,9 @@ import {
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
+  MAX_PARAMETER_LENGTH,
+  MAX_PARAMETERS,
+  PARAMETER_NAME_PATTERN,
   PARAMETER_DESCRIPTIONS,
   SALT_PATTERN,
   TEXT_ENCODINGS,
@@ -161,13 +164,20 @@ export default function hashesExtension(pi: ExtensionAPI): void {
       description: d.salt,
     }),
   );
+  const parameters = Type.Optional(
+    Type.Record(
+      Type.String({ pattern: PARAMETER_NAME_PATTERN }),
+      Type.Union([Type.Integer(), Type.String({ maxLength: MAX_PARAMETER_LENGTH })]),
+      { maxProperties: MAX_PARAMETERS, additionalProperties: false, description: d.parameters },
+    ),
+  );
   pi.setLabel("Hashes");
 
   pi.registerTool({
     name: "hash_compute",
     label: TOOL_TITLES.hash_compute,
     description: TOOL_DESCRIPTIONS.hash_compute,
-    parameters: Type.Object({ algorithm, input, encoding, salt }, closed),
+    parameters: Type.Object({ algorithm, input, encoding, salt, parameters }, closed),
     approval: "read",
     async execute(_toolCallId, params) {
       return (await loadToolOperations()).hashCompute(params);
@@ -231,6 +241,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
         }),
         encoding: Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.expectedEncoding })),
         salt: Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.verifySalt })),
+        parameters,
       },
       closed,
     ),

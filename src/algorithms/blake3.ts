@@ -885,7 +885,8 @@ export class Blake3 extends FixedHash {
     description: "BLAKE3, an extremely fast cryptographic hash, parallelizable, 256-bit output",
     family: "cryptographic",
     digestLength: 32,
-    securityNote: "256-bit security level, Merkle tree structure for parallelism",
+    securityNote:
+      "128-bit security against collisions and preimages, as the BLAKE3 specification states. Merkle tree structure for parallelism",
   } as const;
 
   /**

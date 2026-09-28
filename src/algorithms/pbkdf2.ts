@@ -1,6 +1,7 @@
 import { pbkdf2Sync } from "node:crypto";
 import {
   ENCODING_OPTION,
+  assertPositiveIntegers,
   SALT_OPTION,
   encodeDigest,
   guarded,
@@ -34,9 +35,7 @@ export interface Pbkdf2Options extends HashOptions, SaltOptions {
  */
 function parameters(options?: Readonly<Pbkdf2Options>) {
   const { iterations = 600_000, digest = "sha512", keyLength = 64 } = options ?? {};
-  if (!Number.isInteger(iterations) || iterations < 1) {
-    throw new InvalidOptionError("iterations", iterations, "must be an integer >= 1");
-  }
+  assertPositiveIntegers({ iterations, keyLength });
   if (!DIGESTS.includes(digest)) {
     throw new InvalidOptionError("digest", digest, `use one of ${DIGESTS.join(", ")}`);
   }

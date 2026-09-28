@@ -8,6 +8,6 @@ export class Sha3_512 extends NodeHash {
     description: "SHA-3 (Keccak) 512-bit hash, the strongest SHA-3 variant of the NIST standard",
     family: "cryptographic",
     digestLength: 64,
-    securityNote: "512-bit security level, sponge construction",
+    securityNote: "256-bit collision resistance, 512-bit preimage resistance, sponge construction",
   } as const;
 }

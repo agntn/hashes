@@ -9,6 +9,6 @@ export class Blake2b extends NodeHash {
       "BLAKE2b 512-bit hash, fast and secure, used by many modern protocols (Argon2, WireGuard)",
     family: "cryptographic",
     digestLength: 64,
-    securityNote: "Up to 512-bit security level",
+    securityNote: "256-bit collision resistance, 512-bit preimage resistance",
   } as const;
 }

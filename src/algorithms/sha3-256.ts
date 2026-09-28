@@ -9,6 +9,6 @@ export class Sha3_256 extends NodeHash {
       "SHA-3 (Keccak) 256-bit hash, the NIST standard with a different internal structure from SHA-2",
     family: "cryptographic",
     digestLength: 32,
-    securityNote: "256-bit security level, sponge construction",
+    securityNote: "128-bit collision resistance, 256-bit preimage resistance, sponge construction",
   } as const;
 }

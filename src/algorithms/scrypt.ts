@@ -1,6 +1,7 @@
 import { scryptSync } from "node:crypto";
 import {
   ENCODING_OPTION,
+  assertPositiveIntegers,
   SALT_OPTION,
   encodeDigest,
   guarded,
@@ -35,6 +36,8 @@ function costParameters(options?: Readonly<ScryptOptions>) {
   if (!Number.isInteger(N) || N < 2 || (N & (N - 1)) !== 0) {
     throw new InvalidOptionError("N", N, "must be a power of 2 and >= 2");
   }
+  // Node reads 0 as "the default" for r and p, so a zero would derive with 8 or 1 and report 0.
+  assertPositiveIntegers({ r, p, keyLength });
   return { N, r, p, keyLength };
 }
 
@@ -91,8 +94,9 @@ export class Scrypt extends Hash {
       const { N, r, p, keyLength } = costParameters(options);
       const salt = resolveSalt(options);
       // Node refuses above 32 MiB by default. The cost the caller chose is the limit that counts,
-      // so the ceiling follows it: 128 * N * r bytes of working memory, twice for headroom.
-      const raw = scryptSync(toBytes(input), salt, keyLength, { N, r, p, maxmem: 256 * N * r });
+      // so the ceiling is exactly what OpenSSL allocates: 128 * r * (N + p + 2) bytes.
+      const maxmem = 128 * r * (N + p + 2);
+      const raw = scryptSync(toBytes(input), salt, keyLength, { N, r, p, maxmem });
       return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
         N,
         r,

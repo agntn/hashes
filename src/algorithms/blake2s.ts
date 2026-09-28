@@ -8,6 +8,6 @@ export class Blake2s extends NodeHash {
     description: "BLAKE2s 256-bit hash, optimized for 32-bit platforms, smaller state than BLAKE2b",
     family: "cryptographic",
     digestLength: 32,
-    securityNote: "Up to 256-bit security level",
+    securityNote: "128-bit collision resistance, 256-bit preimage resistance",
   } as const;
 }

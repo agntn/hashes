@@ -10,7 +10,7 @@ export class Sha512Half extends FixedHash {
     family: "cryptographic",
     digestLength: 32,
     securityNote:
-      "256-bit output of SHA-512; not SHA-512/256, which starts from other initial values",
+      "128-bit collision resistance, 256-bit preimage resistance. Not SHA-512/256, which starts from other initial values",
   } as const;
 
   /**

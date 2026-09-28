@@ -9,6 +9,6 @@ export class Sha384 extends NodeHash {
       "SHA-2 family 384-bit hash, a truncated SHA-512 used in TLS and government applications",
     family: "cryptographic",
     digestLength: 48,
-    securityNote: "384-bit security level",
+    securityNote: "192-bit collision resistance, 384-bit preimage resistance",
   } as const;
 }

@@ -10,7 +10,7 @@ export class Blake2b256 extends FixedHash {
     family: "cryptographic",
     digestLength: 32,
     securityNote:
-      "256-bit output; not the first half of the 64-byte blake2b, the length is hashed in",
+      "128-bit collision resistance, 256-bit preimage resistance. Not the first half of the 64-byte blake2b, the length is hashed in",
   } as const;
 
   /**

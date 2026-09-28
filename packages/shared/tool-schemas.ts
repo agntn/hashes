@@ -11,6 +11,9 @@ import {
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
+  MAX_PARAMETER_LENGTH,
+  MAX_PARAMETERS,
+  PARAMETER_NAME_PATTERN,
   PARAMETER_DESCRIPTIONS,
   SALT_PATTERN,
   TEXT_ENCODINGS,
@@ -36,8 +39,15 @@ const algorithm = Type.String({
 const input = Type.String({ maxLength: MAX_INPUT_LENGTH, description: d.input });
 const encoding = Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.encoding }));
 const salt = Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.salt }));
+const parameters = Type.Optional(
+  Type.Record(
+    Type.String({ pattern: PARAMETER_NAME_PATTERN }),
+    Type.Union([Type.Integer(), Type.String({ maxLength: MAX_PARAMETER_LENGTH })]),
+    { maxProperties: MAX_PARAMETERS, additionalProperties: false, description: d.parameters },
+  ),
+);
 
-export const hashComputeSchema = closed({ algorithm, input, encoding, salt });
+export const hashComputeSchema = closed({ algorithm, input, encoding, salt, parameters });
 
 export const hashHmacSchema = closed({
   algorithm: Type.String({
@@ -60,6 +70,7 @@ export const hashVerifySchema = closed({
   }),
   encoding: Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.expectedEncoding })),
   salt: Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.verifySalt })),
+  parameters,
 });
 
 export const hashAlgorithmsSchema = closed({

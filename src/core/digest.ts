@@ -146,3 +146,16 @@ function decodeSalt(salt: string, encoding: "hex" | "base64" | "utf8"): Uint8Arr
     return undefined;
   }
 }
+
+/**
+ * Checks that each named value is a positive safe integer.
+ *
+ * @param values - Option names with their values.
+ */
+export function assertPositiveIntegers(values: Readonly<Record<string, number>>): void {
+  for (const [name, value] of Object.entries(values)) {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      throw new InvalidOptionError(name, value, "must be a positive integer");
+    }
+  }
+}

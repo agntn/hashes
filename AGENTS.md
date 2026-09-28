@@ -65,6 +65,7 @@ test/fixtures/           - typed Pi and OMP extension test hosts from _template
 - No `as any`, `@ts-ignore`, or `@ts-expect-error`.
 - Every bound a tool schema declares is enforced again in the executor, and every tool argument table in `TOOL_ARGUMENTS` matches its schema keys.
 - Tool schemas are closed (`additionalProperties: false`); an undeclared key is an error on every surface.
+- An algorithm's options besides `encoding` and `key` (salt, seed, KDF costs) reach every surface from one place: `info().options`, checked by `checkedParameters` in `src/core/options.ts`. The CLI turns them into flags, the tools take them as `parameters`, and a name the algorithm does not declare is an error, never dropped. Tool calls also cap KDF costs (`PARAMETER_LIMITS`, `MAX_SCRYPT_MEMORY`); the library leaves them to the caller. omptype ignores `maxProperties`, so the executor enforces `MAX_PARAMETERS` itself.
 - An MCP client sees only `content`, so every fact a follow-up call needs (a KDF's salt and cost) is in the text.
 - The CLI prints the digest alone on stdout; a salted digest's parameters go to stderr.
 - `pnpm install` hung in `importing_started` with pnpm 11.26 and the default import method on this machine; `--config.package-import-method=hardlink` works.

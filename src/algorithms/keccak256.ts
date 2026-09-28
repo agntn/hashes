@@ -10,6 +10,6 @@ export class Keccak256 extends NodeHash {
     family: "cryptographic",
     digestLength: 32,
     securityNote:
-      "256-bit output; differs from sha3-256 only in the padding byte, so the digests differ",
+      "128-bit collision resistance, 256-bit preimage resistance. Differs from sha3-256 only in the padding byte, so the digests differ",
   } as const;
 }

@@ -386,6 +386,37 @@ describe("key derivation", () => {
     ).toThrow(/Invalid option digest=constructor/);
   });
 
+  it("derives with a tiny N, sizing OpenSSL's memory limit from the costs", () => {
+    const result = create("scrypt").hash("pw", {
+      salt,
+      N: 2,
+      r: 1,
+      p: 1,
+      keyLength: 16,
+    } as ScryptOptions);
+    expect(result.digest).toBe(
+      scryptSync("pw", Buffer.from(salt, "hex"), 16, { N: 2, r: 1, p: 1 }).toString("hex"),
+    );
+  });
+
+  it("refuses zero r, p and keyLength, which Node would read as the defaults", () => {
+    for (const cost of [{ r: 0 }, { p: 0 }, { keyLength: 0 }]) {
+      expect(() =>
+        create("scrypt").hash("pw", { salt, N: 1024, ...cost } as ScryptOptions),
+      ).toThrow(/must be a positive integer/);
+    }
+    expect(() => create("pbkdf2").hash("pw", { salt, keyLength: 0 } as Pbkdf2Options)).toThrow(
+      /must be a positive integer/,
+    );
+  });
+
+  it("states collision and preimage strength apart", () => {
+    expect(create("sha256").info().securityNote).toMatch(
+      /^128-bit collision resistance, 256-bit preimage/,
+    );
+    expect(create("hash160").info().securityNote).toMatch(/^80-bit collision resistance/);
+  });
+
   it("rejects bad cost parameters", () => {
     expect(() => create("scrypt").hash("x", { salt, N: 1000 } as ScryptOptions)).toThrow(
       InvalidOptionError,

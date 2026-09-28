@@ -9,6 +9,6 @@ export class Sha256 extends NodeHash {
       "SHA-2 family 256-bit hash, widely used for digital signatures, certificates, and integrity checks",
     family: "cryptographic",
     digestLength: 32,
-    securityNote: "256-bit security level",
+    securityNote: "128-bit collision resistance, 256-bit preimage resistance",
   } as const;
 }

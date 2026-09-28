@@ -8,7 +8,7 @@ const CONTROL = /\p{Cc}/u;
  * @param value - The value as the caller passed it.
  * @returns {string} The value as it appears in the message.
  */
-function shown(value: unknown): string {
+export function shown(value: unknown): string {
   const text = String(value);
   return CONTROL.test(text) ? JSON.stringify(text) : text;
 }

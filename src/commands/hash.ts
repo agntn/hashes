@@ -1,6 +1,13 @@
 import { defineCommand } from "citty";
-import { resolveAlgorithm } from "../index.ts";
-import { encodingArg, parseEncoding, printDigest, readInput, saltArg } from "./shared.ts";
+import { resolveAlgorithm, type HashOptions } from "../index.ts";
+import {
+  encodingArg,
+  parameterArgs,
+  parseEncoding,
+  printDigest,
+  readInput,
+  readParameters,
+} from "./shared.ts";
 
 export default defineCommand({
   meta: { name: "hash", description: "Hash input with an algorithm" },
@@ -12,12 +19,12 @@ export default defineCommand({
     },
     input: { type: "positional", description: "Text to hash, or - for stdin", required: true },
     encoding: encodingArg,
-    salt: saltArg,
+    ...parameterArgs,
   },
   run({ args }) {
     const algorithm = resolveAlgorithm(args.algorithm);
     const encoding = parseEncoding(args.encoding);
-    const salt = args.salt === undefined ? {} : { salt: args.salt };
-    printDigest(algorithm.hash(readInput(args.input), { encoding, ...salt }));
+    const parameters = readParameters(algorithm, args);
+    printDigest(algorithm.hash(readInput(args.input), { encoding, ...parameters } as HashOptions));
   },
 });

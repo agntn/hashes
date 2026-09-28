@@ -64,6 +64,11 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     { algorithm: "scrypt", input: "x", salt: "0" },
     { algorithm: "scrypt", input: "x", salt: "00".repeat(257) },
     { algorithm: "sha256", input: "x", saltHex: "00" },
+    { algorithm: "xxhash", input: "x", parameters: { seed: 1 } },
+    { algorithm: "scrypt", input: "x", parameters: { N: 1024, digest: "sha256" } },
+    { algorithm: "xxhash", input: "x", parameters: { seed: 1.5 } },
+    { algorithm: "xxhash", input: "x", parameters: { "1seed": 1 } },
+    // No probe over MAX_PARAMETERS: omptype ignores maxProperties, so the shared executor enforces it.
     { algorithm: "sha256" },
   ],
   hash_hmac: [
@@ -77,6 +82,14 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     { algorithm: "sha256", input: "x", expected: "" },
     { algorithm: "sha256", input: "x", expected: "a".repeat(1025) },
     { algorithm: "sha256", input: "x", expected: "ab", encoding: "base64" },
+    {
+      algorithm: "pbkdf2",
+      input: "x",
+      expected: "ab",
+      salt: "00",
+      parameters: { iterations: 1000 },
+    },
+    { algorithm: "pbkdf2", input: "x", expected: "ab", parameters: { iterations: "x".repeat(65) } },
   ],
   hash_algorithms: [
     {},

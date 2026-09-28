@@ -9,6 +9,6 @@ export class Ripemd160 extends NodeHash {
       "RIPEMD-160 160-bit hash, used in Bitcoin address derivation (Hash160 = RIPEMD160(SHA256(x)))",
     family: "cryptographic",
     digestLength: 20,
-    securityNote: "160-bit security level, used in Bitcoin",
+    securityNote: "80-bit collision resistance, 160-bit preimage resistance",
   } as const;
 }
