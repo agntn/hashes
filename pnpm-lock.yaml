@@ -12,10 +12,10 @@ importers:
         specifier: 2.2.0
         version: 2.2.0
       citty:
-        specifier: latest
+        specifier: ^0.2.2
         version: 0.2.2
       consola:
-        specifier: latest
+        specifier: ^3.4.2
         version: 3.4.2
     devDependencies:
       '@earendil-works/pi-coding-agent':
@@ -28,19 +28,19 @@ importers:
         specifier: latest
         version: 25.9.1
       obuild:
-        specifier: latest
+        specifier: ^0.4.36
         version: 0.4.36(jiti@2.7.0)(typescript@6.0.3)
       tsx:
-        specifier: latest
+        specifier: ^4.22.4
         version: 4.22.4
       typebox:
-        specifier: latest
+        specifier: ^1.1.39
         version: 1.1.39
       typescript:
-        specifier: latest
+        specifier: ^6.0.3
         version: 6.0.3
       vitest:
-        specifier: latest
+        specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
 packages:
