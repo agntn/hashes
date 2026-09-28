@@ -1,180 +1,157 @@
 # @agntn/hashes
 
-Unified hashing algorithm library for agents — CLI + programmatic API + Pi extension.
+[![npm version](https://npmx.dev/api/registry/badge/version/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
+[![npm downloads](https://npmx.dev/api/registry/badge/downloads/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
+[![license](https://npmx.dev/api/registry/badge/license/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/hashes)
 
-## Features
+#️⃣ Sixteen hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
 
-- **16 built-in algorithms** across 4 families (cryptographic, legacy, non-cryptographic, password/KDF)
-- Self-registering provider pattern — add new algorithms with a single file
-- CLI (`hashes`) for quick hashing, HMAC, verification, and algorithm discovery
-- Programmatic API with typed results
-- Pi agent extension (`hash_compute`, `hash_hmac`, `hash_verify`, `hash_algorithms`)
-- Zero config — algorithms register on import
+## Why?
 
-## Algorithms
+Ask a model for the SHA-256 of a string. It will give you 64 hex characters, very confidently. They will be wrong. Hashing is the one thing a language model can't fake, so it should call something that actually hashes. This is that something.
 
-| Name | Family | Digest | HMAC | Description |
-|------|--------|--------|------|-------------|
-| `sha256` | cryptographic | 256-bit | ✓ | SHA-2 family, widely used for signatures and integrity |
-| `sha384` | cryptographic | 384-bit | ✓ | SHA-2 family, truncated SHA-512 |
-| `sha512` | cryptographic | 512-bit | ✓ | SHA-2 family, 512-bit variant |
-| `sha3-256` | cryptographic | 256-bit | ✓ | SHA-3 (Keccak), NIST standard |
-| `sha3-512` | cryptographic | 512-bit | ✓ | SHA-3 (Keccak), 512-bit variant |
-| `blake2b` | cryptographic | 256-bit | ✓ | BLAKE2 — fast, secure, parallelizable |
-| `blake2s` | cryptographic | 256-bit | ✓ | BLAKE2 — optimized for 32-bit platforms |
-| `blake3` | cryptographic | 256-bit | ✗ | BLAKE3 — extremely fast, Merkle tree parallelism |
-| `ripemd160` | cryptographic | 160-bit | ✓ | RIPEMD-160, used in Bitcoin addresses |
-| `md5` | legacy | 128-bit | ✓ | MD5 — not collision-resistant, checksums only |
-| `sha1` | legacy | 160-bit | ✓ | SHA-1 — deprecated for security, legacy checksums |
-| `crc32` | non-cryptographic | 32-bit | ✗ | CRC-32 — fast file/data integrity check |
-| `xxhash` | non-cryptographic | 64-bit | ✗ | xxHash — extremely fast non-cryptographic hash |
-| `fnv1a` | non-cryptographic | 64-bit | ✗ | FNV-1a — simple, fast hash for hash tables |
-| `scrypt` | password | variable | ✗ | scrypt KDF — memory-hard, ASIC-resistant |
-| `pbkdf2` | password | variable | ✓ | PBKDF2 — standard password-based KDF |
+## ✨ Features
 
-## Install
+- 🧮 **Sixteen algorithms.** SHA-2, SHA-3, BLAKE2b, BLAKE2s, BLAKE3, RIPEMD-160, MD5, SHA-1, CRC-32, xxHash, FNV-1a, scrypt and PBKDF2.
+- 🔑 **HMAC where it exists.** Ten of them take a key. The rest say no instead of pretending.
+- 🧂 **KDFs that tell you the salt.** No salt given, a random one is drawn and printed next to the digest. Without it that digest is useless.
+- ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
+- 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too.
+- 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
+- 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share four tools and the code behind them.
+- 🧩 **Bring your own.** Anything with `name()`, `info()` and `hash()` can be registered.
+
+## 📦 Install
+
+```bash
+pnpm add @agntn/hashes
+```
+
+Node.js 24 or newer. No network, no keys, no config.
+
+## 🚀 First call
+
+```bash
+npx @agntn/hashes sha256 "hello world"
+```
+
+```
+b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+```
+
+The first word is the algorithm. Only the digest goes to stdout, so it pipes. For the bare `hashes` below, `pnpm add -g @agntn/hashes` once.
+
+A KDF is more talkative:
+
+```bash
+hashes scrypt "correct horse battery staple"
+```
+
+```
+N 16384, r 8, p 1, keyLength 64, salt 31f4aa33e6346bfa6d576a5dce9eec1c0d6c8e959271d03c2f489a71ac52453b
+bc010c96df4510eef56ce1a1fc1d140ee276b92d30a31e2ca2e065f6dac8977c9c1bd5d20951e54fbd5b4474984c0f45f5adbe8c7b18daeeacbef09dc330a902
+```
+
+The first line is stderr. Keep the salt, `--salt` takes it back. Run it again without one and you get a different digest. Salts are supposed to do that.
+
+And verify, twice:
+
+```bash
+hashes verify sha256 abc "ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=" -e base64
+hashes verify sha256 abc "ungwv48bz+pbqudexa4ii7adyaowf3qctbd/yfiafa0=" -e base64
+```
+
+```
+MATCH sha256 ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=
+MISMATCH sha256
+  expected ungwv48bz+pbqudexa4ii7adyaowf3qctbd/yfiafa0=
+  actual   ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=
+```
+
+Same letters, other bytes. The second one exits with 1.
+
+### Commands
+
+| Command      | What it does                                   | Example                                                    |
+| ------------ | ---------------------------------------------- | ---------------------------------------------------------- |
+| `hash`       | Digest of text, or of stdin with `-`           | `hashes hash blake3 - < file.bin`                          |
+| `hmac`       | Keyed digest                                   | `hashes hmac sha256 "message" "secret"`                    |
+| `verify`     | Compare with an expected digest, exit 1 if not | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592` |
+| `algorithms` | The list, `-f` keeps one family                | `hashes algorithms -f password`                            |
+| `info`       | One algorithm with its options                 | `hashes info pbkdf2`                                       |
+| `mcp`        | The MCP server on stdio                        | `hashes mcp`                                               |
+
+`hash` is the default, so `hashes md5 hello` works. Flags per command: `hashes <command> --help`.
+
+## 🧠 Library
+
+```ts
+import { create, resolveAlgorithm, digestMatches } from "@agntn/hashes";
+
+create("sha256").hash("abc").digest; // "ba7816bf8f01cfea..."
+create("sha256").hash("message", { key: "secret" }).operation; // "hmac"
+
+const blake3 = resolveAlgorithm("BLAKE3");
+blake3.hash(new Uint8Array([1, 2, 3]), { encoding: "base64" });
+
+const result = create("md5").hash("hello");
+digestMatches(result, "5D41402ABC4B2A76B9719D911017C592"); // true
+```
+
+That's most of it. `create()` wants the exact name. `resolveAlgorithm()` forgives case, spaces and underscores, so `SHA3_256` finds `sha3-256`. Every result has the digest, its length and the options it depends on. Something wrong? It's a `HashError`, and the message names the option. The types in [`src/core/types.ts`](./src/core/types.ts) are the rest.
+
+## 🗂️ Algorithms
+
+| Family            | Algorithms                                                                      | HMAC                 |
+| ----------------- | ------------------------------------------------------------------------------- | -------------------- |
+| cryptographic     | sha256, sha384, sha512, sha3-256, sha3-512, blake2b, blake2s, blake3, ripemd160 | all but blake3       |
+| legacy            | md5, sha1                                                                       | yes                  |
+| non-cryptographic | crc32, xxhash, fnv1a                                                            | no                   |
+| password          | scrypt, pbkdf2                                                                  | no, they take a salt |
+
+MD5 and SHA-1 are broken for security. They're here for checksums and old systems. `hashes info <name>` has the security note for each.
+
+## 🤖 Agents
+
+```bash
+pi install npm:@agntn/hashes
+omp install @agntn/hashes
+```
+
+```json
+{
+  "mcpServers": {
+    "hashes": { "command": "npx", "args": ["-y", "@agntn/hashes", "mcp"] }
+  }
+}
+```
+
+Four tools: `hash_compute`, `hash_hmac`, `hash_verify` and `hash_algorithms`. Same four in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. A model that isn't sure calls `hash_algorithms` first.
+
+## 🚫 What this does not do
+
+Password storage for your app. scrypt and PBKDF2 are here so you can reproduce and check a digest, not to run your login. Signing and wallet keys live in [@agntn/keys](https://github.com/agntn/keys), ciphers in [@agntn/ciphers](https://github.com/agntn/ciphers).
+
+## 🧩 Adding an algorithm
+
+Want a seventeenth? Implement `HashAlgorithm` and call `register("name", () => yours)`. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL or a spec, never from this package.
+
+## 🛠️ Development
 
 ```bash
 pnpm install
-pnpm build
+pnpm dev          # vp pack --watch
+pnpm lint         # build, then vp lint and vp fmt --check
+pnpm typecheck    # tsc over the library, the extensions and the tests
+pnpm test         # vp test run
+pnpm build        # vp pack
 ```
 
-Requires Node ≥ 25.
+## 💛 Thanks
 
-## CLI
+Built with help from two programs that give open source maintainers free access, [Claude for Open Source](https://claude.com/contact-sales/claude-for-oss) and [Codex for Open Source](https://developers.openai.com/community/codex-for-oss). Thanks for that <3
 
-The `hashes` binary provides a command-line interface.
+## 📄 License
 
-```bash
-# Hash text (default algorithm: sha256)
-hashes sha256 "hello world"
-hashes md5 "hello world"
-hashes blake3 "hello world"
-
-# HMAC
-hashes hmac sha256 "message" "secret-key"
-
-# Verify input against expected hash
-hashes verify sha256 "hello" "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
-
-# List all algorithms
-hashes algorithms
-hashes algorithms --family cryptographic
-
-# Algorithm details
-hashes info sha256
-hashes info scrypt
-
-# Output encodings
-hashes sha256 "test" --encoding base64
-hashes sha256 "test" -e base64url
-hashes sha256 "test" -e binary > output.bin
-```
-
-Default behavior: `hashes <text>` is shorthand for `hashes hash <text>` (resolves algorithm from name or defaults to sha256).
-
-## Programmatic API
-
-```typescript
-import { create, algorithms, has, resolveAlgorithm } from '@agntn/hashes'
-
-// Direct creation
-const sha256 = create('sha256')
-const result = sha256.hash('hello world')
-console.log(result.digest)     // hex string
-console.log(result.digestLength) // 32
-
-// HMAC
-const hmac = sha256.hash('message', { key: 'secret' })
-console.log(hmac.operation)   // 'hmac'
-
-// Encoding options
-const b64 = sha256.hash('test', { encoding: 'base64' })
-const url = sha256.hash('test', { encoding: 'base64url' })
-const bin = sha256.hash('test', { encoding: 'binary' }) // Uint8Array
-
-// Discovery
-const names = algorithms()    // ['sha256', 'sha384', ...]
-has('blake3')                 // true
-const algo = resolveAlgorithm('SHA256') // normalizes name
-
-// Metadata
-const info = sha256.info()
-console.log(info.family)      // 'cryptographic'
-console.log(info.hmac)        // true
-console.log(info.digestLength) // 32
-```
-
-### Adding a new algorithm
-
-Each algorithm is a self-registering module. Create a file in `src/algorithms/`:
-
-```typescript
-import { registerNobleAlgorithm } from './noble-algo'
-import { sha256 } from '@noble/hashes/sha2.js'
-
-registerNobleAlgorithm({
-  name: 'my-algo',
-  label: 'My Algorithm',
-  description: 'Description of the algorithm',
-  family: 'cryptographic',
-  hashFn: sha256, // @noble/hashes CHash
-  digestLength: 32,
-})
-```
-
-Then add `import './my-algo'` to `src/algorithms/index.ts`. The algorithm is available immediately after import.
-
-For algorithms with custom logic (KDF, salted, variable params), implement the `HashAlgorithm` interface directly and call `register()` from `src/core/registry.ts`.
-
-## Pi Extension
-
-@agntn/hashes ships with a Pi agent extension that provides four tools:
-
-- **`hash_compute`** — compute hash digest with any algorithm
-- **`hash_hmac`** — compute HMAC with keyed algorithms
-- **`hash_verify`** — verify input against expected digest
-- **`hash_algorithms`** — list available algorithms with metadata
-
-The extension auto-loads via the `pi.extensions` field in `package.json`.
-
-## Architecture
-
-```
-src/
-├── core/
-│   ├── types.ts        — HashAlgorithm, HashResult, HashOptions interfaces
-│   ├── registry.ts     — self-registering factory map (register/create/algorithms/has)
-│   ├── resolve.ts      — name normalization + algorithm lookup
-│   ├── providers.ts    — builtinAlgorithms list (type-safe)
-│   └── errors.ts       — HashError hierarchy
-├── algorithms/
-│   ├── index.ts        — imports all algorithms (triggers registration)
-│   ├── noble-algo.ts   — generic factory for @noble/hashes-backed algorithms
-│   ├── noble-helper.ts — encoding/decoding utilities
-│   └── *.ts            — individual algorithm implementations
-├── commands/
-│   ├── hash.ts         — `hashes hash` command
-│   ├── hmac.ts         — `hashes hmac` command
-│   ├── verify.ts       — `hashes verify` command
-│   ├── algorithms.ts   — `hashes algorithms` command
-│   └── info.ts         — `hashes info` command
-├── cli.ts              — CLI entry point (citty)
-├── cli-args.ts         — arg normalization (shorthand support)
-├── index.ts            — library entry point
-└── version.ts          — version constant
-```
-
-## Development
-
-```bash
-pnpm dev          # stub build (watch mode)
-pnpm build        # production build
-pnpm test         # vitest watch
-pnpm test:run     # vitest single run
-pnpm typecheck    # tsc --noEmit
-```
-
-## License
-
-ISC
+[MIT](./LICENSE)

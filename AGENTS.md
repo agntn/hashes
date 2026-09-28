@@ -1,67 +1,74 @@
-# @agntn/hashes - AGENTS.md
+# AGENTS.md
 
-Unified hashing algorithm library for agents. TypeScript, ESM, pnpm monorepo.
+Keep AGENTS.md updated with project status.
 
 ## Scope
 
-Library + CLI (`hashes`) + Pi extension providing 16 hashing algorithms via self-registering provider pattern. Single-purpose: hash, HMAC, verify, discover. No networking, no server, no state.
+`@agntn/hashes`: hash, HMAC, verify and look up 16 hash and key derivation algorithms. Library, CLI (`hashes`), MCP server, AI SDK tools, Pi and OMP extensions. Local computation only: no network, no state, no keys to configure. Formerly `hashhouse` (`~/Projekty/oritwoen/hashhouse`); the rename was a clean cutover without the old `hh` binary. Signing and wallet keys belong to `@agntn/keys`, ciphers to `@agntn/ciphers`.
+
+## Status
+
+- Aligned with `_template` and moved to Vite+ in the shape of `@agntn/explorers` (#143): `vp pack` builds, `vp lint` and `vp fmt` run the shared `@agntn/ox` policy from `vite.config.ts`, `vp test` runs Vitest 5.
+- The registry is seeded from `src/algorithms/index.ts` on first use; importing the package registers nothing, so `sideEffects` is `false`.
+- MCP, AI SDK, Pi and OMP share the executors in `src/tool-operations.ts`. MCP and Pi share the TypeBox schemas in `packages/shared/tool-schemas.ts`; OMP restates them with `pi.typebox`, and `test/omp-extension.test.ts` holds both to the same accept/reject answers.
+- A local MCP server runs `src/` from the built bin inside a checkout, like `_template`; `HASHES_DIST=1` keeps the bundle. `test/cli.test.ts` proves both modes and each guard.
+- Fixed during the refactor, each with a regression test: XXH64 used a wrong `PRIME64_2` and skipped `round()` in the merge and tail steps, so it never produced XXH64 (now identical to the reference `xxhash` on 603 inputs); verify lowercased base64 before comparing; the tools drew a KDF salt and never returned it; pbkdf2 looked `digest` up through `Object.prototype`; a malformed hex salt shrank silently; `--version` hashed the flag; `-` for stdin was documented but not implemented.
+
+## Stack
+
+- **Runtime**: Node.js 26 for development and release; >= 24 supported
+- **Language**: TypeScript (strict), relative imports end in `.ts`
+- **Build**: `vp pack` (tsdown), chunks under `dist/_chunks/` with stable names
+- **Test**: `vp test` (Vitest 5 bundled with vite-plus 1.0.0), APIs from `vite-plus/test`
+- **Lint and format**: `vp lint` and `vp fmt` with `@agntn/ox`, type-aware through `oxlint-tsgolint`
+- **Typecheck**: `tsc` (TypeScript 7) for the library, then the extensions and the tests after a build
+- **Hashing**: `@noble/hashes`; CRC-32, XXH64 and FNV-1a are plain TypeScript
+- **Release**: changelogen
+- **Package manager**: pnpm 11
+
+## Scripts
+
+- `pnpm build` - `vp pack`
+- `pnpm dev` - `vp pack --watch`
+- `pnpm lint` - build, then `vp lint` and `vp fmt --check`
+- `pnpm fmt` - `vp lint --fix` and `vp fmt`
+- `pnpm typecheck` - library, build, extensions, tests
+- `pnpm test` - `vp test run`
+- `pnpm release` - test, build, and release
+
+## Structure
+
+```
+src/core/                - types, errors, registry, name resolution, digest helpers, verify
+src/algorithms/          - one file per built-in algorithm, plus the builtins list in index.ts
+src/commands/            - citty subcommands
+src/tool-operations.ts   - executors shared by every agent surface
+src/mcp.ts, src/ai.ts    - MCP server and AI SDK tools
+packages/shared/         - tool contract (bounds, descriptions) and TypeBox schemas, shipped
+packages/pi/extensions/  - Pi extension
+packages/omp/extensions/ - OMP extension
+test/fixtures/           - typed Pi and OMP extension test hosts from _template
+```
+
+## Adding an algorithm
+
+1. Create `src/algorithms/<name>.ts` exporting an `AlgorithmEntry` (`defineNobleAlgorithm()` for a `@noble/hashes` function).
+2. Add it to `builtins` in `src/algorithms/index.ts` and its name to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
+3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
+4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.
+
+`test/index.test.ts` fails when the files, `builtins` and `builtinAlgorithms` disagree; `test/mcp.test.ts` fails when the tool contract lists differ from the registry.
 
 ## Conventions
 
-- **Language:** TypeScript (strict, ESNext target, ESM modules)
-- **Build:** obuild (`pnpm build` → `dist/`)
-- **Test:** vitest (`pnpm test:run`)
-- **Package manager:** pnpm 10.33.4, Node ≥ 25
-- **Dependencies:** `@noble/hashes` (crypto algorithms), `citty` (CLI), `consola` (logging)
-- **No `src/` imports in `dist/`** — library entry is `dist/index.mjs`, CLI is `dist/cli.mjs`
+- ESM only; emitted runtime files are `.mjs`, declarations `.d.mts`.
+- No `as any`, `@ts-ignore`, or `@ts-expect-error`.
+- Every bound a tool schema declares is enforced again in the executor, and every tool argument table in `TOOL_ARGUMENTS` matches its schema keys.
+- Tool schemas are closed (`additionalProperties: false`); an undeclared key is an error on every surface.
+- An MCP client sees only `content`, so every fact a follow-up call needs (a KDF's salt and cost) is in the text.
+- The CLI prints the digest alone on stdout; a salted digest's parameters go to stderr.
+- `pnpm install` hung in `importing_started` with pnpm 11.26 and the default import method on this machine; `--config.package-import-method=hardlink` works.
 
-## Key Files
+## Contributing
 
-| Path | Role |
-|------|------|
-| `src/core/registry.ts` | Self-registering algorithm factory map — single source of truth for `register()`, `create()`, `algorithms()`, `has()` |
-| `src/core/types.ts` | `HashAlgorithm` interface, `HashResult`, `HashOptions`, `AlgorithmInfo` — canonical shapes |
-| `src/core/resolve.ts` | Name normalization + lookup — algorithm resolution entry point |
-| `src/core/providers.ts` | `builtinAlgorithms` const array — type-safe list of all built-in names |
-| `src/core/errors.ts` | `HashError` hierarchy — `UnknownAlgorithmError`, `InvalidOptionError`, `MissingOptionError`, `DependencyError` |
-| `src/algorithms/noble-algo.ts` | `registerNobleAlgorithm()` — generic factory for @noble/hashes-backed algorithms |
-| `src/algorithms/noble-helper.ts` | `toBytes()`, `encodeDigest()`, `nobleHash()`, `nobleHmac()` — shared encoding/hashing utilities |
-| `src/algorithms/index.ts` | Imports all algorithm modules (triggers self-registration on import) |
-| `src/index.ts` | Library entry — imports algorithms, re-exports core |
-| `src/cli.ts` | CLI entry — citty main with subcommands |
-| `src/cli-args.ts` | `normalizeMainArgs()` — shorthand: `hashes sha256 "x"` → `hashes hash sha256 "x"` |
-| `packages/pi/extensions/hashes.ts` | Pi agent extension — `hash_compute`, `hash_hmac`, `hash_verify`, `hash_algorithms` tools |
-| `build.config.ts` | obuild config — two entries: `index.ts` (library) + `cli.ts` (CLI) |
-
-## Adding Algorithms
-
-1. Create `src/algorithms/<name>.ts`
-2. For noble-backed: `registerNobleAlgorithm({ ... })` with a `CHash` from `@noble/hashes`
-3. For custom (KDF, salted): implement `HashAlgorithm` interface + `register(name, factory)`
-4. Add `import './<name>'` to `src/algorithms/index.ts`
-5. Add name to `builtinAlgorithms` array in `src/core/providers.ts`
-6. Add tests in `test/unit/hashes.test.ts`
-
-## Constraints
-
-- **Node ≥ 25** — uses modern Node APIs
-- **ESM only** — no CommonJS, `"type": "module"`
-- **Algorithm names are lowercase kebab-case** — `normalizeMainArgs` + `resolveAlgorithm` normalize input
-- **No runtime dependencies beyond noble-hashes, citty, consola** — keep bundle lean
-- **Binary encoding returns `Uint8Array`** — consumer must handle non-string digest
-- **scrypt/pbkdf2 produce variable-length output** — no fixed `digestLength` in `AlgorithmInfo`
-- **Self-registering pattern** — algorithms register on import; `import './algorithms/index'` is the activation trigger
-
-## Tests
-
-- `test/unit/hashes.test.ts` — registry, known test vectors (SHA-256, MD5, SHA-1, CRC-32, FNV-1a), HMAC, encoding, scrypt/pbkdf2 determinism, info metadata
-- `test/eval-cli.mjs` — CLI evaluation
-- `test/eval-extension.mjs` — Pi extension evaluation
-
-## Pi Integration
-
-The extension lives in `packages/pi/extensions/hashes.ts` and is registered via `package.json` → `"pi": { "extensions": [...] }`. It lazy-loads the library at runtime. When developing, it falls back to importing from `src/index.ts` directly.
-
-## Related
-
-Part of the `@agntn` library family (`~/Projekty/agntn`); the closest sibling is `@agntn/ciphers`. Formerly `hashhouse` (`~/Projekty/oritwoen/hashhouse`); the rename is a clean cutover without the old `hh` binary.
+- Pull requests and issues use short, freeform descriptions focused on why a change is needed or what went wrong.
