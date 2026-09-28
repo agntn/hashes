@@ -1,5 +1,5 @@
 /**
- * Shared helper wrapping @noble/hashes API into hashhouse's HashResult shape.
+ * Shared helper wrapping @noble/hashes API into the HashResult shape.
  * Every noble-backed algorithm delegates here.
  */
 import type { HashResult, HashOptions, OutputEncoding } from '../core/types'

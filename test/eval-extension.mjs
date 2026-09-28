@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// hashhouse Pi extension eval — subprocess smoke test.
+// @agntn/hashes Pi extension eval — subprocess smoke test.
 // Tests: library load, algorithm registry, hash/hmac/verify, extension structure, error handling.
 //
 // Run: node --import tsx test/eval-extension.mjs
@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const EXT_PATH = path.join(ROOT, "packages", "pi", "extensions", "hashhouse.ts");
+const EXT_PATH = path.join(ROOT, "packages", "pi", "extensions", "hashes.ts");
 
 let passed = 0;
 let failed = 0;
@@ -176,7 +176,7 @@ ok("has('nonexistent') === false", !lib.has("nonexistent"));
   ok("extension uses ExtensionAPI import", /import.*ExtensionAPI.*from.*pi-coding-agent/.test(extSrc));
   ok("extension uses Type.Object from typebox", /Type\.Object/.test(extSrc));
   ok("extension uses pi.registerTool", /pi\.registerTool/.test(extSrc));
-  ok("extension lazy-loads hashhouse", /await import\(['"]hashhouse['"]\)/.test(extSrc));
+  ok("extension lazy-loads @agntn/hashes", /await import\(['"]@agntn\/hashes['"]\)/.test(extSrc));
   ok("extension uses resolveAlgorithm from lib", /lib\.resolveAlgorithm/.test(extSrc));
 }
 
@@ -192,7 +192,7 @@ ok("has('nonexistent') === false", !lib.has("nonexistent"));
 {
   const tools = {};
   const fakePi = { registerTool(def) { tools[def.name] = def; } };
-  const ext = await import(path.join(ROOT, "packages", "pi", "extensions", "hashhouse.ts"));
+  const ext = await import(path.join(ROOT, "packages", "pi", "extensions", "hashes.ts"));
   ext.default(fakePi);
   ok("mock Pi: 4 tools registered", Object.keys(tools).length === 4);
 

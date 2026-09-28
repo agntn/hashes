@@ -4,14 +4,14 @@ import { Type } from 'typebox'
 
 /** Lazy-load the library (registers all algorithms on import). */
 async function loadLib() {
-  const mod = await import('hashhouse').catch(() => {
+  const mod = await import('@agntn/hashes').catch(() => {
     // @ts-expect-error — runtime fallback for dev (same package source)
     return import('../../../src/index.ts')
   })
-  return mod as typeof import('hashhouse')
+  return mod as typeof import('@agntn/hashes')
 }
 
-export default function hashhouseExtension(pi: ExtensionAPI) {
+export default function hashesExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: 'hash_compute',
     label: 'Hash Compute',

@@ -1,10 +1,10 @@
-# hashhouse — AGENTS.md
+# @agntn/hashes - AGENTS.md
 
 Unified hashing algorithm library for agents. TypeScript, ESM, pnpm monorepo.
 
 ## Scope
 
-Library + CLI (`hh`) + Pi extension providing 16 hashing algorithms via self-registering provider pattern. Single-purpose: hash, HMAC, verify, discover. No networking, no server, no state.
+Library + CLI (`hashes`) + Pi extension providing 16 hashing algorithms via self-registering provider pattern. Single-purpose: hash, HMAC, verify, discover. No networking, no server, no state.
 
 ## Conventions
 
@@ -29,8 +29,8 @@ Library + CLI (`hh`) + Pi extension providing 16 hashing algorithms via self-reg
 | `src/algorithms/index.ts` | Imports all algorithm modules (triggers self-registration on import) |
 | `src/index.ts` | Library entry — imports algorithms, re-exports core |
 | `src/cli.ts` | CLI entry — citty main with subcommands |
-| `src/cli-args.ts` | `normalizeMainArgs()` — shorthand: `hh sha256 "x"` → `hh hash sha256 "x"` |
-| `packages/pi/extensions/hashhouse.ts` | Pi agent extension — `hash_compute`, `hash_hmac`, `hash_verify`, `hash_algorithms` tools |
+| `src/cli-args.ts` | `normalizeMainArgs()` — shorthand: `hashes sha256 "x"` → `hashes hash sha256 "x"` |
+| `packages/pi/extensions/hashes.ts` | Pi agent extension — `hash_compute`, `hash_hmac`, `hash_verify`, `hash_algorithms` tools |
 | `build.config.ts` | obuild config — two entries: `index.ts` (library) + `cli.ts` (CLI) |
 
 ## Adding Algorithms
@@ -40,7 +40,7 @@ Library + CLI (`hh`) + Pi extension providing 16 hashing algorithms via self-reg
 3. For custom (KDF, salted): implement `HashAlgorithm` interface + `register(name, factory)`
 4. Add `import './<name>'` to `src/algorithms/index.ts`
 5. Add name to `builtinAlgorithms` array in `src/core/providers.ts`
-6. Add tests in `test/unit/hashhouse.test.ts`
+6. Add tests in `test/unit/hashes.test.ts`
 
 ## Constraints
 
@@ -54,14 +54,14 @@ Library + CLI (`hh`) + Pi extension providing 16 hashing algorithms via self-reg
 
 ## Tests
 
-- `test/unit/hashhouse.test.ts` — registry, known test vectors (SHA-256, MD5, SHA-1, CRC-32, FNV-1a), HMAC, encoding, scrypt/pbkdf2 determinism, info metadata
+- `test/unit/hashes.test.ts` — registry, known test vectors (SHA-256, MD5, SHA-1, CRC-32, FNV-1a), HMAC, encoding, scrypt/pbkdf2 determinism, info metadata
 - `test/eval-cli.mjs` — CLI evaluation
 - `test/eval-extension.mjs` — Pi extension evaluation
 
 ## Pi Integration
 
-The extension lives in `packages/pi/extensions/hashhouse.ts` and is registered via `package.json` → `"pi": { "extensions": [...] }`. It lazy-loads the library at runtime. When developing, it falls back to importing from `src/index.ts` directly.
+The extension lives in `packages/pi/extensions/hashes.ts` and is registered via `package.json` → `"pi": { "extensions": [...] }`. It lazy-loads the library at runtime. When developing, it falls back to importing from `src/index.ts` directly.
 
 ## Related
 
-Part of the `oritwoen` TypeScript ecosystem. Follows provider-library-scaffold pattern (self-registering registry). Sibling libraries: rpcx, blocex, tokrisk, chainpex, tradex, webri.
+Part of the `@agntn` library family (`~/Projekty/agntn`); the closest sibling is `@agntn/ciphers`. Formerly `hashhouse` (`~/Projekty/oritwoen/hashhouse`); the rename is a clean cutover without the old `hh` binary.

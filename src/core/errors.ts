@@ -1,4 +1,4 @@
-/** Base error for hashhouse. */
+/** Base error for @agntn/hashes. */
 export class HashError extends Error {
   constructor(message: string) {
     super(message)

@@ -1,4 +1,4 @@
-# hashhouse
+# @agntn/hashes
 
 Unified hashing algorithm library for agents — CLI + programmatic API + Pi extension.
 
@@ -6,7 +6,7 @@ Unified hashing algorithm library for agents — CLI + programmatic API + Pi ext
 
 - **16 built-in algorithms** across 4 families (cryptographic, legacy, non-cryptographic, password/KDF)
 - Self-registering provider pattern — add new algorithms with a single file
-- CLI (`hh`) for quick hashing, HMAC, verification, and algorithm discovery
+- CLI (`hashes`) for quick hashing, HMAC, verification, and algorithm discovery
 - Programmatic API with typed results
 - Pi agent extension (`hash_compute`, `hash_hmac`, `hash_verify`, `hash_algorithms`)
 - Zero config — algorithms register on import
@@ -43,40 +43,40 @@ Requires Node ≥ 25.
 
 ## CLI
 
-The `hh` binary provides a command-line interface.
+The `hashes` binary provides a command-line interface.
 
 ```bash
 # Hash text (default algorithm: sha256)
-hh sha256 "hello world"
-hh md5 "hello world"
-hh blake3 "hello world"
+hashes sha256 "hello world"
+hashes md5 "hello world"
+hashes blake3 "hello world"
 
 # HMAC
-hh hmac sha256 "message" "secret-key"
+hashes hmac sha256 "message" "secret-key"
 
 # Verify input against expected hash
-hh verify sha256 "hello" "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+hashes verify sha256 "hello" "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
 
 # List all algorithms
-hh algorithms
-hh algorithms --family cryptographic
+hashes algorithms
+hashes algorithms --family cryptographic
 
 # Algorithm details
-hh info sha256
-hh info scrypt
+hashes info sha256
+hashes info scrypt
 
 # Output encodings
-hh sha256 "test" --encoding base64
-hh sha256 "test" -e base64url
-hh sha256 "test" -e binary > output.bin
+hashes sha256 "test" --encoding base64
+hashes sha256 "test" -e base64url
+hashes sha256 "test" -e binary > output.bin
 ```
 
-Default behavior: `hh <text>` is shorthand for `hh hash <text>` (resolves algorithm from name or defaults to sha256).
+Default behavior: `hashes <text>` is shorthand for `hashes hash <text>` (resolves algorithm from name or defaults to sha256).
 
 ## Programmatic API
 
 ```typescript
-import { create, algorithms, has, resolveAlgorithm } from 'hashhouse'
+import { create, algorithms, has, resolveAlgorithm } from '@agntn/hashes'
 
 // Direct creation
 const sha256 = create('sha256')
@@ -129,7 +129,7 @@ For algorithms with custom logic (KDF, salted, variable params), implement the `
 
 ## Pi Extension
 
-hashhouse ships with a Pi agent extension that provides four tools:
+@agntn/hashes ships with a Pi agent extension that provides four tools:
 
 - **`hash_compute`** — compute hash digest with any algorithm
 - **`hash_hmac`** — compute HMAC with keyed algorithms
@@ -154,11 +154,11 @@ src/
 │   ├── noble-helper.ts — encoding/decoding utilities
 │   └── *.ts            — individual algorithm implementations
 ├── commands/
-│   ├── hash.ts         — `hh hash` command
-│   ├── hmac.ts         — `hh hmac` command
-│   ├── verify.ts       — `hh verify` command
-│   ├── algorithms.ts   — `hh algorithms` command
-│   └── info.ts         — `hh info` command
+│   ├── hash.ts         — `hashes hash` command
+│   ├── hmac.ts         — `hashes hmac` command
+│   ├── verify.ts       — `hashes verify` command
+│   ├── algorithms.ts   — `hashes algorithms` command
+│   └── info.ts         — `hashes info` command
 ├── cli.ts              — CLI entry point (citty)
 ├── cli-args.ts         — arg normalization (shorthand support)
 ├── index.ts            — library entry point

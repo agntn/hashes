@@ -1,5 +1,5 @@
 {
-  "name": "hashhouse",
+  "name": "@agntn/hashes",
   "version": "0.1.0",
   "type": "module",
   "description": "Unified hashing algorithm library for agents",
@@ -10,7 +10,7 @@
     }
   },
   "bin": {
-    "hh": "./dist/cli.mjs"
+    "hashes": "./dist/cli.mjs"
   },
   "pi": {
     "extensions": [

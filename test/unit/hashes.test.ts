@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 // Import registers all algorithms
 import { create, algorithms, has, resolveAlgorithm } from '../../src/index'
 
-describe('hashhouse registry', () => {
+describe('hashes registry', () => {
   it('registers all built-in algorithms', () => {
     const names = algorithms()
     expect(names.length).toBeGreaterThanOrEqual(16)

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// hashhouse CLI eval — subprocess end-to-end test.
+// @agntn/hashes CLI eval — subprocess end-to-end test.
 // Run: node test/eval-cli.mjs
 
 import { spawnSync } from "node:child_process";

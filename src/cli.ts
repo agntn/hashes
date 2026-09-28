@@ -7,9 +7,9 @@ import './algorithms/index'
 
 const main = defineCommand({
   meta: {
-    name: 'hh',
+    name: 'hashes',
     version,
-    description: 'hashhouse — unified hashing algorithm CLI',
+    description: 'Unified hashing algorithm CLI',
   },
   subCommands: {
     hash: () => import('./commands/hash').then((m) => m.default),

@@ -1,5 +1,5 @@
 /**
- * hashhouse FNV-1a + registry tests.
+ * @agntn/hashes FNV-1a + registry tests.
  */
 import { describe, it, expect, beforeAll } from 'vitest'
 import { algorithms, create, has, builtinAlgorithms } from '../../src/core/index'
@@ -54,7 +54,7 @@ describe('FNV-1a (fnv1a)', () => {
   })
 })
 
-describe('hashhouse registry', () => {
+describe('hashes registry', () => {
   it('builtinAlgorithms lists all built-in algorithms', () => {
     expect(builtinAlgorithms.length).toBeGreaterThan(0)
     expect(builtinAlgorithms).toContain('fnv1a')
