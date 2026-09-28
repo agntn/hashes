@@ -102,9 +102,9 @@ function failureLine(error: TLocalizedValidationError): string {
  *
  * @param schema - Schema used to validate the value.
  * @param value - Value that failed validation.
- * @returns {string} Human-readable validation failures, one per line.
+ * @returns {string[]} Human-readable validation failures, one per line.
  */
-function validationError(schema: TSchema, value: unknown): string {
+function validationErrors(schema: TSchema, value: unknown): string[] {
   const declared = Object.keys((schema as { properties?: object }).properties ?? {});
   const unknown = undeclaredKeys(declared, value);
   // A closed schema reports each undeclared key again, as `schema is false` at its path.
@@ -122,7 +122,7 @@ function validationError(schema: TSchema, value: unknown): string {
       )
       .map(failureLine),
   ];
-  return lines.length > 0 ? lines.join("\n") : "Invalid arguments";
+  return lines.length > 0 ? lines : ["Invalid arguments"];
 }
 
 /**
@@ -130,18 +130,15 @@ function validationError(schema: TSchema, value: unknown): string {
  *
  * Every error branch goes through here because parts of these messages echo client-controlled
  * values (a tool name, an argument): one raw newline or escape byte inside such a value would
- * forge extra lines that read as the server's own answer. Line breaks the server itself puts
- * between validation failures survive.
+ * forge extra lines that read as the server's own answer. Each line is cleaned on its own, so
+ * only the breaks the server puts between validation failures survive.
  *
- * @param text - Error text to sanitize and return.
+ * @param lines - Error lines to sanitize and return.
  * @returns {CallToolResult} MCP error result.
  */
-function errorResult(text: string): CallToolResult {
-  const clean = text
-    .split("\n")
-    .map((line) => line.replaceAll(/\p{Cc}/gu, " "))
-    .join("\n");
-  return { content: [{ type: "text", text: clean }], isError: true };
+function errorResult(...lines: readonly string[]): CallToolResult {
+  const text = lines.map((line) => line.replaceAll(/\p{Cc}/gu, " ")).join("\n");
+  return { content: [{ type: "text", text }], isError: true };
 }
 
 /**
@@ -176,7 +173,7 @@ export function createMcpServer(): Server {
 
     const args = request.params.arguments ?? {};
     if (!Value.Check(tool.inputSchema, args)) {
-      return errorResult(validationError(tool.inputSchema, args));
+      return errorResult(...validationErrors(tool.inputSchema, args));
     }
 
     try {

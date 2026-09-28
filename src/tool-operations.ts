@@ -10,10 +10,13 @@
 import {
   InvalidOptionError,
   MissingOptionError,
+  UnknownAlgorithmError,
   algorithms,
   create,
   digestMatches,
+  has,
   hashFamilies,
+  normalizeAlgorithmName,
   resolveAlgorithm,
   type AlgorithmInfo,
   type HashAlgorithm,
@@ -98,6 +101,18 @@ export interface AlgorithmsDetails {
 }
 
 /**
+ * Quotes a value the caller sent before it goes into an error message. The host hands that
+ * message to the model as it is, so a raw line break in an argument would add a line that reads
+ * as the tool's own answer.
+ *
+ * @param value - The value as passed.
+ * @returns {string} The value as JSON.
+ */
+function echo(value: unknown): string {
+  return JSON.stringify(value) ?? String(value);
+}
+
+/**
  * Rejects any key the tool does not take. A misspelled optional argument would otherwise be
  * dropped and change the answer without a sign: `salt_hex` would hash with a fresh random salt.
  *
@@ -108,7 +123,11 @@ export function assertArguments(tool: ToolName, params: Readonly<object>): void 
   const accepted: readonly string[] = TOOL_ARGUMENTS[tool];
   for (const key of Object.keys(params)) {
     if (!accepted.includes(key)) {
-      throw new InvalidOptionError(key, "(unknown)", `${tool} takes only ${accepted.join(", ")}`);
+      throw new InvalidOptionError(
+        JSON.stringify(key),
+        "(unknown)",
+        `${tool} takes only ${accepted.join(", ")}`,
+      );
     }
   }
 }
@@ -140,7 +159,7 @@ function encodingArgument(value: unknown): TextEncoding {
   if (typeof value === "string" && (TEXT_ENCODINGS as readonly string[]).includes(value)) {
     return value as TextEncoding;
   }
-  throw new InvalidOptionError("encoding", value, `use one of ${TEXT_ENCODINGS.join(", ")}`);
+  throw new InvalidOptionError("encoding", echo(value), `use one of ${TEXT_ENCODINGS.join(", ")}`);
 }
 
 /**
@@ -154,10 +173,10 @@ function encodingArgument(value: unknown): TextEncoding {
 function saltArgument(algorithm: HashAlgorithm, value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || !new RegExp(SALT_PATTERN).test(value)) {
-    throw new InvalidOptionError("salt", value, "must be 1 to 256 bytes in hex");
+    throw new InvalidOptionError("salt", echo(value), "must be 1 to 256 bytes in hex");
   }
   if (!SALTED_FAMILIES.has(algorithm.info().family)) {
-    throw new InvalidOptionError("salt", value, `${algorithm.name()} takes no salt`);
+    throw new InvalidOptionError("salt", echo(value), `${algorithm.name()} takes no salt`);
   }
   return value;
 }
@@ -169,7 +188,11 @@ function saltArgument(algorithm: HashAlgorithm, value: unknown): string | undefi
  * @returns {HashAlgorithm} The algorithm.
  */
 function algorithmArgument(value: unknown): HashAlgorithm {
-  return resolveAlgorithm(textArgument("algorithm", value, MAX_ALGORITHM_LENGTH));
+  const name = textArgument("algorithm", value, MAX_ALGORITHM_LENGTH);
+  if (!has(normalizeAlgorithmName(name))) {
+    throw new UnknownAlgorithmError(echo(name), algorithms());
+  }
+  return resolveAlgorithm(name);
 }
 
 /**
@@ -325,7 +348,7 @@ export function hashAlgorithms(
   }
   const family = params.family;
   if (family !== undefined && !(hashFamilies as readonly string[]).includes(family)) {
-    throw new InvalidOptionError("family", family, `use one of ${hashFamilies.join(", ")}`);
+    throw new InvalidOptionError("family", echo(family), `use one of ${hashFamilies.join(", ")}`);
   }
   const infos = algorithms()
     .map((name) => create(name).info())
