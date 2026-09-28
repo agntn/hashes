@@ -1,8 +1,8 @@
-import { FixedHash } from "../core/fixed-hash.ts";
-import { keccakSponge } from "../core/keccak.ts";
+import { NodeHash } from "../core/node-hash.ts";
 
-export class Keccak256 extends FixedHash {
+export class Keccak256 extends NodeHash {
   static readonly key = "keccak256";
+  protected readonly algorithm = "keccak-256";
   protected readonly about = {
     label: "Keccak-256",
     description:
@@ -12,14 +12,4 @@ export class Keccak256 extends FixedHash {
     securityNote:
       "256-bit output; differs from sha3-256 only in the padding byte, so the digests differ",
   } as const;
-
-  /**
-   * Computes Keccak-256.
-   *
-   * @param bytes - Bytes to hash.
-   * @returns {Uint8Array} The 32-byte hash.
-   */
-  protected digest(bytes: Uint8Array): Uint8Array {
-    return keccakSponge(bytes, 136, 0x01, 32);
-  }
 }

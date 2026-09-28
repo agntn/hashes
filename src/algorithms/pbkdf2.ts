@@ -105,7 +105,7 @@ export class Pbkdf2 extends Hash {
         iterations,
         digest,
         keyLength,
-        salt: Buffer.from(salt).toString("hex"),
+        salt: salt.toHex(),
       });
     });
   }

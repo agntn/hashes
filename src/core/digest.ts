@@ -74,7 +74,11 @@ export function encodeDigest(
   const digest =
     encoding === "binary"
       ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
-      : Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength).toString(encoding);
+      : encoding === "hex"
+        ? raw.toHex()
+        : raw.toBase64(
+            encoding === "base64url" ? { alphabet: "base64url", omitPadding: true } : {},
+          );
   return {
     digest,
     algorithm,
@@ -108,11 +112,9 @@ export interface SaltOptions {
   saltEncoding?: "hex" | "base64" | "utf8";
 }
 
-const HEX_BYTES = /^(?:[0-9a-f]{2})+$/i;
-
 /**
- * Reads the salt option, or draws 32 random bytes without one. A hex salt that is not whole hex
- * bytes is refused: `Buffer.from` would drop the bad digits and derive with a shorter salt.
+ * Reads the salt option, or draws 32 random bytes without one. A salt that is not valid in its
+ * encoding is refused, never shortened to the digits that happen to parse.
  *
  * @param options - The KDF options.
  * @returns {Uint8Array} The salt's bytes.
@@ -122,8 +124,25 @@ export function resolveSalt(options?: Readonly<SaltOptions>): Uint8Array {
   if (salt === undefined) return randomBytes(32);
   if (typeof salt !== "string") return salt;
   const encoding = options?.saltEncoding ?? "hex";
-  if (encoding === "hex" && !HEX_BYTES.test(salt)) {
-    throw new InvalidOptionError("salt", salt, "must be whole bytes in hex");
+  const bytes = decodeSalt(salt, encoding);
+  if (bytes === undefined || bytes.length === 0) {
+    throw new InvalidOptionError("salt", salt, `must be whole bytes in ${encoding}`);
   }
-  return Buffer.from(salt, encoding);
+  return bytes;
+}
+
+/**
+ * Decodes a string salt, strictly: an invalid digit is an error, not a shorter salt.
+ *
+ * @param salt - The salt as text.
+ * @param encoding - Its encoding.
+ * @returns {Uint8Array | undefined} Its bytes, or undefined when it is not valid.
+ */
+function decodeSalt(salt: string, encoding: "hex" | "base64" | "utf8"): Uint8Array | undefined {
+  if (encoding === "utf8") return new TextEncoder().encode(salt);
+  try {
+    return encoding === "hex" ? Uint8Array.fromHex(salt) : Uint8Array.fromBase64(salt);
+  } catch {
+    return undefined;
+  }
 }

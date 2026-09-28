@@ -17,7 +17,7 @@ export const HASH_FAMILIES = ["cryptographic", "legacy", "non-cryptographic", "p
 export const BUILTIN_ALGORITHMS =
   "sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256, md5, sha1, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2";
 export const HMAC_ALGORITHMS =
-  "sha256, sha384, sha512, sha3-256, sha3-512, blake2b, blake2s, ripemd160, md5, sha1";
+  "sha256, sha384, sha512, sha3-256, sha3-512, keccak256, blake2b, blake2s, ripemd160, md5, sha1";
 
 /** What each tool does, the same text on every surface. */
 export const TOOL_DESCRIPTIONS = {

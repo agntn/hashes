@@ -98,7 +98,7 @@ export class Scrypt extends Hash {
         r,
         p,
         keyLength,
-        salt: Buffer.from(salt).toString("hex"),
+        salt: salt.toHex(),
       });
     });
   }

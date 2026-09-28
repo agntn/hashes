@@ -16,13 +16,13 @@ Keep AGENTS.md updated with project status.
 
 ## Stack
 
-- **Runtime**: Node.js 26 for development and release; >= 24 supported
+- **Runtime**: Node.js 26 and newer only (`engines >=26`, CI on 26). OpenSSL 3.6 brings `keccak-256`, and `Uint8Array` has native hex and base64.
 - **Language**: TypeScript (strict), relative imports end in `.ts`
 - **Build**: `vp pack` (tsdown), chunks under `dist/_chunks/` with stable names
 - **Test**: `vp test` (Vitest 5 bundled with vite-plus 1.0.0), APIs from `vite-plus/test`
 - **Lint and format**: `vp lint` and `vp fmt` with `@agntn/ox`, type-aware through `oxlint-tsgolint`
 - **Typecheck**: `tsc` (TypeScript 7) for the library, then the extensions and the tests after a build
-- **Hashing**: `node:crypto` (OpenSSL) for SHA-2, SHA-3, BLAKE2, RIPEMD-160, MD5, SHA-1, HMAC, scrypt and PBKDF2, `node:zlib` for CRC-32. Keccak (`src/core/keccak.ts`), BLAKE2b with a short output (`src/core/blake2b.ts`), BLAKE-256, BLAKE3, XXH64, FNV-1a and CRC-16/XMODEM are plain TypeScript: OpenSSL has keccak-256 only from 3.2 (Node 26) and BLAKE2b only at 64 bytes. Hot loops keep every value an int32 (local variables, `Int32Array` views, branchless carries); a double or a heap number in the loop cost BLAKE2b 2-4x. No hashing dependency.
+- **Hashing**: `node:crypto` (OpenSSL) for SHA-2, SHA-3, BLAKE2, RIPEMD-160, MD5, SHA-1, HMAC, scrypt and PBKDF2, `node:zlib` for CRC-32. Keccak-256 comes from OpenSSL too. BLAKE2b with a short output (`src/core/blake2b.ts`), BLAKE-256, BLAKE3, XXH64, FNV-1a and CRC-16/XMODEM are plain TypeScript: OpenSSL computes BLAKE2b only at 64 bytes. Hot loops keep every value an int32 (local variables, `Int32Array` views, branchless carries); a double or a heap number in the loop cost BLAKE2b 2-4x. No hashing dependency.
 - **Release**: changelogen
 - **Package manager**: pnpm 11
 
@@ -52,7 +52,7 @@ test/fixtures/           - typed Pi and OMP extension test hosts from _template
 
 ## Adding an algorithm
 
-1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `NodeHash` for a digest OpenSSL has on Node 24 and 26 (check both, `keccak-256` exists only on 26), `FixedHash` for a fixed-length digest computed here, `Hash` for anything else. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
+1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `NodeHash` for a digest `getHashes()` lists on Node 26, `FixedHash` for a fixed-length digest computed here, `Hash` for anything else. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
 2. Add the class to `builtins` in `src/algorithms/index.ts` and its key to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
 3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.

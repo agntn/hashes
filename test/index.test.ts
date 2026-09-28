@@ -1,4 +1,4 @@
-import { createHash, createHmac, getHashes, pbkdf2Sync, scryptSync } from "node:crypto";
+import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
@@ -159,7 +159,6 @@ describe("digests", () => {
     const without = builtinAlgorithms.filter((name) => !create(name).info().hmac);
     expect(without).toEqual([
       "sha512-half",
-      "keccak256",
       "blake2b-256",
       "blake2b-224",
       "blake3",
@@ -304,18 +303,6 @@ describe("hashes chains use", () => {
     );
     expect(create("keccak256").hash("abc").digest).not.toBe(create("sha3-256").hash("abc").digest);
   });
-
-  it.skipIf(!getHashes().includes("keccak-256"))(
-    "keccak256 matches OpenSSL where it has one",
-    () => {
-      for (const length of [0, 1, 135, 136, 137, 271, 272, 273, 1000]) {
-        const input = new Uint8Array(length).map((_, index) => (index * 29 + length) & 255);
-        expect(create("keccak256").hash(input).digest).toBe(
-          createHash("keccak-256").update(input).digest("hex"),
-        );
-      }
-    },
-  );
 
   it("blake2b-256 and blake2b-224 match the reference BLAKE2b", () => {
     // Python hashlib.blake2b(data, digest_size=32 or 28).
