@@ -27,9 +27,11 @@ import {
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
+  MAX_PARAMETER_LENGTH,
   MAX_PARAMETERS,
   MAX_SCRYPT_MEMORY,
   PARAMETER_LIMITS,
+  PARAMETER_NAME_PATTERN,
   SALT_PATTERN,
   TEXT_ENCODINGS,
 } from "../packages/shared/tool-contract.ts";
@@ -84,6 +86,7 @@ export interface AlgorithmsDetails {
 }
 
 const saltPattern = new RegExp(SALT_PATTERN);
+const parameterName = new RegExp(PARAMETER_NAME_PATTERN);
 
 /**
  * Rejects any key the tool does not take. A misspelled optional argument would otherwise be
@@ -148,6 +151,38 @@ function saltArgument(value: unknown): string | undefined {
 }
 
 /**
+ * Checks what the schema declares about `parameters` again: how many, the names, the length of
+ * a text value, and that the salt comes through its own bounded argument.
+ *
+ * @param given - The parameters as passed.
+ */
+function assertParameterEntries(given: Readonly<Record<string, unknown>>): void {
+  const entries = Object.entries(given);
+  if (entries.length > MAX_PARAMETERS) {
+    throw new InvalidOptionError("parameters", "(object)", `at most ${MAX_PARAMETERS} entries`);
+  }
+  for (const [name, value] of entries) {
+    if (!parameterName.test(name)) {
+      throw new InvalidOptionError(
+        "parameters",
+        name,
+        "names are letters and digits, starting with a letter",
+      );
+    }
+    if (name === "salt") {
+      throw new InvalidOptionError("parameters", name, "pass the salt as the salt argument");
+    }
+    if (typeof value === "string" && value.length > MAX_PARAMETER_LENGTH) {
+      throw new InvalidOptionError(
+        name,
+        `${value.length} characters`,
+        `at most ${MAX_PARAMETER_LENGTH}`,
+      );
+    }
+  }
+}
+
+/**
  * Checks a numeric parameter against its tool limit.
  *
  * @param name - The parameter.
@@ -179,9 +214,7 @@ function algorithmOptions(
     throw new InvalidOptionError("parameters", parameters, "must be an object of option values");
   }
   const given = { ...(parameters as Readonly<Record<string, unknown>> | undefined) };
-  if (Object.keys(given).length > MAX_PARAMETERS) {
-    throw new InvalidOptionError("parameters", "(object)", `at most ${MAX_PARAMETERS} entries`);
-  }
+  assertParameterEntries(given);
   const hexSalt = saltArgument(salt);
   if (hexSalt !== undefined) given["salt"] = hexSalt;
   const options = checkedParameters(algorithm, given);

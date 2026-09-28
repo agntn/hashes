@@ -121,7 +121,7 @@ function validationErrors(schema: TSchema, value: unknown): string[] {
  * @returns {CallToolResult} MCP error result.
  */
 function errorResult(...lines: readonly string[]): CallToolResult {
-  const text = lines.map((line) => line.replaceAll(/\p{Cc}/gu, " ")).join("\n");
+  const text = lines.map((line) => line.replaceAll(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ")).join("\n");
   return { content: [{ type: "text", text }], isError: true };
 }
 

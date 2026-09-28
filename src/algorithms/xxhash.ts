@@ -6,7 +6,7 @@ import type { HashOptions } from "../core/types.ts";
 /** Options xxHash takes besides the encoding. */
 export interface XxhashOptions extends HashOptions {
   /** Unsigned 64-bit seed. Default: 0. */
-  seed?: number | bigint;
+  seed?: number | bigint | string;
 }
 
 const PRIME64_1 = 0x9e3779b185ebca87n;
@@ -114,8 +114,10 @@ function xxh64(data: Uint8Array, seed: bigint): bigint {
  * @param seed - Seed as given.
  * @returns {bigint} The seed.
  */
-function seedValue(seed: number | bigint | undefined): bigint {
-  const value = typeof seed === "number" && Number.isSafeInteger(seed) ? BigInt(seed) : seed;
+function seedValue(seed: number | bigint | string | undefined): bigint {
+  const exact = typeof seed === "string" && /^\d+$/.test(seed);
+  const value =
+    (typeof seed === "number" && Number.isSafeInteger(seed)) || exact ? BigInt(seed) : seed;
   if (value === undefined) return 0n;
   if (typeof value !== "bigint" || value < 0n || value > MASK64) {
     throw new InvalidOptionError("seed", String(seed), "must be an integer from 0 to 2^64-1");

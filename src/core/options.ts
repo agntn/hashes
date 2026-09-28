@@ -32,11 +32,19 @@ function coerce(option: Readonly<HashOption>, value: unknown): ParameterValue {
       throw new InvalidOptionError(option.name, value, "must be a string");
     return value;
   }
-  const number = typeof value === "string" && /^-?\d+$/.test(value.trim()) ? Number(value) : value;
-  if (typeof number !== "number" || !Number.isSafeInteger(number)) {
-    throw new InvalidOptionError(option.name, value, "must be an integer");
+  if (typeof value === "string" && /^-?\d+$/.test(value.trim())) {
+    // Past 2^53 a double loses digits; the exact text goes on for the algorithm to read.
+    const number = Number(value);
+    return Number.isSafeInteger(number) ? number : value.trim();
   }
-  return number;
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    throw new InvalidOptionError(
+      option.name,
+      value,
+      "must be an integer; pass one past 2^53 as text",
+    );
+  }
+  return value;
 }
 
 /**

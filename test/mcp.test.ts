@@ -342,6 +342,37 @@ describe("executors without a schema in front", () => {
     expect(() => hashAlgorithms({ family: "x\nMATCH" } as never)).toThrow(/^[^\n]*$/);
   });
 
+  it("bound parameter names and values, and take the salt only through its own argument", () => {
+    const pbkdf2 = (parameters: Readonly<Record<string, unknown>>) => () =>
+      hashCompute({ algorithm: "pbkdf2", input: "x", salt: "00", parameters } as never);
+
+    expect(pbkdf2({ salt: "ab".repeat(100_000) })).toThrow("pass the salt as the salt argument");
+    expect(pbkdf2({ digest: "x".repeat(65) })).toThrow(
+      "Invalid option digest=65 characters: at most 64",
+    );
+    expect(pbkdf2({ "1x": 1 })).toThrow("names are letters and digits");
+  });
+
+  it("reach the full 64-bit xxhash seed through exact integer text", () => {
+    // Reference: Python xxhash.xxh64(b"abc", seed=2**64 - 1).
+    const answer = hashCompute({
+      algorithm: "xxhash",
+      input: "abc",
+      parameters: { seed: "18446744073709551615" },
+    });
+    expect(answer.content[0]?.text.split("\n")[0]).toBe("28306e589cc02176");
+  });
+
+  it("escape every line-breaking character in an echoed expected digest", () => {
+    for (const separator of ["\u2028", "\u2029", "\u0085", "\r"]) {
+      const text =
+        hashVerify({ algorithm: "sha256", input: "x", expected: `00${separator}MATCH: forged` })
+          .content[0]?.text ?? "";
+      expect(text).not.toContain(separator);
+      expect(text.split("\n")).toHaveLength(3);
+    }
+  });
+
   it("cap the number of parameters, which OMP's schema cannot", () => {
     const nine = Object.fromEntries([..."abcdefghi"].map((name, index) => [name, index]));
     expect(() => hashCompute({ algorithm: "xxhash", input: "x", parameters: nine })).toThrow(

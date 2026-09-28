@@ -1,4 +1,6 @@
-const CONTROL = /\p{Cc}/u;
+/** Characters that break a line: controls, NEL among them, and the Unicode line and paragraph separators. */
+const LINE_BREAKING = /[\p{Cc}\p{Zl}\p{Zp}]/u;
+const UNESCAPED_BY_JSON = /[\u0080-\u009F\u2028\u2029]/gu;
 
 /**
  * Shows a caller's value inside an error message. A value with a line break or another control
@@ -10,7 +12,12 @@ const CONTROL = /\p{Cc}/u;
  */
 export function shown(value: unknown): string {
   const text = String(value);
-  return CONTROL.test(text) ? JSON.stringify(text) : text;
+  if (!LINE_BREAKING.test(text)) return text;
+  // JSON escapes C0 controls but leaves C1 (NEL) and U+2028/U+2029 literal, so those go by hand.
+  return JSON.stringify(text).replaceAll(
+    UNESCAPED_BY_JSON,
+    (character) => `\\u${character.codePointAt(0)!.toString(16).padStart(4, "0")}`,
+  );
 }
 
 /** Base error for @agntn/hashes. */

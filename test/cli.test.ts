@@ -105,6 +105,10 @@ describe("hashes CLI", () => {
 
   it("passes every advertised option as a flag and refuses one the algorithm lacks", () => {
     expect(run(["xxhash", "abc", "--seed", "1"]).stdout).toBe("bea9ca8199328908\n");
+    // Reference: Python xxhash.xxh64(b"abc", seed=2**64 - 1).
+    expect(run(["xxhash", "abc", "--seed", "18446744073709551615"]).stdout).toBe(
+      "28306e589cc02176\n",
+    );
     const scrypt = run([
       "scrypt",
       "pw",
