@@ -66,7 +66,7 @@ const algorithm: HashAlgorithm = {
         type: "number",
         required: false,
         default: 600000,
-        description: "Iteration count (OWASP: >=600000 for SHA-512)",
+        description: "Iteration count (OWASP: >=600000 with sha256, >=220000 with sha512)",
       },
       {
         name: "digest",
@@ -83,7 +83,8 @@ const algorithm: HashAlgorithm = {
         description: "Output key length in bytes",
       },
     ],
-    securityNote: "OWASP 2023: >=600000 iterations for SHA-512, >=210000 for SHA-256.",
+    securityNote:
+      "OWASP Password Storage Cheat Sheet: >=600000 iterations with HMAC-SHA256, >=220000 with HMAC-SHA512.",
   }),
   hash: (input: HashInput, options?: Readonly<Pbkdf2Options>) =>
     guarded("pbkdf2", () => {
