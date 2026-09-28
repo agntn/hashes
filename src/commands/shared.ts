@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { TEXT_ENCODINGS } from "../../packages/shared/tool-contract.ts";
+import { ENCODING_OPTION, parameterText } from "../core/digest.ts";
 import {
   InvalidOptionError,
   type HashInput,
@@ -6,12 +8,12 @@ import {
   type OutputEncoding,
 } from "../index.ts";
 
-const ENCODINGS: readonly OutputEncoding[] = ["hex", "base64", "base64url", "binary"];
+const ENCODINGS: readonly OutputEncoding[] = [...TEXT_ENCODINGS, "binary"];
 
 /** The `--encoding` flag every digest command takes. */
 export const encodingArg = {
   type: "string",
-  description: "Output encoding: hex, base64, base64url, binary",
+  description: ENCODING_OPTION.description,
   alias: "e",
   default: "hex",
 } as const;
@@ -51,14 +53,7 @@ export function readInput(value: string): HashInput {
  * @param result - The computed hash.
  */
 export function printDigest(result: HashResult): void {
-  const parameters = Object.entries(result.options).filter(
-    ([name]) => name !== "encoding" && name !== "hmac",
-  );
-  if ("salt" in result.options) {
-    process.stderr.write(
-      `${parameters.map(([name, value]) => `${name} ${String(value)}`).join(", ")}\n`,
-    );
-  }
+  if ("salt" in result.options) process.stderr.write(`${parameterText(result.options)}\n`);
   if (typeof result.digest === "string") {
     process.stdout.write(`${result.digest}\n`);
   } else {

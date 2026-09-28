@@ -6,8 +6,9 @@ let factories: Map<string, HashAlgorithmFactory> | undefined;
 const instances = new Map<string, HashAlgorithm>();
 
 /**
- * The factory map, seeded with the built-ins on first use. Importing the package registers
- * nothing, so a bundler may drop any module this graph does not reach.
+ * The factory map, seeded with the built-ins on first use. Importing the package mutates no
+ * shared state, which is what `sideEffects: false` promises; the algorithm modules themselves
+ * are still imported with the package.
  *
  * @returns {Map<string, HashAlgorithmFactory>} Registered factories by name.
  */

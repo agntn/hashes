@@ -7,16 +7,13 @@
  * enforced here again, because a host is free to skip schema validation.
  */
 
+import type { Static } from "typebox";
+import { parameterText, takesSalt } from "./core/digest.ts";
+import { algorithmInfos } from "./core/resolve.ts";
 import {
   InvalidOptionError,
   MissingOptionError,
-  UnknownAlgorithmError,
-  algorithms,
-  create,
   digestMatches,
-  has,
-  hashFamilies,
-  normalizeAlgorithmName,
   resolveAlgorithm,
   type AlgorithmInfo,
   type HashAlgorithm,
@@ -30,6 +27,7 @@ import {
   SALT_PATTERN,
   TEXT_ENCODINGS,
 } from "../packages/shared/tool-contract.ts";
+import { toolSchemas } from "../packages/shared/tool-schemas.ts";
 
 export * from "../packages/shared/tool-contract.ts";
 
@@ -42,45 +40,20 @@ export interface ToolResult<Details> {
 /** Encodings a tool can return: text only, since a tool answers in text. */
 export type TextEncoding = (typeof TEXT_ENCODINGS)[number];
 
-/** The families whose digest depends on a salt. */
-const SALTED_FAMILIES = new Set(["password"]);
+export type ToolName = keyof typeof toolSchemas;
 
-/** Every argument each tool takes; anything else is rejected, not ignored. */
-export const TOOL_ARGUMENTS = {
-  hash_compute: ["algorithm", "input", "encoding", "salt"],
-  hash_hmac: ["algorithm", "input", "key", "encoding"],
-  hash_verify: ["algorithm", "input", "expected", "encoding", "salt"],
-  hash_algorithms: ["family", "algorithm"],
-} as const;
+/** Every argument each tool takes, read from its schema; anything else is rejected, not ignored. */
+export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
+  hash_compute: Object.keys(toolSchemas.hash_compute.properties),
+  hash_hmac: Object.keys(toolSchemas.hash_hmac.properties),
+  hash_verify: Object.keys(toolSchemas.hash_verify.properties),
+  hash_algorithms: Object.keys(toolSchemas.hash_algorithms.properties),
+};
 
-export type ToolName = keyof typeof TOOL_ARGUMENTS;
-
-export interface HashComputeParams {
-  algorithm: string;
-  input: string;
-  encoding?: TextEncoding;
-  salt?: string;
-}
-
-export interface HashHmacParams {
-  algorithm: string;
-  input: string;
-  key: string;
-  encoding?: TextEncoding;
-}
-
-export interface HashVerifyParams {
-  algorithm: string;
-  input: string;
-  expected: string;
-  encoding?: TextEncoding;
-  salt?: string;
-}
-
-export interface HashAlgorithmsParams {
-  family?: string;
-  algorithm?: string;
-}
+export type HashComputeParams = Static<typeof toolSchemas.hash_compute>;
+export type HashHmacParams = Static<typeof toolSchemas.hash_hmac>;
+export type HashVerifyParams = Static<typeof toolSchemas.hash_verify>;
+export type HashAlgorithmsParams = Static<typeof toolSchemas.hash_algorithms>;
 
 export interface DigestDetails {
   algorithm: string;
@@ -100,17 +73,7 @@ export interface AlgorithmsDetails {
   algorithms: AlgorithmInfo[];
 }
 
-/**
- * Quotes a value the caller sent before it goes into an error message. The host hands that
- * message to the model as it is, so a raw line break in an argument would add a line that reads
- * as the tool's own answer.
- *
- * @param value - The value as passed.
- * @returns {string} The value as JSON.
- */
-function echo(value: unknown): string {
-  return JSON.stringify(value) ?? String(value);
-}
+const saltPattern = new RegExp(SALT_PATTERN);
 
 /**
  * Rejects any key the tool does not take. A misspelled optional argument would otherwise be
@@ -120,14 +83,10 @@ function echo(value: unknown): string {
  * @param params - The arguments as the host passed them.
  */
 export function assertArguments(tool: ToolName, params: Readonly<object>): void {
-  const accepted: readonly string[] = TOOL_ARGUMENTS[tool];
+  const accepted = TOOL_ARGUMENTS[tool];
   for (const key of Object.keys(params)) {
     if (!accepted.includes(key)) {
-      throw new InvalidOptionError(
-        JSON.stringify(key),
-        "(unknown)",
-        `${tool} takes only ${accepted.join(", ")}`,
-      );
+      throw new InvalidOptionError(key, "(unknown)", `${tool} takes only ${accepted.join(", ")}`);
     }
   }
 }
@@ -159,12 +118,12 @@ function encodingArgument(value: unknown): TextEncoding {
   if (typeof value === "string" && (TEXT_ENCODINGS as readonly string[]).includes(value)) {
     return value as TextEncoding;
   }
-  throw new InvalidOptionError("encoding", echo(value), `use one of ${TEXT_ENCODINGS.join(", ")}`);
+  throw new InvalidOptionError("encoding", value, `use one of ${TEXT_ENCODINGS.join(", ")}`);
 }
 
 /**
- * Checks the optional salt against the algorithm: a KDF takes it, any other algorithm refuses it
- * instead of hashing without it.
+ * Checks the optional salt against the algorithm: one that declares a salt option takes it, any
+ * other refuses it instead of hashing without it.
  *
  * @param algorithm - The resolved algorithm.
  * @param value - The salt as passed.
@@ -172,11 +131,11 @@ function encodingArgument(value: unknown): TextEncoding {
  */
 function saltArgument(algorithm: HashAlgorithm, value: unknown): string | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== "string" || !new RegExp(SALT_PATTERN).test(value)) {
-    throw new InvalidOptionError("salt", echo(value), "must be 1 to 256 bytes in hex");
+  if (typeof value !== "string" || !saltPattern.test(value)) {
+    throw new InvalidOptionError("salt", value, "must be 1 to 256 bytes in hex");
   }
-  if (!SALTED_FAMILIES.has(algorithm.info().family)) {
-    throw new InvalidOptionError("salt", echo(value), `${algorithm.name()} takes no salt`);
+  if (!takesSalt(algorithm.info())) {
+    throw new InvalidOptionError("salt", value, `${algorithm.name()} takes no salt`);
   }
   return value;
 }
@@ -188,24 +147,7 @@ function saltArgument(algorithm: HashAlgorithm, value: unknown): string | undefi
  * @returns {HashAlgorithm} The algorithm.
  */
 function algorithmArgument(value: unknown): HashAlgorithm {
-  const name = textArgument("algorithm", value, MAX_ALGORITHM_LENGTH);
-  if (!has(normalizeAlgorithmName(name))) {
-    throw new UnknownAlgorithmError(echo(name), algorithms());
-  }
-  return resolveAlgorithm(name);
-}
-
-/**
- * Lists the options a digest depends on besides its encoding, such as a KDF's salt and cost.
- *
- * @param options - The options the result reports.
- * @returns {string} `name value` pairs, or an empty string.
- */
-function parameterText(options: Readonly<Record<string, unknown>>): string {
-  return Object.entries(options)
-    .filter(([name]) => name !== "encoding" && name !== "hmac")
-    .map(([name, value]) => `${name} ${String(value)}`)
-    .join(", ");
+  return resolveAlgorithm(textArgument("algorithm", value, MAX_ALGORITHM_LENGTH));
 }
 
 /**
@@ -290,7 +232,7 @@ export function hashVerify(params: Readonly<HashVerifyParams>): ToolResult<Verif
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
   const encoding = encodingArgument(params.encoding);
   const salt = saltArgument(algorithm, params.salt);
-  if (salt === undefined && SALTED_FAMILIES.has(algorithm.info().family)) {
+  if (salt === undefined && takesSalt(algorithm.info())) {
     throw new MissingOptionError("salt (the one the expected digest was made with)");
   }
   const result = algorithm.hash(input, { encoding, ...(salt === undefined ? {} : { salt }) });
@@ -346,13 +288,7 @@ export function hashAlgorithms(
     const info = algorithmArgument(params.algorithm).info();
     return { content: [{ type: "text", text: infoText(info) }], details: { algorithms: [info] } };
   }
-  const family = params.family;
-  if (family !== undefined && !(hashFamilies as readonly string[]).includes(family)) {
-    throw new InvalidOptionError("family", echo(family), `use one of ${hashFamilies.join(", ")}`);
-  }
-  const infos = algorithms()
-    .map((name) => create(name).info())
-    .filter((info) => family === undefined || info.family === family);
+  const infos = algorithmInfos(params.family);
   const lines = [
     `${infos.length} algorithms, listing order:`,
     ...infos.map(listingLine),

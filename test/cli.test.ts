@@ -110,9 +110,7 @@ describe("hashes CLI", () => {
   });
 
   it("exits quietly when the reader closes the pipe early", async () => {
-    const child = spawn(process.execPath, ["src/cli.ts", "algorithms"], {
-      env: { ...env, CONSOLA_LEVEL: "3" },
-    });
+    const child = spawn(process.execPath, ["src/cli.ts", "algorithms"], { env });
     child.stdout.destroy();
     let stderr = "";
     child.stderr.setEncoding("utf8");

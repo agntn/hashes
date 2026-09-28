@@ -1,8 +1,7 @@
 /** XXH64 in plain TypeScript, after the xxHash specification by Yann Collet. */
 import { InvalidOptionError } from "../core/errors.ts";
-import { encodeDigest, guarded, toBytes } from "../core/digest.ts";
-import { ENCODING_OPTION } from "../core/noble.ts";
-import type { AlgorithmEntry, HashAlgorithm, HashInput, HashOptions } from "../core/types.ts";
+import { defineFixedAlgorithm } from "../core/digest.ts";
+import type { HashOptions } from "../core/types.ts";
 
 /** Options xxHash takes besides the encoding. */
 export interface XxhashOptions extends HashOptions {
@@ -124,36 +123,27 @@ function seedValue(seed: number | bigint | undefined): bigint {
   return value;
 }
 
-const algorithm: HashAlgorithm = {
-  name: () => "xxhash",
-  info: () => ({
-    name: "xxhash",
-    label: "xxHash (XXH64)",
-    description:
-      "xxHash 64-bit, an extremely fast non-cryptographic hash used in databases and compression",
-    family: "non-cryptographic",
-    digestLength: 8,
-    hmac: false,
-    options: [
-      ENCODING_OPTION,
-      {
-        name: "seed",
-        type: "number",
-        required: false,
-        default: 0,
-        description: "Seed value for xxHash",
-      },
-    ],
-    securityNote: "NOT for security: fast hash for hash tables, bloom filters, checksums",
-  }),
-  hash: (input: HashInput, options?: Readonly<XxhashOptions>) =>
-    guarded("xxhash", () => {
-      const raw = Buffer.alloc(8);
-      raw.writeBigUInt64BE(xxh64(toBytes(input), seedValue(options?.seed)));
-      return encodeDigest(new Uint8Array(raw), "xxhash", "hash", options?.encoding ?? "hex", {
-        seed: options?.seed ?? 0,
-      });
-    }),
-};
-
-export const xxhash: AlgorithmEntry = { name: "xxhash", create: () => algorithm };
+export const xxhash = defineFixedAlgorithm<XxhashOptions>({
+  name: "xxhash",
+  label: "xxHash (XXH64)",
+  description:
+    "xxHash 64-bit, an extremely fast non-cryptographic hash used in databases and compression",
+  family: "non-cryptographic",
+  digestLength: 8,
+  securityNote: "NOT for security: fast hash for hash tables, bloom filters, checksums",
+  options: [
+    {
+      name: "seed",
+      type: "number",
+      required: false,
+      default: 0,
+      description: "Seed value for xxHash",
+    },
+  ],
+  compute: (bytes, options) => {
+    const digest = new Uint8Array(8);
+    new DataView(digest.buffer).setBigUint64(0, xxh64(bytes, seedValue(options?.seed)));
+    return digest;
+  },
+  reported: (options) => ({ seed: options?.seed ?? 0 }),
+});

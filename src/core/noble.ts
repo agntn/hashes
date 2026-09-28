@@ -1,6 +1,6 @@
 import { hmac } from "@noble/hashes/hmac.js";
 import type { CHash } from "@noble/hashes/utils.js";
-import { encodeDigest, guarded, toBytes } from "./digest.ts";
+import { ENCODING_OPTION, encodeDigest, guarded, toBytes } from "./digest.ts";
 import type {
   AlgorithmEntry,
   AlgorithmInfo,
@@ -27,14 +27,6 @@ export interface NobleAlgorithmDefinition {
   options?: HashOption[];
 }
 
-export const ENCODING_OPTION: HashOption = {
-  name: "encoding",
-  type: "string",
-  required: false,
-  default: "hex",
-  description: "Output encoding: hex, base64, base64url, binary",
-};
-
 const KEY_OPTION: HashOption = {
   name: "key",
   type: "string",
@@ -48,7 +40,7 @@ const KEY_OPTION: HashOption = {
  * @param definition - The algorithm's metadata and noble hash.
  * @returns {HashAlgorithm} The algorithm.
  */
-export function makeNobleAlgorithm(definition: NobleAlgorithmDefinition): HashAlgorithm {
+function makeNobleAlgorithm(definition: NobleAlgorithmDefinition): HashAlgorithm {
   const hmacSupported = definition.hmac ?? true;
   return {
     name: () => definition.name,

@@ -21,6 +21,7 @@ export default defineConfig({
               name: [
                 "AlgorithmInfo",
                 "DigestDetails",
+                "FixedAlgorithmDefinition",
                 "HashAlgorithm",
                 "HashInput",
                 "HashOptions",

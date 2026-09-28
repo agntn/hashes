@@ -7,16 +7,16 @@ import { Text } from "@oh-my-pi/pi-coding-agent";
 
 import type * as HashTools from "../../../dist/tool-operations.d.mts";
 import {
-  BUILTIN_ALGORITHMS,
   HASH_FAMILIES,
-  HMAC_ALGORITHMS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
+  PARAMETER_DESCRIPTIONS,
   SALT_PATTERN,
   TEXT_ENCODINGS,
   TOOL_DESCRIPTIONS,
+  TOOL_TITLES,
 } from "../../shared/tool-contract.ts";
 
 const sourceModulePath = fileURLToPath(new URL("../../../src/tool-operations.ts", import.meta.url));
@@ -143,30 +143,29 @@ export default function hashesExtension(pi: ExtensionAPI): void {
   // OMP validates tool parameters with its own TypeBox build, so schemas must come from the
   // host-injected facade rather than the shared TypeBox schemas the Pi extension uses.
   const { Type } = pi.typebox;
+  const d = PARAMETER_DESCRIPTIONS;
   const closed = { additionalProperties: false } as const;
   const algorithm = Type.String({
     minLength: 1,
     maxLength: MAX_ALGORITHM_LENGTH,
-    description: `Algorithm name, case-insensitive: ${BUILTIN_ALGORITHMS}`,
+    description: d.algorithm,
   });
   const input = Type.String({
     maxLength: MAX_INPUT_LENGTH,
-    description: "Text to hash, read as UTF-8",
+    description: d.input,
   });
-  const encoding = Type.Optional(
-    Type.Enum(TEXT_ENCODINGS, { description: "Digest encoding (default hex)" }),
-  );
+  const encoding = Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.encoding }));
   const salt = Type.Optional(
     Type.String({
       pattern: SALT_PATTERN,
-      description: "scrypt and pbkdf2 only: salt in hex; omitted, a random one is drawn and named",
+      description: d.salt,
     }),
   );
   pi.setLabel("Hashes");
 
   pi.registerTool({
     name: "hash_compute",
-    label: "Hash Compute",
+    label: TOOL_TITLES.hash_compute,
     description: TOOL_DESCRIPTIONS.hash_compute,
     parameters: Type.Object({ algorithm, input, encoding, salt }, closed),
     approval: "read",
@@ -175,28 +174,28 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     },
     renderCall: (args, options, theme) =>
       callLine(
-        "Hash Compute",
+        TOOL_TITLES.hash_compute,
         `${sanitizeTerminalText(args.algorithm)} ${preview(args.input)}`,
         options,
         theme,
       ),
     renderResult: (result, _options, theme) =>
-      resultLine("Hash Compute", result, digestSummary(result.details), theme),
+      resultLine(TOOL_TITLES.hash_compute, result, digestSummary(result.details), theme),
   });
 
   pi.registerTool({
     name: "hash_hmac",
-    label: "Hash HMAC",
+    label: TOOL_TITLES.hash_hmac,
     description: TOOL_DESCRIPTIONS.hash_hmac,
     parameters: Type.Object(
       {
         algorithm: Type.String({
           minLength: 1,
           maxLength: MAX_ALGORITHM_LENGTH,
-          description: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
+          description: d.hmacAlgorithm,
         }),
         input,
-        key: Type.String({ maxLength: MAX_KEY_LENGTH, description: "HMAC key, read as UTF-8" }),
+        key: Type.String({ maxLength: MAX_KEY_LENGTH, description: d.key }),
         encoding,
       },
       closed,
@@ -208,18 +207,18 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     // The key stays off the terminal.
     renderCall: (args, options, theme) =>
       callLine(
-        "Hash HMAC",
+        TOOL_TITLES.hash_hmac,
         `${sanitizeTerminalText(args.algorithm)} ${preview(args.input)}`,
         options,
         theme,
       ),
     renderResult: (result, _options, theme) =>
-      resultLine("Hash HMAC", result, digestSummary(result.details), theme),
+      resultLine(TOOL_TITLES.hash_hmac, result, digestSummary(result.details), theme),
   });
 
   pi.registerTool({
     name: "hash_verify",
-    label: "Hash Verify",
+    label: TOOL_TITLES.hash_verify,
     description: TOOL_DESCRIPTIONS.hash_verify,
     parameters: Type.Object(
       {
@@ -228,10 +227,10 @@ export default function hashesExtension(pi: ExtensionAPI): void {
         expected: Type.String({
           minLength: 1,
           maxLength: MAX_EXPECTED_LENGTH,
-          description: "Expected digest. Hex ignores case; base64 and base64url do not",
+          description: d.expected,
         }),
-        encoding,
-        salt,
+        encoding: Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.expectedEncoding })),
+        salt: Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.verifySalt })),
       },
       closed,
     ),
@@ -241,7 +240,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     },
     renderCall: (args, options, theme) =>
       callLine(
-        "Hash Verify",
+        TOOL_TITLES.hash_verify,
         `${sanitizeTerminalText(args.algorithm)} ${preview(args.input)}`,
         options,
         theme,
@@ -249,24 +248,22 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     renderResult: (result, _options, theme) => {
       const details = result.details as { match?: unknown } | undefined;
       const summary = details && "match" in details ? (details.match ? "match" : "mismatch") : "";
-      return resultLine("Hash Verify", result, summary, theme);
+      return resultLine(TOOL_TITLES.hash_verify, result, summary, theme);
     },
   });
 
   pi.registerTool({
     name: "hash_algorithms",
-    label: "Hash Algorithms",
+    label: TOOL_TITLES.hash_algorithms,
     description: TOOL_DESCRIPTIONS.hash_algorithms,
     parameters: Type.Object(
       {
-        family: Type.Optional(
-          Type.Enum(HASH_FAMILIES, { description: "Family to list; omit to list every family" }),
-        ),
+        family: Type.Optional(Type.Enum(HASH_FAMILIES, { description: d.family })),
         algorithm: Type.Optional(
           Type.String({
             minLength: 1,
             maxLength: MAX_ALGORITHM_LENGTH,
-            description: "Registered algorithm to describe with its options; omit to list",
+            description: d.describe,
           }),
         ),
       },
@@ -278,7 +275,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     },
     renderCall: (args, options, theme) =>
       callLine(
-        "Hash Algorithms",
+        TOOL_TITLES.hash_algorithms,
         sanitizeTerminalText(args.algorithm ?? args.family ?? ""),
         options,
         theme,
@@ -287,7 +284,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
       const details = result.details as { algorithms?: unknown } | undefined;
       const count = Array.isArray(details?.algorithms) ? details.algorithms.length : undefined;
       return resultLine(
-        "Hash Algorithms",
+        TOOL_TITLES.hash_algorithms,
         result,
         count === undefined ? "" : `${count} algorithms`,
         theme,

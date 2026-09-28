@@ -1,3 +1,18 @@
+const CONTROL = /\p{Cc}/u;
+
+/**
+ * Shows a caller's value inside an error message. A value with a line break or another control
+ * character is written as JSON: these messages reach a model as they are, and a raw line break
+ * would add a line that reads as the tool's own answer. The error's fields keep the raw value.
+ *
+ * @param value - The value as the caller passed it.
+ * @returns {string} The value as it appears in the message.
+ */
+function shown(value: unknown): string {
+  const text = String(value);
+  return CONTROL.test(text) ? JSON.stringify(text) : text;
+}
+
 /** Base error for @agntn/hashes. */
 export class HashError extends Error {
   constructor(message: string) {
@@ -15,8 +30,8 @@ export class UnknownAlgorithmError extends HashError {
   constructor(algorithm: string, available: readonly string[] = []) {
     super(
       available.length > 0
-        ? `Unknown algorithm: ${algorithm}. Available: ${available.join(", ")}`
-        : `Unknown algorithm: ${algorithm}`,
+        ? `Unknown algorithm: ${shown(algorithm)}. Available: ${available.join(", ")}`
+        : `Unknown algorithm: ${shown(algorithm)}`,
     );
     this.name = "UnknownAlgorithmError";
     this.algorithm = algorithm;
@@ -31,7 +46,7 @@ export class InvalidOptionError extends HashError {
   readonly reason: string;
 
   constructor(option: string, value: unknown, reason: string) {
-    super(`Invalid option ${option}=${String(value)}: ${reason}`);
+    super(`Invalid option ${shown(option)}=${shown(value)}: ${reason}`);
     this.name = "InvalidOptionError";
     this.option = option;
     this.value = value;

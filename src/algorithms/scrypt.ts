@@ -1,5 +1,13 @@
 import { scrypt as nobleScrypt } from "@noble/hashes/scrypt.js";
-import { encodeDigest, guarded, resolveSalt, toBytes, type SaltOptions } from "../core/digest.ts";
+import {
+  ENCODING_OPTION,
+  SALT_OPTION,
+  encodeDigest,
+  guarded,
+  resolveSalt,
+  toBytes,
+  type SaltOptions,
+} from "../core/digest.ts";
 import { InvalidOptionError } from "../core/errors.ts";
 import type { AlgorithmEntry, HashAlgorithm, HashInput, HashOptions } from "../core/types.ts";
 
@@ -38,19 +46,8 @@ const algorithm: HashAlgorithm = {
     family: "password",
     hmac: false,
     options: [
-      {
-        name: "encoding",
-        type: "string",
-        required: false,
-        default: "hex",
-        description: "Output encoding",
-      },
-      {
-        name: "salt",
-        type: "string",
-        required: false,
-        description: "Salt in hex; 32 random bytes when omitted",
-      },
+      ENCODING_OPTION,
+      SALT_OPTION,
       {
         name: "N",
         type: "number",

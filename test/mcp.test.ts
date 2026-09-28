@@ -3,9 +3,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createMcpServer } from "../src/mcp.ts";
-import { builtinAlgorithms, create, hashFamilies } from "../src/index.ts";
+import { builtinAlgorithms, create } from "../src/index.ts";
 import {
-  HASH_FAMILIES,
   BUILTIN_ALGORITHMS,
   HMAC_ALGORITHMS,
   MAX_INPUT_LENGTH,
@@ -49,7 +48,6 @@ describe("tool contract", () => {
     expect(HMAC_ALGORITHMS).toBe(
       builtinAlgorithms.filter((name) => create(name).info().hmac).join(", "),
     );
-    expect([...HASH_FAMILIES]).toEqual([...hashFamilies]);
   });
 
   it("declares in each schema exactly the arguments its executor takes", () => {
@@ -216,7 +214,7 @@ describe("hashes MCP server", () => {
     const answer = await call("hash_compute", { algorithm: "sha999", input: "x" });
 
     expect(answer.isError).toBe(true);
-    expect(answer.text).toContain('Unknown algorithm: "sha999". Available: sha256');
+    expect(answer.text).toContain("Unknown algorithm: sha999. Available: sha256");
   });
 
   it("rejects prototype property names as unknown tools", async () => {
@@ -246,7 +244,7 @@ describe("hashes MCP server", () => {
 describe("executors without a schema in front", () => {
   it("reject an undeclared key a host let through", () => {
     expect(() => hashCompute({ algorithm: "sha256", input: "x", saltHex: "00" } as never)).toThrow(
-      'Invalid option "saltHex"=(unknown): hash_compute takes only algorithm, input, encoding, salt',
+      "Invalid option saltHex=(unknown): hash_compute takes only algorithm, input, encoding, salt",
     );
   });
 
@@ -259,7 +257,7 @@ describe("executors without a schema in front", () => {
     ]) {
       expect(() => hashCompute(params as never)).toThrow(/^[^\n]*$/);
     }
-    expect(() => hashAlgorithms({ family: "x\nMATCH" })).toThrow(/^[^\n]*$/);
+    expect(() => hashAlgorithms({ family: "x\nMATCH" } as never)).toThrow(/^[^\n]*$/);
   });
 
   it("enforce the bounds and enums the schemas declare", () => {
@@ -272,7 +270,9 @@ describe("executors without a schema in front", () => {
     expect(() => hashCompute({ algorithm: "scrypt", input: "x", salt: "abc" })).toThrow(
       /1 to 256 bytes/,
     );
-    expect(() => hashAlgorithms({ family: "toString" })).toThrow(/use one of cryptographic/);
+    expect(() => hashAlgorithms({ family: "toString" } as never)).toThrow(
+      /use one of cryptographic/,
+    );
     expect(() => hashHmac({ algorithm: "sha256", input: "x" } as never)).toThrow(
       "Missing required option: key",
     );

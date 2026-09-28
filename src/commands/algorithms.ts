@@ -1,5 +1,6 @@
 import { defineCommand } from "citty";
-import { InvalidOptionError, algorithms, create, hashFamilies } from "../index.ts";
+import { algorithmInfos } from "../core/resolve.ts";
+import { hashFamilies } from "../index.ts";
 
 export default defineCommand({
   meta: { name: "algorithms", description: "List all registered algorithms" },
@@ -11,20 +12,13 @@ export default defineCommand({
     },
   },
   run({ args }) {
-    const { family } = args;
-    if (family !== undefined && !(hashFamilies as readonly string[]).includes(family)) {
-      throw new InvalidOptionError("family", family, `use one of ${hashFamilies.join(", ")}`);
-    }
-    const rows = algorithms()
-      .map((name) => create(name).info())
-      .filter((info) => family === undefined || info.family === family)
-      .map((info) => ({
-        name: info.name,
-        family: info.family,
-        digest: info.digestLength === undefined ? "variable" : `${info.digestLength * 8}-bit`,
-        hmac: info.hmac ? "yes" : "no",
-        label: info.label,
-      }));
+    const rows = algorithmInfos(args.family).map((info) => ({
+      name: info.name,
+      family: info.family,
+      digest: info.digestLength === undefined ? "variable" : `${info.digestLength * 8}-bit`,
+      hmac: info.hmac ? "yes" : "no",
+      label: info.label,
+    }));
     const width = {
       name: Math.max(4, ...rows.map((row) => row.name.length)),
       family: Math.max(6, ...rows.map((row) => row.family.length)),

@@ -52,7 +52,7 @@ test/fixtures/           - typed Pi and OMP extension test hosts from _template
 
 ## Adding an algorithm
 
-1. Create `src/algorithms/<name>.ts` exporting an `AlgorithmEntry` (`defineNobleAlgorithm()` for a `@noble/hashes` function).
+1. Create `src/algorithms/<name>.ts` exporting an `AlgorithmEntry`: `defineNobleAlgorithm()` for a `@noble/hashes` function, `defineFixedAlgorithm()` for a fixed-length digest computed here. A KDF declares `SALT_OPTION`, which is what makes the tools take and require a salt.
 2. Add it to `builtins` in `src/algorithms/index.ts` and its name to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
 3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.

@@ -6,13 +6,12 @@
 
 import { Type, type TObject, type TProperties } from "typebox";
 import {
-  BUILTIN_ALGORITHMS,
   HASH_FAMILIES,
-  HMAC_ALGORITHMS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
+  PARAMETER_DESCRIPTIONS,
   SALT_PATTERN,
   TEXT_ENCODINGS,
 } from "./tool-contract.ts";
@@ -28,25 +27,15 @@ function closed<T extends TProperties>(properties: T): TObject<T> {
   return Type.Object(properties, { additionalProperties: false });
 }
 
+const d = PARAMETER_DESCRIPTIONS;
 const algorithm = Type.String({
   minLength: 1,
   maxLength: MAX_ALGORITHM_LENGTH,
-  description: `Algorithm name, case-insensitive: ${BUILTIN_ALGORITHMS}`,
+  description: d.algorithm,
 });
-const input = Type.String({
-  maxLength: MAX_INPUT_LENGTH,
-  description: "Text to hash, read as UTF-8",
-});
-const encoding = Type.Optional(
-  Type.Enum(TEXT_ENCODINGS, { description: "Digest encoding (default hex)" }),
-);
-const salt = Type.Optional(
-  Type.String({
-    pattern: SALT_PATTERN,
-    description:
-      "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it; hash_verify needs it",
-  }),
-);
+const input = Type.String({ maxLength: MAX_INPUT_LENGTH, description: d.input });
+const encoding = Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.encoding }));
+const salt = Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.salt }));
 
 export const hashComputeSchema = closed({ algorithm, input, encoding, salt });
 
@@ -54,10 +43,10 @@ export const hashHmacSchema = closed({
   algorithm: Type.String({
     minLength: 1,
     maxLength: MAX_ALGORITHM_LENGTH,
-    description: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
+    description: d.hmacAlgorithm,
   }),
   input,
-  key: Type.String({ maxLength: MAX_KEY_LENGTH, description: "HMAC key, read as UTF-8" }),
+  key: Type.String({ maxLength: MAX_KEY_LENGTH, description: d.key }),
   encoding,
 });
 
@@ -67,29 +56,23 @@ export const hashVerifySchema = closed({
   expected: Type.String({
     minLength: 1,
     maxLength: MAX_EXPECTED_LENGTH,
-    description: "Expected digest. Hex ignores case; base64 and base64url do not",
+    description: d.expected,
   }),
-  encoding: Type.Optional(
-    Type.Enum(TEXT_ENCODINGS, { description: "Encoding of the expected digest (default hex)" }),
-  ),
-  salt: Type.Optional(
-    Type.String({
-      pattern: SALT_PATTERN,
-      description:
-        "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
-    }),
-  ),
+  encoding: Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.expectedEncoding })),
+  salt: Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.verifySalt })),
 });
 
 export const hashAlgorithmsSchema = closed({
-  family: Type.Optional(
-    Type.Enum(HASH_FAMILIES, { description: "Family to list; omit to list every family" }),
-  ),
+  family: Type.Optional(Type.Enum(HASH_FAMILIES, { description: d.family })),
   algorithm: Type.Optional(
-    Type.String({
-      minLength: 1,
-      maxLength: MAX_ALGORITHM_LENGTH,
-      description: "Registered algorithm to describe with its options; omit to list",
-    }),
+    Type.String({ minLength: 1, maxLength: MAX_ALGORITHM_LENGTH, description: d.describe }),
   ),
 });
+
+/** The four tool schemas, keyed by tool name, in listing order. */
+export const toolSchemas = {
+  hash_compute: hashComputeSchema,
+  hash_hmac: hashHmacSchema,
+  hash_verify: hashVerifySchema,
+  hash_algorithms: hashAlgorithmsSchema,
+};

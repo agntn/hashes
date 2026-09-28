@@ -8,14 +8,10 @@ import {
 import type { TSchema } from "typebox";
 import type { TLocalizedValidationError } from "typebox/error";
 import { Value } from "typebox/value";
-import {
-  hashAlgorithmsSchema,
-  hashComputeSchema,
-  hashHmacSchema,
-  hashVerifySchema,
-} from "../packages/shared/tool-schemas.ts";
+import { toolSchemas } from "../packages/shared/tool-schemas.ts";
 import {
   TOOL_DESCRIPTIONS,
+  TOOL_TITLES,
   hashAlgorithms,
   hashCompute,
   hashHmac,
@@ -31,38 +27,26 @@ import { version } from "./version.ts";
 
 interface ToolDefinition {
   readonly name: ToolName;
-  readonly title: string;
-  readonly inputSchema: TSchema;
   execute(args: Readonly<Record<string, unknown>>): ToolResult<unknown>;
 }
 
 /** Arguments reach an executor only after `Value.Check` passed against the tool's schema. */
 const tools: readonly ToolDefinition[] = [
-  {
-    name: "hash_compute",
-    title: "Hash Compute",
-    inputSchema: hashComputeSchema,
-    execute: (args) => hashCompute(args as unknown as HashComputeParams),
-  },
-  {
-    name: "hash_hmac",
-    title: "Hash HMAC",
-    inputSchema: hashHmacSchema,
-    execute: (args) => hashHmac(args as unknown as HashHmacParams),
-  },
-  {
-    name: "hash_verify",
-    title: "Hash Verify",
-    inputSchema: hashVerifySchema,
-    execute: (args) => hashVerify(args as unknown as HashVerifyParams),
-  },
-  {
-    name: "hash_algorithms",
-    title: "Hash Algorithms",
-    inputSchema: hashAlgorithmsSchema,
-    execute: (args) => hashAlgorithms(args as HashAlgorithmsParams),
-  },
+  { name: "hash_compute", execute: (args) => hashCompute(args as HashComputeParams) },
+  { name: "hash_hmac", execute: (args) => hashHmac(args as HashHmacParams) },
+  { name: "hash_verify", execute: (args) => hashVerify(args as HashVerifyParams) },
+  { name: "hash_algorithms", execute: (args) => hashAlgorithms(args as HashAlgorithmsParams) },
 ];
+
+/**
+ * The tool's schema, widened to what the MCP types and `Value` take.
+ *
+ * @param name - The tool.
+ * @returns {TSchema} Its closed argument schema.
+ */
+function schemaOf(name: ToolName): TSchema {
+  return toolSchemas[name];
+}
 
 /** Every tool is a local computation: it reads nothing and changes nothing. */
 const annotations = {
@@ -158,9 +142,9 @@ export function createMcpServer(): Server {
   server.setRequestHandler(ListToolsRequestSchema, () => ({
     tools: tools.map((tool): Tool => ({
       name: tool.name,
-      title: tool.title,
+      title: TOOL_TITLES[tool.name],
       description: TOOL_DESCRIPTIONS[tool.name],
-      inputSchema: tool.inputSchema as Tool["inputSchema"],
+      inputSchema: schemaOf(tool.name) as Tool["inputSchema"],
       annotations,
     })),
   }));
@@ -172,8 +156,9 @@ export function createMcpServer(): Server {
     }
 
     const args = request.params.arguments ?? {};
-    if (!Value.Check(tool.inputSchema, args)) {
-      return errorResult(...validationErrors(tool.inputSchema, args));
+    const schema = schemaOf(tool.name);
+    if (!Value.Check(schema, args)) {
+      return errorResult(...validationErrors(schema, args));
     }
 
     try {

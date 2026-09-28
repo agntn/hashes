@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type * as HashTools from "../../../dist/tool-operations.d.mts";
-import { TOOL_DESCRIPTIONS } from "../../shared/tool-contract.ts";
+import { HASH_FAMILIES, TOOL_DESCRIPTIONS, TOOL_TITLES } from "../../shared/tool-contract.ts";
 import {
   hashAlgorithmsSchema,
   hashComputeSchema,
@@ -33,7 +33,7 @@ function loadToolOperations(): Promise<typeof HashTools> {
 export default function hashesExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "hash_compute",
-    label: "Hash Compute",
+    label: TOOL_TITLES.hash_compute,
     description: TOOL_DESCRIPTIONS.hash_compute,
     promptSnippet: "Use hash_compute to hash text or produce a checksum.",
     promptGuidelines: [
@@ -48,7 +48,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
 
   pi.registerTool({
     name: "hash_hmac",
-    label: "Hash HMAC",
+    label: TOOL_TITLES.hash_hmac,
     description: TOOL_DESCRIPTIONS.hash_hmac,
     promptSnippet: "Use hash_hmac for keyed hashes.",
     promptGuidelines: ["hash_algorithms tells which algorithms have an HMAC mode."],
@@ -60,7 +60,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
 
   pi.registerTool({
     name: "hash_verify",
-    label: "Hash Verify",
+    label: TOOL_TITLES.hash_verify,
     description: TOOL_DESCRIPTIONS.hash_verify,
     promptSnippet: "Use hash_verify to check text against an expected digest.",
     promptGuidelines: ["Pass the encoding the expected digest is written in (default hex)."],
@@ -72,11 +72,11 @@ export default function hashesExtension(pi: ExtensionAPI): void {
 
   pi.registerTool({
     name: "hash_algorithms",
-    label: "Hash Algorithms",
+    label: TOOL_TITLES.hash_algorithms,
     description: TOOL_DESCRIPTIONS.hash_algorithms,
     promptSnippet: "Use hash_algorithms to see which hash algorithms exist and their options.",
     promptGuidelines: [
-      "Filter by family: cryptographic, legacy, non-cryptographic, password.",
+      `Filter by family: ${HASH_FAMILIES.join(", ")}.`,
       "Pass an algorithm name to see its options.",
     ],
     parameters: hashAlgorithmsSchema,

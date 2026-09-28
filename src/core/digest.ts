@@ -1,6 +1,56 @@
 import { randomBytes } from "node:crypto";
 import { InvalidOptionError, normalizeError } from "./errors.ts";
-import type { HashInput, HashResult, OutputEncoding } from "./types.ts";
+import type {
+  AlgorithmEntry,
+  AlgorithmInfo,
+  HashAlgorithm,
+  HashInput,
+  HashOption,
+  HashOptions,
+  HashResult,
+  OutputEncoding,
+} from "./types.ts";
+
+/** The `encoding` option every algorithm takes. */
+export const ENCODING_OPTION: HashOption = {
+  name: "encoding",
+  type: "string",
+  required: false,
+  default: "hex",
+  description: "Output encoding: hex, base64, base64url, binary",
+};
+
+/** The `salt` option of the key derivation functions. */
+export const SALT_OPTION: HashOption = {
+  name: "salt",
+  type: "string",
+  required: false,
+  description: "Salt in hex; 32 random bytes when omitted",
+};
+
+/**
+ * Whether the algorithm's digest depends on a salt, read from its declared options.
+ *
+ * @param info - The algorithm's metadata.
+ * @returns {boolean} Whether it takes a `salt` option.
+ */
+export function takesSalt(info: AlgorithmInfo): boolean {
+  return info.options.some((option) => option.name === SALT_OPTION.name);
+}
+
+/**
+ * Lists what a digest depends on besides its encoding, such as a KDF's salt and cost, in the
+ * `name value, name value` form the CLI and the tools print.
+ *
+ * @param options - The options a result reports.
+ * @returns {string} The parameters, or an empty string when there are none.
+ */
+export function parameterText(options: Readonly<Record<string, unknown>>): string {
+  return Object.entries(options)
+    .filter(([name]) => name !== "encoding" && name !== "hmac")
+    .map(([name, value]) => `${name} ${String(value)}`)
+    .join(", ");
+}
 
 /**
  * Reads the input as bytes: a string as UTF-8, bytes as they are.
@@ -81,4 +131,47 @@ export function resolveSalt(options?: Readonly<SaltOptions>): Uint8Array {
     throw new InvalidOptionError("salt", salt, "must be whole bytes in hex");
   }
   return Buffer.from(salt, encoding);
+}
+
+/** An algorithm with a fixed-length digest computed in this package, such as a checksum. */
+export interface FixedAlgorithmDefinition<Options extends HashOptions = HashOptions> {
+  name: string;
+  label: string;
+  description: string;
+  family: AlgorithmInfo["family"];
+  digestLength: number;
+  securityNote: string;
+  /** Options besides `encoding`. */
+  options?: HashOption[];
+  /** Computes the raw digest. */
+  compute: (bytes: Uint8Array, options: Readonly<Options> | undefined) => Uint8Array;
+  /** Options to report in the result besides the encoding. */
+  reported?: (options: Readonly<Options> | undefined) => Record<string, unknown>;
+}
+
+/**
+ * Declares a built-in algorithm whose digest this package computes itself.
+ *
+ * @param definition - The algorithm's metadata and digest function.
+ * @returns {AlgorithmEntry} The registry entry.
+ */
+export function defineFixedAlgorithm<Options extends HashOptions>(
+  definition: FixedAlgorithmDefinition<Options>,
+): AlgorithmEntry {
+  const { compute, reported, options = [], ...info } = definition;
+  const algorithm: HashAlgorithm = {
+    name: () => info.name,
+    info: () => ({ ...info, hmac: false, options: [ENCODING_OPTION, ...options] }),
+    hash: (input: HashInput, hashOptions?: Readonly<Options>) =>
+      guarded(info.name, () =>
+        encodeDigest(
+          compute(toBytes(input), hashOptions),
+          info.name,
+          "hash",
+          hashOptions?.encoding ?? "hex",
+          reported?.(hashOptions),
+        ),
+      ),
+  };
+  return { name: info.name, create: () => algorithm };
 }

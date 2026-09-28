@@ -8,6 +8,7 @@ import {
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
+  PARAMETER_DESCRIPTIONS as d,
   SALT_PATTERN,
   TEXT_ENCODINGS,
   TOOL_DESCRIPTIONS,
@@ -20,22 +21,19 @@ import {
   type VerifyDetails,
 } from "./tool-operations.ts";
 
-const algorithm = z
-  .string()
-  .min(1)
-  .max(MAX_ALGORITHM_LENGTH)
-  .describe("Algorithm name, case-insensitive");
-const input = z.string().max(MAX_INPUT_LENGTH).describe("Text to hash, read as UTF-8");
-const encoding = z.enum(TEXT_ENCODINGS).optional().describe("Digest encoding (default hex)");
-const salt = z
-  .string()
-  .regex(new RegExp(SALT_PATTERN))
-  .optional()
-  .describe("scrypt and pbkdf2 only: salt in hex; omitted, a random one is drawn and returned");
+const algorithm = z.string().min(1).max(MAX_ALGORITHM_LENGTH).describe(d.algorithm);
+const input = z.string().max(MAX_INPUT_LENGTH).describe(d.input);
+const encoding = z.enum(TEXT_ENCODINGS).optional().describe(d.encoding);
+const salt = z.string().regex(new RegExp(SALT_PATTERN)).optional();
 
 type Output<Details> = Details & { text: string };
 
-const hashComputeInput = z.strictObject({ algorithm, input, encoding, salt });
+const hashComputeInput = z.strictObject({
+  algorithm,
+  input,
+  encoding,
+  salt: salt.describe(d.salt),
+});
 
 export const hashComputeTool: Tool<z.infer<typeof hashComputeInput>, Output<DigestDetails>> = tool({
   description: TOOL_DESCRIPTIONS.hash_compute,
@@ -47,9 +45,9 @@ export const hashComputeTool: Tool<z.infer<typeof hashComputeInput>, Output<Dige
 });
 
 const hashHmacInput = z.strictObject({
-  algorithm,
+  algorithm: algorithm.describe(d.hmacAlgorithm),
   input,
-  key: z.string().max(MAX_KEY_LENGTH).describe("HMAC key, read as UTF-8"),
+  key: z.string().max(MAX_KEY_LENGTH).describe(d.key),
   encoding,
 });
 
@@ -65,9 +63,9 @@ export const hashHmacTool: Tool<z.infer<typeof hashHmacInput>, Output<DigestDeta
 const hashVerifyInput = z.strictObject({
   algorithm,
   input,
-  expected: z.string().min(1).max(MAX_EXPECTED_LENGTH).describe("Expected digest"),
-  encoding,
-  salt,
+  expected: z.string().min(1).max(MAX_EXPECTED_LENGTH).describe(d.expected),
+  encoding: z.enum(TEXT_ENCODINGS).optional().describe(d.expectedEncoding),
+  salt: salt.describe(d.verifySalt),
 });
 
 export const hashVerifyTool: Tool<z.infer<typeof hashVerifyInput>, Output<VerifyDetails>> = tool({
@@ -80,8 +78,8 @@ export const hashVerifyTool: Tool<z.infer<typeof hashVerifyInput>, Output<Verify
 });
 
 const hashAlgorithmsInput = z.strictObject({
-  family: z.enum(HASH_FAMILIES).optional().describe("Family to list"),
-  algorithm: algorithm.optional().describe("Algorithm to describe with its options"),
+  family: z.enum(HASH_FAMILIES).optional().describe(d.family),
+  algorithm: algorithm.optional().describe(d.describe),
 });
 
 export const hashAlgorithmsTool: Tool<

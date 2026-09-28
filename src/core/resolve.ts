@@ -1,6 +1,7 @@
-import { UnknownAlgorithmError } from "./errors.ts";
+import { hashFamilies } from "./algorithms.ts";
+import { InvalidOptionError, UnknownAlgorithmError } from "./errors.ts";
 import { algorithms, create, has } from "./registry.ts";
-import type { HashAlgorithm } from "./types.ts";
+import type { AlgorithmInfo, HashAlgorithm } from "./types.ts";
 
 /**
  * Normalizes a user-typed algorithm name: lowercase, with spaces and underscores as hyphens,
@@ -28,4 +29,19 @@ export function resolveAlgorithm(preferred?: string): HashAlgorithm {
     if (has(normalized)) return create(normalized);
   }
   throw new UnknownAlgorithmError(preferred ?? "(none)", algorithms());
+}
+
+/**
+ * Reads the metadata of every registered algorithm, optionally of one family.
+ *
+ * @param family - Family to keep; omit for all.
+ * @returns {AlgorithmInfo[]} The metadata in listing order.
+ */
+export function algorithmInfos(family?: string): AlgorithmInfo[] {
+  if (family !== undefined && !(hashFamilies as readonly string[]).includes(family)) {
+    throw new InvalidOptionError("family", family, `use one of ${hashFamilies.join(", ")}`);
+  }
+  return algorithms()
+    .map((name) => create(name).info())
+    .filter((info) => family === undefined || info.family === family);
 }

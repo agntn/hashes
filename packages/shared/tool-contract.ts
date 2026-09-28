@@ -29,3 +29,27 @@ export const TOOL_DESCRIPTIONS = {
   hash_algorithms:
     "List the registered algorithms with family, digest size and HMAC support, or describe one algorithm with its options.",
 } as const;
+
+/** What each tool is called in a status line or a tool list. */
+export const TOOL_TITLES = {
+  hash_compute: "Hash Compute",
+  hash_hmac: "Hash HMAC",
+  hash_verify: "Hash Verify",
+  hash_algorithms: "Hash Algorithms",
+} as const;
+
+/** What each argument means, the same text in every schema that declares it. */
+export const PARAMETER_DESCRIPTIONS = {
+  algorithm: `Algorithm name, case-insensitive: ${BUILTIN_ALGORITHMS}`,
+  hmacAlgorithm: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
+  input: "Text to hash, read as UTF-8",
+  key: "HMAC key, read as UTF-8",
+  encoding: "Digest encoding (default hex)",
+  salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hash_verify needs it",
+  expected: "Expected digest. Hex ignores case, base64 and base64url do not",
+  expectedEncoding: "Encoding of the expected digest (default hex)",
+  verifySalt:
+    "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
+  family: "Family to list. Omit to list every family",
+  describe: "Registered algorithm to describe with its options. Omit to list",
+} as const;

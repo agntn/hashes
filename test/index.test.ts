@@ -144,6 +144,11 @@ describe("digests", () => {
     );
   });
 
+  it("matches the published CRC-32 check value", () => {
+    expect(create("crc32").hash("123456789").digest).toBe("cbf43926");
+    expect(create("crc32").hash("").digest).toBe("00000000");
+  });
+
   it("matches zlib for CRC-32", () => {
     for (const sample of SAMPLES) {
       expect(create("crc32").hash(sample).digest).toBe(
