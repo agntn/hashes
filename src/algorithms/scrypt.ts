@@ -1,4 +1,4 @@
-import { scrypt as nobleScrypt } from "@noble/hashes/scrypt.js";
+import { scryptSync } from "node:crypto";
 import {
   ENCODING_OPTION,
   SALT_OPTION,
@@ -87,9 +87,12 @@ export class Scrypt extends Hash {
    */
   hash(input: HashInput, options?: Readonly<ScryptOptions>): HashResult {
     return guarded(this.key, () => {
+      if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
       const { N, r, p, keyLength } = costParameters(options);
       const salt = resolveSalt(options);
-      const raw = nobleScrypt(toBytes(input), salt, { N, r, p, dkLen: keyLength });
+      // Node refuses above 32 MiB by default. The cost the caller chose is the limit that counts,
+      // so the ceiling follows it: 128 * N * r bytes of working memory, twice for headroom.
+      const raw = scryptSync(toBytes(input), salt, keyLength, { N, r, p, maxmem: 256 * N * r });
       return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
         N,
         r,

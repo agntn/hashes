@@ -1,14 +1,7 @@
-import { hmac } from "@noble/hashes/hmac.js";
-import type { CHash } from "@noble/hashes/utils.js";
+import { createHash, createHmac } from "node:crypto";
 import { ENCODING_OPTION, encodeDigest, guarded, toBytes } from "./digest.ts";
-import { Hash } from "./hash.ts";
+import { Hash, type HashAbout } from "./hash.ts";
 import type { AlgorithmInfo, HashInput, HashOption, HashOptions, HashResult } from "./types.ts";
-
-/** What an algorithm tells about itself besides its name, options and HMAC support. */
-export type HashAbout = Pick<
-  AlgorithmInfo,
-  "label" | "description" | "family" | "digestLength" | "securityNote"
->;
 
 const KEY_OPTION: HashOption = {
   name: "key",
@@ -17,10 +10,10 @@ const KEY_OPTION: HashOption = {
   description: "HMAC key; enables HMAC mode",
 };
 
-/** Base class for an algorithm over a @noble/hashes function, with HMAC through `@noble/hashes/hmac`. */
-export abstract class NobleHash extends Hash {
-  /** The noble hash, such as `sha256` or `blake2b`. */
-  protected abstract readonly hashFn: CHash;
+/** Base class for an algorithm Node computes natively through OpenSSL, with HMAC through `createHmac`. */
+export abstract class NodeHash extends Hash {
+  /** The OpenSSL digest name `node:crypto` knows, such as `sha256` or `blake2b512`. */
+  protected abstract readonly algorithm: string;
   /** Label, description, family, digest length and security note. */
   protected abstract readonly about: HashAbout;
   /** Whether HMAC mode is offered. */
@@ -52,10 +45,15 @@ export abstract class NobleHash extends Hash {
       const data = toBytes(input);
       const encoding = options?.encoding ?? "hex";
       if (options?.key === undefined) {
-        return encodeDigest(this.hashFn(data), this.key, "hash", encoding);
+        return encodeDigest(
+          createHash(this.algorithm).update(data).digest(),
+          this.key,
+          "hash",
+          encoding,
+        );
       }
       if (!this.hmac) throw new Error(`${this.key} has no HMAC mode`);
-      const raw = hmac(this.hashFn, toBytes(options.key), data);
+      const raw = createHmac(this.algorithm, toBytes(options.key)).update(data).digest();
       return encodeDigest(raw, this.key, "hmac", encoding, { hmac: true });
     });
   }

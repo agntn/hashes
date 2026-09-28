@@ -1,9 +1,8 @@
-import { sha3_256 } from "@noble/hashes/sha3.js";
-import { NobleHash } from "../core/noble.ts";
+import { NodeHash } from "../core/node-hash.ts";
 
-export class Sha3_256 extends NobleHash {
+export class Sha3_256 extends NodeHash {
   static readonly key = "sha3-256";
-  protected readonly hashFn = sha3_256;
+  protected readonly algorithm = "sha3-256";
   protected readonly about = {
     label: "SHA3-256",
     description:

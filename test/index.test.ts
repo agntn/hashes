@@ -2,13 +2,12 @@ import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
-import { keccak_256 } from "@noble/hashes/sha3.js";
 import { Md5, builtins } from "../src/algorithms/index.ts";
 import {
   DependencyError,
   Hash,
   HashError,
-  NobleHash,
+  NodeHash,
   InvalidOptionError,
   MissingOptionError,
   UnknownAlgorithmError,
@@ -81,26 +80,27 @@ describe("registry", () => {
   });
 
   it("registers a class from outside the package", () => {
-    class Keccak256 extends NobleHash {
-      static readonly key = "keccak256";
-      protected readonly hashFn = keccak_256;
+    class Sha224 extends NodeHash {
+      static readonly key = "sha224";
+      protected readonly algorithm = "sha224";
       protected readonly about = {
-        label: "Keccak-256",
-        description: "Keccak-256 as Ethereum uses it, before the SHA-3 padding change",
+        label: "SHA-224",
+        description: "SHA-2 family 224-bit hash",
         family: "cryptographic",
-        digestLength: 32,
+        digestLength: 28,
       } as const;
     }
-    register(Keccak256);
+    register(Sha224);
 
-    expect(has("keccak256")).toBe(true);
-    expect(algorithms().at(-1)).toBe("keccak256");
-    const keccak = resolveAlgorithm("KECCAK256");
-    expect(keccak).toBeInstanceOf(Keccak256);
-    expect(keccak.name()).toBe("keccak256");
-    expect(keccak.info()).toMatchObject({ name: "keccak256", hmac: true, digestLength: 32 });
-    expect(keccak.hash("").digest).toBe(
-      "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+    expect(has("sha224")).toBe(true);
+    expect(algorithms().at(-1)).toBe("sha224");
+    const sha224 = resolveAlgorithm("SHA224");
+    expect(sha224).toBeInstanceOf(Sha224);
+    expect(sha224.name()).toBe("sha224");
+    expect(sha224.info()).toMatchObject({ name: "sha224", hmac: true, digestLength: 28 });
+    // FIPS 180-4, the "abc" example.
+    expect(sha224.hash("abc").digest).toBe(
+      "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7",
     );
   });
 
@@ -155,9 +155,47 @@ describe("digests", () => {
     );
   });
 
-  it("refuses HMAC where the algorithm has none", () => {
-    expect(() => create("blake3").hash("message", { key: "secret" })).toThrow(HashError);
+  it("refuses HMAC where the algorithm has none, instead of ignoring the key", () => {
+    const without = builtinAlgorithms.filter((name) => !create(name).info().hmac);
+    expect(without).toEqual(["blake3", "crc32", "xxhash", "fnv1a", "scrypt", "pbkdf2"]);
+    for (const name of without) {
+      expect(() => create(name).hash("message", { key: "secret" })).toThrow(HashError);
+    }
   });
+
+  it.each([
+    [0, "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"],
+    [1, "2d3adedff11b61f14c886e35afa036736dcd87a74d27b5c1510225d0f592e213"],
+    [63, "e9bc37a594daad83be9470df7f7b3798297c3d834ce80ba85d6e207627b7db7b"],
+    [64, "4eed7141ea4a5cd4b788606bd23f46e212af9cacebacdc7d1f4c6dc7f2511b98"],
+    [65, "de1e5fa0be70df6d2be8fffd0e99ceaa8eb6e8c93a63f2d8d1c30ecb6b263dee"],
+    [127, "d81293fda863f008c09e92fc382a81f5a0b4a1251cba1634016a0f86a6bd640d"],
+    [128, "f17e570564b26578c33bb7f44643f539624b05df1a76c81f30acd548c44b45ef"],
+    [129, "683aaae9f3c5ba37eaaf072aed0f9e30bac0865137bae68b1fde4ca2aebdcb12"],
+    [1023, "10108970eeda3eb932baac1428c7a2163b0e924c9a9e25b35bba72b28f70bd11"],
+    [1024, "42214739f095a406f3fc83deb889744ac00df831c10daa55189b5d121c855af7"],
+    [1025, "d00278ae47eb27b34faecf67b4fe263f82d5412916c1ffd97c8cb7fb814b8444"],
+    [2048, "e776b6028c7cd22a4d0ba182a8bf62205d2ef576467e838ed6f2529b85fba24a"],
+    [2049, "5f4d72f40d7a5f82b15ca2b2e44b1de3c2ef86c426c95c1af0b6879522563030"],
+    [3072, "b98cb0ff3623be03326b373de6b9095218513e64f1ee2edd2525c7ad1e5cffd2"],
+    [3073, "7124b49501012f81cc7f11ca069ec9226cecb8a2c850cfe644e327d22d3e1cd3"],
+    [4096, "015094013f57a5277b59d8475c0501042c0b642e531b0a1c8f58d2163229e969"],
+    [4097, "9b4052b38f1c5fc8b1f9ff7ac7b27cd242487b3d890d15c96a1c25b8aa0fb995"],
+    [5121, "628bd2cb2004694adaab7bbd778a25df25c47b9d4155a55f8fbd79f2fe154cff"],
+    [6144, "3e2e5b74e048f3add6d21faab3f83aa44d3b2278afb83b80b3c35164ebeca205"],
+    [7169, "a003fc7a51754a9b3c7fae0367ab3d782dccf28855a03d435f8cfe74605e7817"],
+    [8192, "aae792484c8efe4f19e2ca7d371d8c467ffb10748d8a5a1ae579948f718a2a63"],
+    [8193, "bab6c09cb8ce8cf459261398d2e7aef35700bf488116ceb94a36d0f5f1b7bc3b"],
+    [16384, "f875d6646de28985646f34ee13be9a576fd515f76b5b0a26bb324735041ddde4"],
+    [31744, "62b6960e1a44bcc1eb1a611a8d6235b6b4b78f32e7abc4fb4c6cdcce94895c47"],
+    [102400, "bc3e3d41a1146b069abffad3c0d44860cf664390afce4d9661f7902e7943e085"],
+  ] as const)(
+    "matches the reference BLAKE3 on the official vector lengths (%i bytes of i %% 251)",
+    (length, expected) => {
+      const input = new Uint8Array(length).map((_, index) => index % 251);
+      expect(create("blake3").hash(input).digest).toBe(expected);
+    },
+  );
 
   it("matches the published BLAKE3 vectors", () => {
     expect(create("blake3").hash("").digest).toBe(
@@ -310,7 +348,7 @@ describe("errors", () => {
       new UnknownAlgorithmError("fnv99", ["fnv1a"]),
       new InvalidOptionError("encoding", "junk", "unknown format"),
       new MissingOptionError("key"),
-      new DependencyError("blake3", "@noble/hashes"),
+      new DependencyError("argon2id", "argon2"),
     ]) {
       expect(error).toBeInstanceOf(HashError);
       expect(error.name).toBe(error.constructor.name);
@@ -327,7 +365,7 @@ describe("errors", () => {
     expect(invalid.message).toContain("encoding=junk");
 
     expect(new MissingOptionError("key").option).toBe("key");
-    expect(new DependencyError("blake3", "@noble/hashes").message).toContain("@noble/hashes");
+    expect(new DependencyError("argon2id", "argon2").message).toContain("argon2");
   });
 
   it("normalizes foreign errors", () => {

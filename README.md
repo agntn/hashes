@@ -17,10 +17,11 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - 🔑 **HMAC where it exists.** Ten of them take a key. The rest say no instead of pretending.
 - 🧂 **KDFs that tell you the salt.** No salt given, a random one is drawn and printed next to the digest. Without it that digest is useless.
 - ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
+- ⚡ **Native where Node has it.** OpenSSL in `node:crypto` does the heavy lifting. BLAKE3, xxHash and FNV-1a are plain TypeScript, and there is no hashing dependency at all.
 - 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too.
 - 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share four tools and the code behind them.
-- 🧩 **Bring your own.** Extend `NobleHash` with any `@noble/hashes` function and `register()` the class.
+- 🧩 **Bring your own.** Extend `NodeHash` with any digest Node knows and `register()` the class.
 
 ## 📦 Install
 
@@ -135,28 +136,27 @@ Password storage for your app. scrypt and PBKDF2 are here so you can reproduce a
 
 ## 🧩 Adding an algorithm
 
-Want a seventeenth? Keccak-256 is one small class:
+Want a seventeenth? Anything Node's OpenSSL knows is one small class:
 
 ```ts
-import { keccak_256 } from "@noble/hashes/sha3.js";
-import { NobleHash, register, create } from "@agntn/hashes";
+import { NodeHash, register, create } from "@agntn/hashes";
 
-class Keccak256 extends NobleHash {
-  static readonly key = "keccak256";
-  protected readonly hashFn = keccak_256;
+class Sha224 extends NodeHash {
+  static readonly key = "sha224";
+  protected readonly algorithm = "sha224";
   protected readonly about = {
-    label: "Keccak-256",
-    description: "Ethereum's hash",
+    label: "SHA-224",
+    description: "SHA-2 family 224-bit hash",
     family: "cryptographic",
-    digestLength: 32,
+    digestLength: 28,
   } as const;
 }
 
-register(Keccak256);
-create("keccak256").hash("").digest; // "c5d2460186f7233c..."
+register(Sha224);
+create("sha224").hash("abc").digest; // "23097d223405d8228642..."
 ```
 
-Not a noble function? Extend `Hash` and write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL or a spec, never from this package.
+Something OpenSSL doesn't have? Extend `Hash` and write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL, a spec or a reference implementation, never from this package.
 
 ## 🛠️ Development
 

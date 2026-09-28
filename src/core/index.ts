@@ -18,8 +18,8 @@ export {
   UnknownAlgorithmError,
   normalizeError,
 } from "./errors.ts";
-export { Hash, type HashConstructor } from "./hash.ts";
-export { NobleHash, type HashAbout } from "./noble.ts";
+export { Hash, type HashAbout, type HashConstructor } from "./hash.ts";
+export { NodeHash } from "./node-hash.ts";
 export { ChecksumHash } from "./checksum.ts";
 export { algorithms, create, has, register } from "./registry.ts";
 export { normalizeAlgorithmName, resolveAlgorithm } from "./resolve.ts";

@@ -23,9 +23,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.30.1
         version: 1.30.1(zod@4.6.5)
-      '@noble/hashes':
-        specifier: 2.4.0
-        version: 2.4.0
       citty:
         specifier: 0.2.2
         version: 0.2.2
@@ -604,10 +601,6 @@ packages:
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
-
-  '@noble/hashes@2.4.0':
-    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
-    engines: {node: '>= 20.19.0'}
 
   '@oh-my-pi/omp-stats@18.4.2':
     resolution: {integrity: sha512-UrLc6TZnP0jSRyim8fWfgiHxVl6OlhbzXG73eeYaVAI1L6kdcFcg4kFJByKzXfal/66VMKcPkXjeHBrzSpa4qw==}
@@ -3480,8 +3473,6 @@ snapshots:
       zod-to-json-schema: 3.25.2(zod@4.6.5)
     transitivePeerDependencies:
       - supports-color
-
-  '@noble/hashes@2.4.0': {}
 
   '@oh-my-pi/omp-stats@18.4.2':
     dependencies:

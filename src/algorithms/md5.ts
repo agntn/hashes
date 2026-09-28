@@ -1,9 +1,8 @@
-import { md5 } from "@noble/hashes/legacy.js";
-import { NobleHash } from "../core/noble.ts";
+import { NodeHash } from "../core/node-hash.ts";
 
-export class Md5 extends NobleHash {
+export class Md5 extends NodeHash {
   static readonly key = "md5";
-  protected readonly hashFn = md5;
+  protected readonly algorithm = "md5";
   protected readonly about = {
     label: "MD5",
     description:

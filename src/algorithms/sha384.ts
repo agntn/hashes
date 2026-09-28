@@ -1,9 +1,8 @@
-import { sha384 } from "@noble/hashes/sha2.js";
-import { NobleHash } from "../core/noble.ts";
+import { NodeHash } from "../core/node-hash.ts";
 
-export class Sha384 extends NobleHash {
+export class Sha384 extends NodeHash {
   static readonly key = "sha384";
-  protected readonly hashFn = sha384;
+  protected readonly algorithm = "sha384";
   protected readonly about = {
     label: "SHA-384",
     description:

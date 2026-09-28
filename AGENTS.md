@@ -9,10 +9,10 @@ Keep AGENTS.md updated with project status.
 ## Status
 
 - Aligned with `_template` and moved to Vite+ in the shape of `@agntn/explorers` (#143): `vp pack` builds, `vp lint` and `vp fmt` run the shared `@agntn/ox` policy from `vite.config.ts`, `vp test` runs Vitest 5.
-- Algorithms are classes, like ciphers and chains: `Hash` is the base, `NobleHash` wraps a `@noble/hashes` function, `ChecksumHash` a digest computed here, and each class carries a static `key`. The registry is seeded from the class list in `src/algorithms/index.ts` on first use; importing the package mutates nothing, so `sideEffects` is `false`.
+- Algorithms are classes, like ciphers and chains: `Hash` is the base, `NodeHash` wraps a digest `node:crypto` computes through OpenSSL, `ChecksumHash` a digest computed here, and each class carries a static `key`. The registry is seeded from the class list in `src/algorithms/index.ts` on first use; importing the package mutates nothing, so `sideEffects` is `false`.
 - MCP, AI SDK, Pi and OMP share the executors in `src/tool-operations.ts`. MCP and Pi share the TypeBox schemas in `packages/shared/tool-schemas.ts`; OMP restates them with `pi.typebox`, and `test/omp-extension.test.ts` holds both to the same accept/reject answers.
 - A local MCP server runs `src/` from the built bin inside a checkout, like `_template`; `HASHES_DIST=1` keeps the bundle. `test/cli.test.ts` proves both modes and each guard.
-- Fixed during the refactor, each with a regression test: XXH64 used a wrong `PRIME64_2` and skipped `round()` in the merge and tail steps, so it never produced XXH64 (now identical to the reference `xxhash` on 603 inputs); verify lowercased base64 before comparing; the tools drew a KDF salt and never returned it; pbkdf2 looked `digest` up through `Object.prototype`; a malformed hex salt shrank silently; `--version` hashed the flag; `-` for stdin was documented but not implemented.
+- Fixed during the refactor, each with a regression test: XXH64 used a wrong `PRIME64_2` and skipped `round()` in the merge and tail steps, so it never produced XXH64 (now identical to the reference `xxhash` on 603 inputs); BLAKE3 moved off `@noble/hashes` to its own implementation, identical to the reference `blake3` on 285 lengths up to 1 MiB; verify lowercased base64 before comparing; the tools drew a KDF salt and never returned it; pbkdf2 looked `digest` up through `Object.prototype`; a malformed hex salt shrank silently; `--version` hashed the flag; `-` for stdin was documented but not implemented.
 
 ## Stack
 
@@ -22,7 +22,7 @@ Keep AGENTS.md updated with project status.
 - **Test**: `vp test` (Vitest 5 bundled with vite-plus 1.0.0), APIs from `vite-plus/test`
 - **Lint and format**: `vp lint` and `vp fmt` with `@agntn/ox`, type-aware through `oxlint-tsgolint`
 - **Typecheck**: `tsc` (TypeScript 7) for the library, then the extensions and the tests after a build
-- **Hashing**: `@noble/hashes`; CRC-32, XXH64 and FNV-1a are plain TypeScript
+- **Hashing**: `node:crypto` (OpenSSL) for SHA-2, SHA-3, BLAKE2, RIPEMD-160, MD5, SHA-1, HMAC, scrypt and PBKDF2, `node:zlib` for CRC-32. BLAKE3, XXH64 and FNV-1a are plain TypeScript in `src/algorithms/`. No hashing dependency.
 - **Release**: changelogen
 - **Package manager**: pnpm 11
 
@@ -39,7 +39,7 @@ Keep AGENTS.md updated with project status.
 ## Structure
 
 ```
-src/core/                - Hash, NobleHash, ChecksumHash, types, errors, registry, name resolution, digest helpers, verify
+src/core/                - Hash, NodeHash, ChecksumHash, types, errors, registry, name resolution, digest helpers, verify
 src/algorithms/          - one file per built-in algorithm, plus the builtins list in index.ts
 src/commands/            - citty subcommands
 src/tool-operations.ts   - executors shared by every agent surface
@@ -52,7 +52,7 @@ test/fixtures/           - typed Pi and OMP extension test hosts from _template
 
 ## Adding an algorithm
 
-1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `NobleHash` for a `@noble/hashes` function, `ChecksumHash` for a fixed-length digest computed here, `Hash` for anything else. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
+1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `NodeHash` for a digest OpenSSL has on Node 24 and 26 (check both, `keccak-256` exists only on 26), `ChecksumHash` for a fixed-length digest computed here, `Hash` for anything else. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
 2. Add the class to `builtins` in `src/algorithms/index.ts` and its key to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
 3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.

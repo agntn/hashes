@@ -70,7 +70,11 @@ export function encodeDigest(
   encoding: OutputEncoding,
   extraOptions?: Readonly<Record<string, unknown>>,
 ): HashResult {
-  const digest = encoding === "binary" ? raw : Buffer.from(raw).toString(encoding);
+  // A plain Uint8Array over the same bytes: node:crypto hands out Buffers, the contract says bytes.
+  const digest =
+    encoding === "binary"
+      ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
+      : Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength).toString(encoding);
   return {
     digest,
     algorithm,

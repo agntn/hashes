@@ -1,9 +1,8 @@
-import { blake2b } from "@noble/hashes/blake2.js";
-import { NobleHash } from "../core/noble.ts";
+import { NodeHash } from "../core/node-hash.ts";
 
-export class Blake2b extends NobleHash {
+export class Blake2b extends NodeHash {
   static readonly key = "blake2b";
-  protected readonly hashFn = blake2b;
+  protected readonly algorithm = "blake2b512";
   protected readonly about = {
     label: "BLAKE2b",
     description:

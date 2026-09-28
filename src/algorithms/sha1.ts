@@ -1,9 +1,8 @@
-import { sha1 } from "@noble/hashes/legacy.js";
-import { NobleHash } from "../core/noble.ts";
+import { NodeHash } from "../core/node-hash.ts";
 
-export class Sha1 extends NobleHash {
+export class Sha1 extends NodeHash {
   static readonly key = "sha1";
-  protected readonly hashFn = sha1;
+  protected readonly algorithm = "sha1";
   protected readonly about = {
     label: "SHA-1",
     description:

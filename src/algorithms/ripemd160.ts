@@ -1,9 +1,8 @@
-import { ripemd160 } from "@noble/hashes/legacy.js";
-import { NobleHash } from "../core/noble.ts";
+import { NodeHash } from "../core/node-hash.ts";
 
-export class Ripemd160 extends NobleHash {
+export class Ripemd160 extends NodeHash {
   static readonly key = "ripemd160";
-  protected readonly hashFn = ripemd160;
+  protected readonly algorithm = "ripemd160";
   protected readonly about = {
     label: "RIPEMD-160",
     description:

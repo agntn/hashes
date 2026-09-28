@@ -33,3 +33,9 @@ export abstract class Hash {
   /** Compute the hash (or HMAC) of the input. */
   abstract hash(input: HashInput, options?: HashOptions): HashResult;
 }
+
+/** What an algorithm tells about itself besides its name, options and HMAC support. */
+export type HashAbout = Pick<
+  AlgorithmInfo,
+  "label" | "description" | "family" | "digestLength" | "securityNote"
+>;
