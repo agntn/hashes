@@ -1,79 +1,90 @@
-import type { BinaryLike } from 'node:crypto'
-
 /** Output encoding for hash digests. */
-export type OutputEncoding = 'hex' | 'base64' | 'base64url' | 'binary'
+export type OutputEncoding = "hex" | "base64" | "base64url" | "binary";
+
+/** Text or bytes to hash. A string is read as UTF-8. */
+export type HashInput = string | Uint8Array;
 
 /** Result of a hash operation. */
 export interface HashResult {
-  /** The hash digest in the requested encoding. */
-  digest: string | Uint8Array
+  /** The digest in the requested encoding; bytes for `binary`. */
+  digest: string | Uint8Array;
   /** Name of the algorithm that produced this result. */
-  algorithm: string
+  algorithm: string;
   /** Operation performed. */
-  operation: 'hash' | 'hmac'
+  operation: "hash" | "hmac";
   /** Output encoding used. */
-  encoding: OutputEncoding
+  encoding: OutputEncoding;
   /** Byte length of the raw digest. */
-  digestLength: number
-  /** Options used (encoding, key, rounds, etc.). */
-  options: Record<string, unknown>
+  digestLength: number;
+  /** Options the digest depends on (encoding, salt, cost parameters). */
+  options: Record<string, unknown>;
 }
 
 /** Options for hash operations. */
 export interface HashOptions {
-  /** Output encoding. Default: 'hex'. */
-  encoding?: OutputEncoding
-  /** HMAC key — enables HMAC mode when set. */
-  key?: string | Uint8Array
+  /** Output encoding. Default: `hex`. */
+  encoding?: OutputEncoding;
+  /** HMAC key; enables HMAC mode when set. */
+  key?: HashInput;
 }
 
 /** Algorithm family classification. */
 export type HashFamily =
-  | 'cryptographic'     // sha256, sha512, blake2b, blake3, sha3-*
-  | 'legacy'            // md5, sha1 — not collision-resistant but still useful for checksums
-  | 'non-cryptographic' // crc32, xxhash, fnv1a — fast, not security-grade
-  | 'password'          // scrypt, pbkdf2 — key derivation / password hashing
+  /** sha256, sha512, blake2b, blake3, sha3-* */
+  | "cryptographic"
+  /** md5, sha1: not collision-resistant but still useful for checksums */
+  | "legacy"
+  /** crc32, xxhash, fnv1a: fast, not security-grade */
+  | "non-cryptographic"
+  /** scrypt, pbkdf2: key derivation and password hashing */
+  | "password";
 
-/** Option descriptor for CLI/docs. */
+/** Option descriptor for the CLI and the tool descriptions. */
 export interface HashOption {
-  name: string
-  type: 'number' | 'string' | 'boolean'
-  required: boolean
-  default?: number | string | boolean
-  description: string
+  name: string;
+  type: "number" | "string" | "boolean";
+  required: boolean;
+  default?: number | string | boolean;
+  description: string;
 }
 
 /** Metadata about a hash algorithm. */
 export interface AlgorithmInfo {
   /** Unique algorithm name. */
-  name: string
+  name: string;
   /** Human-readable label. */
-  label: string
+  label: string;
   /** One-line description. */
-  description: string
+  description: string;
   /** Algorithm family. */
-  family: HashFamily
-  /** Raw digest byte length (undefined for variable-length like SHAKE). */
-  digestLength?: number
+  family: HashFamily;
+  /** Raw digest byte length; absent when the caller picks it, as for the KDFs. */
+  digestLength?: number;
   /** Whether HMAC mode is supported. */
-  hmac: boolean
+  hmac: boolean;
   /** Self-describing options. */
-  options: HashOption[]
+  options: HashOption[];
   /** Key-space or security level note. */
-  securityNote?: string
-  /** External dependency (undefined = Node built-in). */
-  dependency?: string
+  securityNote?: string;
+  /** Package a registered algorithm needs beyond this one; built-ins need none. */
+  dependency?: string;
 }
 
-/** A hash algorithm provider. */
+/** A hash algorithm. */
 export interface HashAlgorithm {
   /** Algorithm name. */
-  name(): string
+  name(): string;
   /** Algorithm metadata. */
-  info(): AlgorithmInfo
-  /** Compute hash (or HMAC) of input. */
-  hash(input: BinaryLike | string, options?: HashOptions): HashResult
+  info(): AlgorithmInfo;
+  /** Compute the hash (or HMAC) of the input. */
+  hash(input: HashInput, options?: HashOptions): HashResult;
 }
 
 /** Factory function to create a hash algorithm instance. */
-export type HashAlgorithmFactory = () => HashAlgorithm
+export type HashAlgorithmFactory = () => HashAlgorithm;
+
+/** A built-in algorithm: its registry name and the factory the registry seeds with. */
+export interface AlgorithmEntry {
+  readonly name: string;
+  readonly create: HashAlgorithmFactory;
+}

@@ -1,21 +1,27 @@
 export type {
-  HashResult,
-  HashOptions,
-  OutputEncoding,
-  HashFamily,
-  HashOption,
+  AlgorithmEntry,
   AlgorithmInfo,
   HashAlgorithm,
   HashAlgorithmFactory,
-} from './types'
+  HashFamily,
+  HashInput,
+  HashOption,
+  HashOptions,
+  HashResult,
+  OutputEncoding,
+} from "./types.ts";
+export type { Pbkdf2Options } from "../algorithms/pbkdf2.ts";
+export type { ScryptOptions } from "../algorithms/scrypt.ts";
+export type { XxhashOptions } from "../algorithms/xxhash.ts";
 export {
+  DependencyError,
   HashError,
-  UnknownAlgorithmError,
   InvalidOptionError,
   MissingOptionError,
-  DependencyError,
+  UnknownAlgorithmError,
   normalizeError,
-} from './errors'
-export { register, create, algorithms, has } from './registry'
-export { resolveAlgorithm } from './resolve'
-export { builtinAlgorithms, type BuiltinAlgorithm } from './providers'
+} from "./errors.ts";
+export { algorithms, create, has, register } from "./registry.ts";
+export { normalizeAlgorithmName, resolveAlgorithm } from "./resolve.ts";
+export { builtinAlgorithms, hashFamilies, type BuiltinAlgorithm } from "./algorithms.ts";
+export { digestMatches } from "./verify.ts";

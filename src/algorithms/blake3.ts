@@ -1,13 +1,13 @@
-import { blake3 } from '@noble/hashes/blake3.js'
-import { registerNobleAlgorithm } from './noble-algo'
+import { blake3 as hashFn } from "@noble/hashes/blake3.js";
+import { defineNobleAlgorithm } from "../core/noble.ts";
 
-registerNobleAlgorithm({
-  name: 'blake3',
-  label: 'BLAKE3',
-  description: 'BLAKE3 — extremely fast cryptographic hash, parallelizable, 256-bit output',
-  family: 'cryptographic',
-  hashFn: blake3,
+export const blake3 = defineNobleAlgorithm({
+  name: "blake3",
+  label: "BLAKE3",
+  description: "BLAKE3, an extremely fast cryptographic hash, parallelizable, 256-bit output",
+  family: "cryptographic",
+  hashFn,
   digestLength: 32,
   hmac: false,
-  securityNote: '256-bit security level, Merkle tree structure for parallelism',
-})
+  securityNote: "256-bit security level, Merkle tree structure for parallelism",
+});

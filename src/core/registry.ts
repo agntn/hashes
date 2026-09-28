@@ -1,32 +1,63 @@
-import type { HashAlgorithm, HashAlgorithmFactory } from './types'
-import { UnknownAlgorithmError } from './errors'
+import { builtins } from "../algorithms/index.ts";
+import { UnknownAlgorithmError } from "./errors.ts";
+import type { HashAlgorithm, HashAlgorithmFactory } from "./types.ts";
 
-const factories = new Map<string, HashAlgorithmFactory>()
-const instances = new Map<string, HashAlgorithm>()
+let factories: Map<string, HashAlgorithmFactory> | undefined;
+const instances = new Map<string, HashAlgorithm>();
 
-/** Register a hash algorithm factory. */
+/**
+ * The factory map, seeded with the built-ins on first use. Importing the package registers
+ * nothing, so a bundler may drop any module this graph does not reach.
+ *
+ * @returns {Map<string, HashAlgorithmFactory>} Registered factories by name.
+ */
+function registry(): Map<string, HashAlgorithmFactory> {
+  factories ??= new Map(builtins.map((entry) => [entry.name, entry.create] as const));
+  return factories;
+}
+
+/**
+ * Registers a hash algorithm factory, replacing any algorithm under the same name.
+ *
+ * @param name - Exact registry name.
+ * @param factory - Creates the algorithm.
+ */
 export function register(name: string, factory: HashAlgorithmFactory): void {
-  factories.set(name, factory)
-  instances.delete(name) // invalidate cached instance on re-register
+  registry().set(name, factory);
+  instances.delete(name);
 }
 
-/** Create a hash algorithm instance by name (cached singleton). */
+/**
+ * Creates a hash algorithm by exact name, cached per name.
+ *
+ * @param name - Exact registry name.
+ * @returns {HashAlgorithm} The cached algorithm instance.
+ */
 export function create(name: string): HashAlgorithm {
-  const cached = instances.get(name)
-  if (cached) return cached
-  const factory = factories.get(name)
-  if (!factory) throw new UnknownAlgorithmError(name)
-  const algorithm = factory()
-  instances.set(name, algorithm)
-  return algorithm
+  const cached = instances.get(name);
+  if (cached) return cached;
+  const factory = registry().get(name);
+  if (!factory) throw new UnknownAlgorithmError(name, algorithms());
+  const algorithm = factory();
+  instances.set(name, algorithm);
+  return algorithm;
 }
 
-/** List all registered algorithm names. */
+/**
+ * Lists the registered algorithm names: the built-ins in listing order, then registrations.
+ *
+ * @returns {string[]} Registered names.
+ */
 export function algorithms(): string[] {
-  return [...factories.keys()]
+  return [...registry().keys()];
 }
 
-/** Check if an algorithm is registered. */
+/**
+ * Checks whether an algorithm is registered.
+ *
+ * @param name - Exact registry name.
+ * @returns {boolean} Whether the name is registered.
+ */
 export function has(name: string): boolean {
-  return factories.has(name)
+  return registry().has(name);
 }

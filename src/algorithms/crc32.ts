@@ -1,80 +1,49 @@
-import type { BinaryLike } from 'node:crypto'
-import type { HashAlgorithm, AlgorithmInfo, HashOptions, HashResult, OutputEncoding } from '../core/types'
-import { normalizeError } from '../core/errors'
-import { register } from '../core/registry'
+import { encodeDigest, guarded, toBytes } from "../core/digest.ts";
+import { ENCODING_OPTION } from "../core/noble.ts";
+import type { AlgorithmEntry, HashAlgorithm, HashInput, HashOptions } from "../core/types.ts";
 
-/** CRC32 lookup table (polynomial 0xEDB88320). */
-const TABLE = new Uint32Array(256)
-for (let i = 0; i < 256; i++) {
-  let c = i
-  for (let j = 0; j < 8; j++) {
-    c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1)
+/** CRC-32 lookup table (reflected polynomial 0xEDB88320). */
+const TABLE = new Uint32Array(256);
+for (let index = 0; index < 256; index++) {
+  let value = index;
+  for (let bit = 0; bit < 8; bit++) {
+    value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
   }
-  TABLE[i] = c
+  TABLE[index] = value;
 }
 
+/**
+ * Computes the CRC-32 checksum used by ZIP, PNG and gzip.
+ *
+ * @param data - Bytes to check.
+ * @returns {number} The unsigned 32-bit checksum.
+ */
 function crc32Compute(data: Uint8Array): number {
-  let crc = 0xFFFFFFFF
-  for (let i = 0; i < data.length; i++) {
-    crc = TABLE[(crc ^ data[i]!) & 0xFF]! ^ (crc >>> 8)
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc = TABLE[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
   }
-  return (crc ^ 0xFFFFFFFF) >>> 0
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
-function toBytes(input: string | Uint8Array): Uint8Array {
-  return typeof input === 'string' ? new TextEncoder().encode(input) : input
-}
+const algorithm: HashAlgorithm = {
+  name: () => "crc32",
+  info: () => ({
+    name: "crc32",
+    label: "CRC-32",
+    description: "CRC-32 cyclic redundancy check, used in ZIP, PNG, gzip and network protocols",
+    family: "non-cryptographic",
+    digestLength: 4,
+    hmac: false,
+    options: [ENCODING_OPTION],
+    securityNote: "NOT for security: error-detection checksum only",
+  }),
+  hash: (input: HashInput, options?: Readonly<HashOptions>) =>
+    guarded("crc32", () => {
+      const raw = Buffer.alloc(4);
+      raw.writeUInt32BE(crc32Compute(toBytes(input)));
+      return encodeDigest(new Uint8Array(raw), "crc32", "hash", options?.encoding ?? "hex");
+    }),
+};
 
-class Crc32Algorithm implements HashAlgorithm {
-  name(): string { return 'crc32' }
-
-  info(): AlgorithmInfo {
-    return {
-      name: 'crc32',
-      label: 'CRC-32',
-      description: 'CRC-32 — cyclic redundancy check used in ZIP, PNG, gzip, network protocols',
-      family: 'non-cryptographic',
-      digestLength: 4,
-      hmac: false,
-      options: [
-        { name: 'encoding', type: 'string', required: false, default: 'hex', description: 'Output encoding: hex, base64, base64url, binary' },
-      ],
-      securityNote: 'NOT for security — error-detection checksum only',
-    }
-  }
-
-  hash(input: BinaryLike | string, options?: HashOptions): HashResult {
-    try {
-      const encoding: OutputEncoding = options?.encoding ?? 'hex'
-      const bytes = toBytes(input as string | Uint8Array)
-      const crc = crc32Compute(bytes)
-      const raw = Buffer.alloc(4)
-      raw.writeUInt32BE(crc)
-
-      if (encoding === 'binary') {
-        return {
-          digest: new Uint8Array(raw),
-          algorithm: 'crc32',
-          operation: 'hash',
-          encoding,
-          digestLength: 4,
-          options: { encoding },
-        }
-      }
-
-      const outEncoding = encoding === 'base64url' ? 'base64url' : encoding
-      return {
-        digest: raw.toString(outEncoding as 'hex' | 'base64' | 'base64url'),
-        algorithm: 'crc32',
-        operation: 'hash',
-        encoding,
-        digestLength: 4,
-        options: { encoding },
-      }
-    } catch (e) {
-      throw normalizeError(e, 'crc32')
-    }
-  }
-}
-
-register('crc32', () => new Crc32Algorithm())
+export const crc32: AlgorithmEntry = { name: "crc32", create: () => algorithm };

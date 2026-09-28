@@ -1,39 +1,33 @@
-import { defineCommand } from 'citty'
-import consola from 'consola'
-import { resolveAlgorithm } from '../core/resolve'
-import type { HashOptions, OutputEncoding } from '../core/types'
-
-function parseEncoding(value: string | undefined): OutputEncoding {
-  const enc = (value ?? 'hex') as OutputEncoding
-  if (!['hex', 'base64', 'base64url', 'binary'].includes(enc)) {
-    consola.error(`Invalid encoding: "${value}". Use: hex, base64, base64url, binary`)
-    process.exit(1)
-  }
-  return enc
-}
+import { defineCommand } from "citty";
+import { digestMatches, resolveAlgorithm } from "../index.ts";
+import { parseEncoding, readInput, saltArg } from "./shared.ts";
 
 export default defineCommand({
-  meta: { name: 'verify', description: 'Verify input against an expected hash' },
+  meta: { name: "verify", description: "Verify input against an expected hash" },
   args: {
-    algorithm: { type: 'positional', description: 'Algorithm name', required: true },
-    input: { type: 'positional', description: 'Text to hash', required: true },
-    expected: { type: 'positional', description: 'Expected hash digest', required: true },
-    encoding: { type: 'string', description: 'Encoding of expected hash', alias: 'e', default: 'hex' },
+    algorithm: { type: "positional", description: "Algorithm name", required: true },
+    input: { type: "positional", description: "Text to hash, or - for stdin", required: true },
+    expected: { type: "positional", description: "Expected hash digest", required: true },
+    encoding: {
+      type: "string",
+      description: "Encoding of the expected digest: hex, base64, base64url",
+      alias: "e",
+      default: "hex",
+    },
+    salt: saltArg,
   },
   run({ args }) {
-    const algo = resolveAlgorithm(args.algorithm)
-    const opts: HashOptions = { encoding: parseEncoding(args.encoding) }
-    const result = algo.hash(args.input, opts)
-    const actual = typeof result.digest === 'string' ? result.digest.toLowerCase() : ''
-    const expected = args.expected.toLowerCase()
-
-    if (actual === expected) {
-      consola.success(`✓ MATCH — ${algo.name()}(${args.input}) = ${actual}`)
-    } else {
-      consola.error(`✗ MISMATCH`)
-      consola.log(`  Expected: ${expected}`)
-      consola.log(`  Actual:   ${actual}`)
-      process.exit(1)
+    const algorithm = resolveAlgorithm(args.algorithm);
+    const encoding = parseEncoding(args.encoding);
+    const salt = args.salt === undefined ? {} : { salt: args.salt };
+    const result = algorithm.hash(readInput(args.input), { encoding, ...salt });
+    if (digestMatches(result, args.expected)) {
+      process.stdout.write(`MATCH ${algorithm.name()} ${String(result.digest)}\n`);
+      return;
     }
+    process.stdout.write(
+      `MISMATCH ${algorithm.name()}\n  expected ${args.expected.trim()}\n  actual   ${String(result.digest)}\n`,
+    );
+    process.exitCode = 1;
   },
-})
+});

@@ -1,46 +1,114 @@
 {
   "name": "@agntn/hashes",
   "version": "0.1.0",
-  "type": "module",
-  "description": "Unified hashing algorithm library for agents",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
-    }
+  "description": "Hash, HMAC and key derivation algorithms for agents",
+  "keywords": [
+    "omp-extension",
+    "pi-package"
+  ],
+  "homepage": "https://github.com/agntn/hashes#readme",
+  "bugs": "https://github.com/agntn/hashes/issues",
+  "license": "MIT",
+  "author": "oritwoen (https://github.com/oritwoen)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agntn/hashes.git"
   },
   "bin": {
     "hashes": "./dist/cli.mjs"
   },
-  "pi": {
-    "extensions": [
-      "./packages/pi/extensions/*.ts"
-    ]
+  "files": [
+    "dist",
+    "packages/omp/extensions",
+    "packages/pi/extensions",
+    "packages/shared"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./ai": {
+      "types": "./dist/ai.d.mts",
+      "import": "./dist/ai.mjs"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.mts",
+      "import": "./dist/mcp.mjs"
+    }
   },
-  "engines": {
-    "node": ">=25"
+  "publishConfig": {
+    "access": "public"
   },
-  "packageManager": "pnpm@10.33.4",
   "scripts": {
-    "build": "obuild",
-    "dev": "obuild --stub",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "test:run": "vitest --run"
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "fmt": "vp lint --fix && vp fmt",
+    "lint": "pnpm build && vp lint && vp fmt --check",
+    "typecheck": "tsc --noEmit && pnpm build && tsc -p tsconfig.extensions.json && tsc -p test/tsconfig.json",
+    "test": "vp test run",
+    "test:watch": "vp test watch",
+    "prepack": "pnpm run build",
+    "release": "pnpm test && pnpm build && changelogen --release --push"
   },
   "dependencies": {
-    "citty": "^0.2.2",
-    "consola": "^3.4.2",
-    "@noble/hashes": "2.2.0"
+    "@modelcontextprotocol/sdk": "1.30.1",
+    "@noble/hashes": "2.4.0",
+    "citty": "0.2.2",
+    "consola": "3.4.2",
+    "typebox": "1.3.34"
   },
   "devDependencies": {
-    "obuild": "^0.4.36",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.7",
-    "tsx": "^4.22.4",
-    "@types/node": "latest",
-    "typebox": "^1.1.39",
-    "@earendil-works/pi-coding-agent": "latest",
-    "@earendil-works/pi-tui": "latest"
+    "@agntn/ox": "0.1.0",
+    "@earendil-works/pi-coding-agent": "0.87.1",
+    "@oh-my-pi/omptype": "18.4.2",
+    "@oh-my-pi/pi-coding-agent": "18.4.2",
+    "@types/node": "26.6.3",
+    "ai": "7.0.118",
+    "changelogen": "0.6.2",
+    "oxlint-tsgolint": "7.0.2003",
+    "typescript": "7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "zod": "4.6.5"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.87.1 <1",
+    "@oh-my-pi/pi-coding-agent": ">=18.4.2 <19",
+    "ai": ">=7.0.0",
+    "typebox": ">=1.3.34 <2",
+    "zod": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@oh-my-pi/pi-coding-agent": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.26.0",
+  "omp": {
+    "extensions": [
+      "./packages/omp/extensions/hashes.ts"
+    ]
+  },
+  "pi": {
+    "extensions": [
+      "./packages/pi/extensions/hashes.ts"
+    ]
   }
 }

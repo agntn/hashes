@@ -1,166 +1,87 @@
-import type { AgentToolResult, ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { Text } from '@earendil-works/pi-tui'
-import { Type } from 'typebox'
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
-/** Lazy-load the library (registers all algorithms on import). */
-async function loadLib() {
-  const mod = await import('@agntn/hashes').catch(() => {
-    // @ts-expect-error — runtime fallback for dev (same package source)
-    return import('../../../src/index.ts')
-  })
-  return mod as typeof import('@agntn/hashes')
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+import type * as HashTools from "../../../dist/tool-operations.d.mts";
+import { TOOL_DESCRIPTIONS } from "../../shared/tool-contract.ts";
+import {
+  hashAlgorithmsSchema,
+  hashComputeSchema,
+  hashHmacSchema,
+  hashVerifySchema,
+} from "../../shared/tool-schemas.ts";
+
+const sourceModuleUrl = new URL("../../../src/tool-operations.ts", import.meta.url);
+const distributionModuleUrl = new URL("../../../dist/tool-operations.mjs", import.meta.url);
+let toolOperationsPromise: Promise<typeof HashTools> | undefined;
+
+/**
+ * Loads the tool executors shared with the MCP server and the OMP extension, so the tool answers
+ * stay identical across surfaces: the live source in a checkout, the build in the package.
+ *
+ * @returns {Promise<typeof HashTools>} Shared tool operations module.
+ */
+function loadToolOperations(): Promise<typeof HashTools> {
+  toolOperationsPromise ??= import(
+    existsSync(fileURLToPath(sourceModuleUrl)) ? sourceModuleUrl.href : distributionModuleUrl.href
+  ) as Promise<typeof HashTools>;
+
+  return toolOperationsPromise;
 }
 
-export default function hashesExtension(pi: ExtensionAPI) {
+export default function hashesExtension(pi: ExtensionAPI): void {
   pi.registerTool({
-    name: 'hash_compute',
-    label: 'Hash Compute',
-    description: 'Compute a hash digest using any supported algorithm (sha256, blake3, md5, crc32, xxhash, etc.)',
-    promptSnippet: 'Use hash_compute to hash text or verify checksums.',
+    name: "hash_compute",
+    label: "Hash Compute",
+    description: TOOL_DESCRIPTIONS.hash_compute,
+    promptSnippet: "Use hash_compute to hash text or produce a checksum.",
     promptGuidelines: [
-      'Specify the algorithm and input text.',
-      'Default output is hex. Use encoding for base64/base64url/binary.',
-      'Algorithms: sha256, sha384, sha512, sha3-256, sha3-512, blake2b, blake2s, blake3, ripemd160, whirlpool, md5, sha1, crc32, xxhash, fnv1a, scrypt, pbkdf2.',
+      "Default output is hex; base64 and base64url are the other encodings.",
+      "For scrypt and pbkdf2, keep the salt the answer names: hash_verify needs it.",
     ],
-    parameters: Type.Object({
-      algorithm: Type.String({ description: 'Hash algorithm: sha256, blake3, md5, crc32, xxhash, sha3-256, blake2b, etc.' }),
-      input: Type.String({ description: 'Text to hash' }),
-      encoding: Type.Optional(Type.String({ description: 'Output encoding: hex (default), base64, base64url, binary' })),
-    }),
-    renderCall(args, _theme) {
-      return new Text(`#️⃣ ${args.algorithm}: "${String(args.input).slice(0, 40)}"`, 0, 0)
+    parameters: hashComputeSchema,
+    async execute(_toolCallId, params) {
+      return (await loadToolOperations()).hashCompute(params);
     },
-    async execute(_toolCallId, params): Promise<AgentToolResult> {
-      try {
-        const lib = await loadLib()
-        const algo = lib.resolveAlgorithm(params.algorithm as string)
-        const opts: Record<string, unknown> = {}
-        if (params.encoding) opts.encoding = params.encoding
-        const result = algo.hash(params.input as string, opts)
-        const digest = typeof result.digest === 'string' ? result.digest : `[binary ${result.digestLength} bytes]`
-        return {
-          content: [{ type: 'text', text: digest }],
-          details: { algorithm: result.algorithm, operation: result.operation, encoding: result.encoding, digestLength: result.digestLength },
-        }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        return { content: [{ type: 'text', text: `Error: ${msg}` }] }
-      }
-    },
-  })
+  });
 
   pi.registerTool({
-    name: 'hash_hmac',
-    label: 'Hash HMAC',
-    description: 'Compute HMAC with a key using any HMAC-capable algorithm',
-    promptSnippet: 'Use hash_hmac for keyed hash operations.',
-    promptGuidelines: [
-      'Requires algorithm, input, and key.',
-      'Not all algorithms support HMAC (check hash_algorithms for hmac column).',
-    ],
-    parameters: Type.Object({
-      algorithm: Type.String({ description: 'HMAC algorithm: sha256, sha512, blake2b, sha3-256, etc.' }),
-      input: Type.String({ description: 'Text to HMAC' }),
-      key: Type.String({ description: 'HMAC key' }),
-      encoding: Type.Optional(Type.String({ description: 'Output encoding: hex (default), base64, base64url, binary' })),
-    }),
-    renderCall(args, _theme) {
-      return new Text(`🔑 HMAC-${args.algorithm}: "${String(args.input).slice(0, 30)}"`, 0, 0)
+    name: "hash_hmac",
+    label: "Hash HMAC",
+    description: TOOL_DESCRIPTIONS.hash_hmac,
+    promptSnippet: "Use hash_hmac for keyed hashes.",
+    promptGuidelines: ["hash_algorithms tells which algorithms have an HMAC mode."],
+    parameters: hashHmacSchema,
+    async execute(_toolCallId, params) {
+      return (await loadToolOperations()).hashHmac(params);
     },
-    async execute(_toolCallId, params): Promise<AgentToolResult> {
-      try {
-        const lib = await loadLib()
-        const algo = lib.resolveAlgorithm(params.algorithm as string)
-        const info = algo.info()
-        if (!info.hmac) {
-          return { content: [{ type: 'text', text: `Error: Algorithm "${params.algorithm}" does not support HMAC` }] }
-        }
-        const opts: Record<string, unknown> = { key: params.key }
-        if (params.encoding) opts.encoding = params.encoding
-        const result = algo.hash(params.input as string, opts)
-        const digest = typeof result.digest === 'string' ? result.digest : `[binary ${result.digestLength} bytes]`
-        return {
-          content: [{ type: 'text', text: digest }],
-          details: { algorithm: result.algorithm, operation: result.operation, encoding: result.encoding, digestLength: result.digestLength },
-        }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        return { content: [{ type: 'text', text: `Error: ${msg}` }] }
-      }
-    },
-  })
+  });
 
   pi.registerTool({
-    name: 'hash_verify',
-    label: 'Hash Verify',
-    description: 'Verify input against an expected hash digest',
-    promptSnippet: 'Use hash_verify to check if text matches an expected hash.',
-    promptGuidelines: [
-      'Provide algorithm, input text, and expected digest.',
-      'Returns match/mismatch with both expected and actual values.',
-    ],
-    parameters: Type.Object({
-      algorithm: Type.String({ description: 'Hash algorithm' }),
-      input: Type.String({ description: 'Text to verify' }),
-      expected: Type.String({ description: 'Expected hash digest' }),
-      encoding: Type.Optional(Type.String({ description: 'Encoding of expected digest: hex (default), base64, base64url' })),
-    }),
-    renderCall(args, _theme) {
-      return new Text(`✓ verify ${args.algorithm}: "${String(args.input).slice(0, 30)}"`, 0, 0)
+    name: "hash_verify",
+    label: "Hash Verify",
+    description: TOOL_DESCRIPTIONS.hash_verify,
+    promptSnippet: "Use hash_verify to check text against an expected digest.",
+    promptGuidelines: ["Pass the encoding the expected digest is written in (default hex)."],
+    parameters: hashVerifySchema,
+    async execute(_toolCallId, params) {
+      return (await loadToolOperations()).hashVerify(params);
     },
-    async execute(_toolCallId, params): Promise<AgentToolResult> {
-      try {
-        const lib = await loadLib()
-        const algo = lib.resolveAlgorithm(params.algorithm as string)
-        const opts: Record<string, unknown> = {}
-        if (params.encoding) opts.encoding = params.encoding
-        const result = algo.hash(params.input as string, opts)
-        const actual = typeof result.digest === 'string' ? result.digest.toLowerCase() : ''
-        const expected = (params.expected as string).toLowerCase()
-        const match = actual === expected
-        return {
-          content: [{ type: 'text', text: match ? `✓ MATCH: ${actual}` : `✗ MISMATCH\n  Expected: ${expected}\n  Actual:   ${actual}` }],
-          details: { match, algorithm: result.algorithm, expected, actual },
-        }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        return { content: [{ type: 'text', text: `Error: ${msg}` }] }
-      }
-    },
-  })
+  });
 
   pi.registerTool({
-    name: 'hash_algorithms',
-    label: 'Hash Algorithms',
-    description: 'List all available hash algorithms with metadata',
-    promptSnippet: 'Use hash_algorithms to see available hashing algorithms.',
+    name: "hash_algorithms",
+    label: "Hash Algorithms",
+    description: TOOL_DESCRIPTIONS.hash_algorithms,
+    promptSnippet: "Use hash_algorithms to see which hash algorithms exist and their options.",
     promptGuidelines: [
-      'Shows algorithm name, family, digest size, and HMAC support.',
-      'Filter by family: cryptographic, legacy, non-cryptographic, password.',
+      "Filter by family: cryptographic, legacy, non-cryptographic, password.",
+      "Pass an algorithm name to see its options.",
     ],
-    parameters: Type.Object({
-      family: Type.Optional(Type.String({ description: 'Filter by family: cryptographic, legacy, non-cryptographic, password' })),
-    }),
-    renderCall(_args, _theme) {
-      return new Text('📋 hash algorithms', 0, 0)
+    parameters: hashAlgorithmsSchema,
+    async execute(_toolCallId, params) {
+      return (await loadToolOperations()).hashAlgorithms(params);
     },
-    async execute(_toolCallId, params): Promise<AgentToolResult> {
-      try {
-        const lib = await loadLib()
-        const names = lib.algorithms()
-        const lines: string[] = []
-        for (const name of names) {
-          const algo = lib.create(name)
-          const info = algo.info()
-          if (params.family && info.family !== params.family) continue
-          const digest = info.digestLength ? `${info.digestLength * 8}-bit` : 'variable'
-          lines.push(`${info.name.padEnd(12)} ${info.family.padEnd(18)} ${digest.padEnd(10)} HMAC:${info.hmac ? '✓' : '✗'}  ${info.label}`)
-        }
-        return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : 'No algorithms found' }] }
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        return { content: [{ type: 'text', text: `Error: ${msg}` }] }
-      }
-    },
-  })
+  });
 }

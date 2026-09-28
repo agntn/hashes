@@ -1,53 +1,77 @@
 /** Base error for @agntn/hashes. */
 export class HashError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = 'HashError'
+    super(message);
+    this.name = "HashError";
   }
 }
 
-/** Algorithm not found in registry. */
+/** Algorithm not found in the registry. */
 export class UnknownAlgorithmError extends HashError {
-  constructor(public readonly algorithm: string) {
-    super(`Unknown algorithm: ${algorithm}`)
-    this.name = 'UnknownAlgorithmError'
+  readonly algorithm: string;
+  /** Names that were registered when the lookup failed. */
+  readonly available: readonly string[];
+
+  constructor(algorithm: string, available: readonly string[] = []) {
+    super(
+      available.length > 0
+        ? `Unknown algorithm: ${algorithm}. Available: ${available.join(", ")}`
+        : `Unknown algorithm: ${algorithm}`,
+    );
+    this.name = "UnknownAlgorithmError";
+    this.algorithm = algorithm;
+    this.available = available;
   }
 }
 
 /** Invalid option value. */
 export class InvalidOptionError extends HashError {
-  constructor(
-    public readonly option: string,
-    public readonly value: unknown,
-    public readonly reason: string,
-  ) {
-    super(`Invalid option ${option}=${value}: ${reason}`)
-    this.name = 'InvalidOptionError'
+  readonly option: string;
+  readonly value: unknown;
+  readonly reason: string;
+
+  constructor(option: string, value: unknown, reason: string) {
+    super(`Invalid option ${option}=${String(value)}: ${reason}`);
+    this.name = "InvalidOptionError";
+    this.option = option;
+    this.value = value;
+    this.reason = reason;
   }
 }
 
 /** Missing required option. */
 export class MissingOptionError extends HashError {
-  constructor(public readonly option: string) {
-    super(`Missing required option: ${option}`)
-    this.name = 'MissingOptionError'
+  readonly option: string;
+
+  constructor(option: string) {
+    super(`Missing required option: ${option}`);
+    this.name = "MissingOptionError";
+    this.option = option;
   }
 }
 
 /** Algorithm dependency not installed. */
 export class DependencyError extends HashError {
-  constructor(
-    public readonly algorithm: string,
-    public readonly dependency: string,
-  ) {
-    super(`Algorithm "${algorithm}" requires "${dependency}" — install it first`)
-    this.name = 'DependencyError'
+  readonly algorithm: string;
+  readonly dependency: string;
+
+  constructor(algorithm: string, dependency: string) {
+    super(`Algorithm "${algorithm}" requires "${dependency}"; install it first`);
+    this.name = "DependencyError";
+    this.algorithm = algorithm;
+    this.dependency = dependency;
   }
 }
 
-/** Normalizes any thrown value into a HashError. */
+/**
+ * Normalizes any thrown value into a HashError.
+ *
+ * @param error - The thrown value.
+ * @param algorithm - Algorithm the failure belongs to, prefixed to a foreign message.
+ * @returns {HashError} The same error when it already is one, otherwise a wrapped copy.
+ */
 export function normalizeError(error: unknown, algorithm?: string): HashError {
-  if (error instanceof HashError) return error
-  const msg = error instanceof Error ? error.message : String(error)
-  return new HashError(algorithm ? `[${algorithm}] ${msg}` : msg)
+  if (error instanceof HashError) return error;
+  const message = error instanceof Error ? error.message : String(error);
+  return new HashError(algorithm ? `[${algorithm}] ${message}` : message);
 }

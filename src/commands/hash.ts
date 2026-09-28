@@ -1,32 +1,23 @@
-import { defineCommand } from 'citty'
-import consola from 'consola'
-import { resolveAlgorithm } from '../core/resolve'
-import type { HashOptions, OutputEncoding } from '../core/types'
-
-function parseEncoding(value: string | undefined): OutputEncoding {
-  const enc = (value ?? 'hex') as OutputEncoding
-  if (!['hex', 'base64', 'base64url', 'binary'].includes(enc)) {
-    consola.error(`Invalid encoding: "${value}". Use: hex, base64, base64url, binary`)
-    process.exit(1)
-  }
-  return enc
-}
+import { defineCommand } from "citty";
+import { resolveAlgorithm } from "../index.ts";
+import { encodingArg, parseEncoding, printDigest, readInput, saltArg } from "./shared.ts";
 
 export default defineCommand({
-  meta: { name: 'hash', description: 'Hash input with an algorithm' },
+  meta: { name: "hash", description: "Hash input with an algorithm" },
   args: {
-    algorithm: { type: 'positional', description: 'Algorithm name (sha256, blake3, md5, ...)', required: true },
-    input: { type: 'positional', description: 'Text to hash (or - for stdin)', required: true },
-    encoding: { type: 'string', description: 'Output encoding: hex, base64, base64url, binary', alias: 'e', default: 'hex' },
+    algorithm: {
+      type: "positional",
+      description: "Algorithm name (sha256, blake3, md5, ...)",
+      required: true,
+    },
+    input: { type: "positional", description: "Text to hash, or - for stdin", required: true },
+    encoding: encodingArg,
+    salt: saltArg,
   },
-  async run({ args }) {
-    const algo = resolveAlgorithm(args.algorithm)
-    const opts: HashOptions = { encoding: parseEncoding(args.encoding) }
-    const result = algo.hash(args.input, opts)
-    if (result.encoding === 'binary') {
-      process.stdout.write(result.digest as Uint8Array)
-    } else {
-      consola.log(result.digest)
-    }
+  run({ args }) {
+    const algorithm = resolveAlgorithm(args.algorithm);
+    const encoding = parseEncoding(args.encoding);
+    const salt = args.salt === undefined ? {} : { salt: args.salt };
+    printDigest(algorithm.hash(readInput(args.input), { encoding, ...salt }));
   },
-})
+});
