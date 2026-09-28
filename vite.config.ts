@@ -28,7 +28,7 @@ export default defineConfig({
                 "ToolResult",
               ],
             },
-            { from: "lib", name: ["DataView", "Uint32Array", "Uint8Array"] },
+            { from: "lib", name: ["DataView", "Int32Array", "Uint32Array", "Uint8Array"] },
             { from: "package", name: "TLocalizedValidationError", package: "typebox" },
             {
               from: "package",

@@ -1,6 +1,6 @@
 /** XXH64 in plain TypeScript, after the xxHash specification by Yann Collet. */
 import { InvalidOptionError } from "../core/errors.ts";
-import { ChecksumHash } from "../core/checksum.ts";
+import { FixedHash } from "../core/fixed-hash.ts";
 import type { HashOptions } from "../core/types.ts";
 
 /** Options xxHash takes besides the encoding. */
@@ -123,7 +123,7 @@ function seedValue(seed: number | bigint | undefined): bigint {
   return value;
 }
 
-export class Xxhash extends ChecksumHash<XxhashOptions> {
+export class Xxhash extends FixedHash<XxhashOptions> {
   static readonly key = "xxhash";
   protected readonly about = {
     label: "xxHash (XXH64)",

@@ -2,8 +2,8 @@ import { ENCODING_OPTION, encodeDigest, guarded, toBytes } from "./digest.ts";
 import { Hash, type HashAbout } from "./hash.ts";
 import type { AlgorithmInfo, HashInput, HashOption, HashOptions, HashResult } from "./types.ts";
 
-/** Base class for a fixed-length digest this package computes itself, such as a checksum. */
-export abstract class ChecksumHash<Options extends HashOptions = HashOptions> extends Hash {
+/** Base class for a fixed-length digest this package computes itself, with no HMAC mode. */
+export abstract class FixedHash<Options extends HashOptions = HashOptions> extends Hash {
   /** Label, description, family, digest length and security note. */
   protected abstract readonly about: HashAbout;
   /** Options besides `encoding`. */

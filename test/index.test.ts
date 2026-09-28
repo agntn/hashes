@@ -1,4 +1,4 @@
-import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
+import { createHash, createHmac, getHashes, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
@@ -157,7 +157,22 @@ describe("digests", () => {
 
   it("refuses HMAC where the algorithm has none, instead of ignoring the key", () => {
     const without = builtinAlgorithms.filter((name) => !create(name).info().hmac);
-    expect(without).toEqual(["blake3", "crc32", "xxhash", "fnv1a", "scrypt", "pbkdf2"]);
+    expect(without).toEqual([
+      "sha512-half",
+      "keccak256",
+      "blake2b-256",
+      "blake2b-224",
+      "blake3",
+      "blake256",
+      "hash160",
+      "hash256",
+      "crc32",
+      "crc16-xmodem",
+      "xxhash",
+      "fnv1a",
+      "scrypt",
+      "pbkdf2",
+    ]);
     for (const name of without) {
       expect(() => create(name).hash("message", { key: "secret" })).toThrow(HashError);
     }
@@ -256,6 +271,86 @@ describe("digests", () => {
     expect(create("crc32").hash("test", { encoding: "binary" }).digest).toEqual(
       new Uint8Array(Buffer.from(zlibCrc32("test").toString(16).padStart(8, "0"), "hex")),
     );
+  });
+});
+
+describe("hashes chains use", () => {
+  it("hash160 gives the Bitcoin key hash of the generator point", () => {
+    // Compressed public key of private key 1; its P2PKH address is 1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH.
+    const key = Buffer.from(
+      "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+      "hex",
+    );
+    expect(create("hash160").hash(key).digest).toBe("751e76e8199196d454941c45d1b3a323f1433bd6");
+  });
+
+  it("hash256 gives the genesis block hash, byte-reversed as explorers print it", () => {
+    const header = Buffer.from(
+      "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c",
+      "hex",
+    );
+    const digest = create("hash256").hash(header, { encoding: "binary" }).digest as Uint8Array;
+    expect(Buffer.from(digest).reverse().toString("hex")).toBe(
+      "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+    );
+  });
+
+  it("keccak256 matches the published vectors and differs from sha3-256", () => {
+    expect(create("keccak256").hash("").digest).toBe(
+      "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+    );
+    expect(create("keccak256").hash("abc").digest).toBe(
+      "4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45",
+    );
+    expect(create("keccak256").hash("abc").digest).not.toBe(create("sha3-256").hash("abc").digest);
+  });
+
+  it.skipIf(!getHashes().includes("keccak-256"))(
+    "keccak256 matches OpenSSL where it has one",
+    () => {
+      for (const length of [0, 1, 135, 136, 137, 271, 272, 273, 1000]) {
+        const input = new Uint8Array(length).map((_, index) => (index * 29 + length) & 255);
+        expect(create("keccak256").hash(input).digest).toBe(
+          createHash("keccak-256").update(input).digest("hex"),
+        );
+      }
+    },
+  );
+
+  it("blake2b-256 and blake2b-224 match the reference BLAKE2b", () => {
+    // Python hashlib.blake2b(data, digest_size=32 or 28).
+    expect(create("blake2b-256").hash("").digest).toBe(
+      "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8",
+    );
+    expect(create("blake2b-256").hash("abc").digest).toBe(
+      "bddd813c634239723171ef3fee98579b94964e3bb1cb3e427262c8c068d52319",
+    );
+    expect(create("blake2b-224").hash("abc").digest).toBe(
+      "9bd237b02a29e43bdd6738afa5b53ff0eee178d6210b618e4511aec8",
+    );
+  });
+
+  it("blake256 matches the BLAKE submission's test vectors", () => {
+    expect(create("blake256").hash("").digest).toBe(
+      "716f6e863f744b9ac22c97ec7b76ea5f5908bc5b2f67c61510bfc4751384ea7a",
+    );
+    expect(create("blake256").hash(new Uint8Array(1)).digest).toBe(
+      "0ce8d4ef4dd7cd8d62dfded9d4edb0a774ae6a41929a74da23109e8f11139c87",
+    );
+    expect(create("blake256").hash(new Uint8Array(72)).digest).toBe(
+      "d419bad32d504fb7d44d460c42c5593fe544fa4c135dec31e21bd9abdcc22d41",
+    );
+  });
+
+  it("sha512-half is the first half of SHA-512", () => {
+    expect(create("sha512-half").hash("abc").digest).toBe(
+      "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a",
+    );
+  });
+
+  it("crc16-xmodem matches the catalogue check value", () => {
+    expect(create("crc16-xmodem").hash("123456789").digest).toBe("31c3");
+    expect(create("crc16-xmodem").hash("").digest).toBe("0000");
   });
 });
 

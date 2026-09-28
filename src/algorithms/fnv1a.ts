@@ -1,4 +1,4 @@
-import { ChecksumHash } from "../core/checksum.ts";
+import { FixedHash } from "../core/fixed-hash.ts";
 
 /**
  * Computes the 64-bit FNV-1a hash on two 32-bit halves. The prime is 2^40 + 0x1b3, so each step
@@ -25,7 +25,7 @@ function fnv1a64(data: Uint8Array): Uint8Array {
   return digest;
 }
 
-export class Fnv1a extends ChecksumHash {
+export class Fnv1a extends FixedHash {
   static readonly key = "fnv1a";
   protected readonly about = {
     label: "FNV-1a (64-bit)",

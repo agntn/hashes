@@ -15,7 +15,7 @@ export const SALT_PATTERN = "^(?:[0-9A-Fa-f]{2}){1,256}$";
 export const TEXT_ENCODINGS = ["hex", "base64", "base64url"] as const;
 export const HASH_FAMILIES = ["cryptographic", "legacy", "non-cryptographic", "password"] as const;
 export const BUILTIN_ALGORITHMS =
-  "sha256, sha384, sha512, sha3-256, sha3-512, blake2b, blake2s, blake3, ripemd160, md5, sha1, crc32, xxhash, fnv1a, scrypt, pbkdf2";
+  "sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256, md5, sha1, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2";
 export const HMAC_ALGORITHMS =
   "sha256, sha384, sha512, sha3-256, sha3-512, blake2b, blake2s, ripemd160, md5, sha1";
 

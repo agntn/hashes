@@ -3,7 +3,7 @@
  * Wilcox-O'Hearn. Node has no BLAKE3 digest, so this is the one algorithm the package computes
  * itself. Only the default hash mode with a 32-byte output: no keyed or derive-key mode.
  */
-import { ChecksumHash } from "../core/checksum.ts";
+import { FixedHash } from "../core/fixed-hash.ts";
 
 const CHUNK_LEN = 1024;
 const BLOCK_LEN = 64;
@@ -878,7 +878,7 @@ export function blake3(data: Uint8Array): Uint8Array {
   return digest;
 }
 
-export class Blake3 extends ChecksumHash {
+export class Blake3 extends FixedHash {
   static readonly key = "blake3";
   protected readonly about = {
     label: "BLAKE3",

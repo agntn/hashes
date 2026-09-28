@@ -1,7 +1,7 @@
 import { crc32 } from "node:zlib";
-import { ChecksumHash } from "../core/checksum.ts";
+import { FixedHash } from "../core/fixed-hash.ts";
 
-export class Crc32 extends ChecksumHash {
+export class Crc32 extends FixedHash {
   static readonly key = "crc32";
   protected readonly about = {
     label: "CRC-32",

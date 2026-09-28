@@ -5,7 +5,7 @@
 [![license](https://npmx.dev/api/registry/badge/license/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/hashes)
 
-#️⃣ Sixteen hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
+#️⃣ Twenty-four hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
 
 ## Why?
 
@@ -13,11 +13,12 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 
 ## ✨ Features
 
-- 🧮 **Sixteen algorithms.** SHA-2, SHA-3, BLAKE2b, BLAKE2s, BLAKE3, RIPEMD-160, MD5, SHA-1, CRC-32, xxHash, FNV-1a, scrypt and PBKDF2.
+- 🧮 **Twenty-four algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD-160, MD5, SHA-1, CRC-32, xxHash, FNV-1a, scrypt and PBKDF2.
+- 🪙 **The ones chains use.** Keccak-256, HASH160, double SHA-256, BLAKE2b-256 and -224, BLAKE-256, SHA-512Half and CRC-16/XMODEM. Ethereum, Bitcoin, Sui, Cardano, Decred, XRP Ledger, Stellar and TON, covered.
 - 🔑 **HMAC where it exists.** Ten of them take a key. The rest say no instead of pretending.
 - 🧂 **KDFs that tell you the salt.** No salt given, a random one is drawn and printed next to the digest. Without it that digest is useless.
 - ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
-- ⚡ **Native where Node has it.** OpenSSL in `node:crypto` does the heavy lifting. BLAKE3, xxHash and FNV-1a are plain TypeScript, and there is no hashing dependency at all.
+- ⚡ **Native where Node has it.** OpenSSL in `node:crypto` does the heavy lifting. Keccak, short BLAKE2b, BLAKE-256, BLAKE3 and the checksums are plain TypeScript. No hashing dependency at all.
 - 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too.
 - 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share four tools and the code behind them.
@@ -104,12 +105,12 @@ That's most of it. `create()` wants the exact name. `resolveAlgorithm()` forgive
 
 ## 🗂️ Algorithms
 
-| Family            | Algorithms                                                                      | HMAC                 |
-| ----------------- | ------------------------------------------------------------------------------- | -------------------- |
-| cryptographic     | sha256, sha384, sha512, sha3-256, sha3-512, blake2b, blake2s, blake3, ripemd160 | all but blake3       |
-| legacy            | md5, sha1                                                                       | yes                  |
-| non-cryptographic | crc32, xxhash, fnv1a                                                            | no                   |
-| password          | scrypt, pbkdf2                                                                  | no, they take a salt |
+| Family            | Algorithms                                                                                                                                                    | HMAC                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| cryptographic     | sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256 | sha2, sha3, blake2b, blake2s, ripemd160 |
+| legacy            | md5, sha1                                                                                                                                                     | yes                                     |
+| non-cryptographic | crc32, crc16-xmodem, xxhash, fnv1a                                                                                                                            | no                                      |
+| password          | scrypt, pbkdf2                                                                                                                                                | no, they take a salt                    |
 
 MD5 and SHA-1 are broken for security. They're here for checksums and old systems. `hashes info <name>` has the security note for each.
 
@@ -136,7 +137,7 @@ Password storage for your app. scrypt and PBKDF2 are here so you can reproduce a
 
 ## 🧩 Adding an algorithm
 
-Want a seventeenth? Anything Node's OpenSSL knows is one small class:
+Missing one? Anything Node's OpenSSL knows is one small class:
 
 ```ts
 import { NodeHash, register, create } from "@agntn/hashes";
