@@ -122,9 +122,9 @@ export interface SaltOptions {
 export function resolveSalt(options?: Readonly<SaltOptions>): Uint8Array {
   const salt = options?.salt;
   if (salt === undefined) return randomBytes(32);
-  if (typeof salt !== "string") return salt;
   const encoding = options?.saltEncoding ?? "hex";
-  const bytes = decodeSalt(salt, encoding);
+  // Empty bytes are refused like an empty string: the reported salt "" could not be passed back.
+  const bytes = typeof salt === "string" ? decodeSalt(salt, encoding) : salt;
   if (bytes === undefined || bytes.length === 0) {
     throw new InvalidOptionError("salt", salt, `must be whole bytes in ${encoding}`);
   }

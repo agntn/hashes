@@ -373,6 +373,14 @@ describe("executors without a schema in front", () => {
     }
   });
 
+  it("refuse an empty or blank expected digest, as the schema does", () => {
+    for (const expected of ["", "   "]) {
+      expect(() => hashVerify({ algorithm: "sha256", input: "x", expected })).toThrow(
+        "must not be empty",
+      );
+    }
+  });
+
   it("cap the number of parameters, which OMP's schema cannot", () => {
     const nine = Object.fromEntries([..."abcdefghi"].map((name, index) => [name, index]));
     expect(() => hashCompute({ algorithm: "xxhash", input: "x", parameters: nine })).toThrow(

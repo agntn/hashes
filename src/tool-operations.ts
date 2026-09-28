@@ -339,6 +339,7 @@ export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> 
   const algorithm = algorithmArgument(params.algorithm);
   const input = textArgument("input", params.input, MAX_INPUT_LENGTH);
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
+  if (expected === "") throw new InvalidOptionError("expected", "", "must not be empty");
   const encoding = encodingArgument(params.encoding);
   const options = algorithmOptions(algorithm, params.salt, params.parameters);
   if (options["salt"] === undefined && takesSalt(algorithm.info())) {

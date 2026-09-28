@@ -399,6 +399,14 @@ describe("key derivation", () => {
     );
   });
 
+  it("refuses an empty salt as bytes, as it does as text", () => {
+    for (const empty of [new Uint8Array(0), ""]) {
+      expect(() =>
+        create("pbkdf2").hash("pw", { salt: empty, iterations: 1 } as Pbkdf2Options),
+      ).toThrow(/Invalid option salt=/);
+    }
+  });
+
   it("refuses zero r, p and keyLength, which Node would read as the defaults", () => {
     for (const cost of [{ r: 0 }, { p: 0 }, { keyLength: 0 }]) {
       expect(() =>
