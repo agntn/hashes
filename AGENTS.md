@@ -1,132 +1,75 @@
-# PROJECT KNOWLEDGE BASE
+# AGENTS.md
 
-**Generated:** 2025-12-30
-**Commit:** 542d89b
-**Branch:** main
+Keep AGENTS.md updated with project status.
 
-## OVERVIEW
+## Scope
 
-Rust CLI for building precomputed hash databases from wordlists (Parquet format) and querying them for reverse lookups. Security research, CTF, forensics use cases.
+`@agntn/hashes`: hash, HMAC, verify and look up 24 hash and key derivation algorithms, including the constructions cryptocurrencies use. Library, CLI (`hashes`), MCP server, AI SDK tools, Pi and OMP extensions. Local computation only: no network, no state, no keys to configure. Formerly `hashhouse` (`~/Projekty/oritwoen/hashhouse`); the rename was a clean cutover without the old `hh` binary. Signing and wallet keys belong to `@agntn/keys`, ciphers to `@agntn/ciphers`.
 
-## STRUCTURE
+## Status
+
+- Aligned with `_template` and moved to Vite+ in the shape of `@agntn/explorers` (#143): `vp pack` builds, `vp lint` and `vp fmt` run the shared `@agntn/ox` policy from `vite.config.ts`, `vp test` runs Vitest 5.
+- Algorithms are classes, like ciphers and chains: `Hash` is the base, `NodeHash` wraps a digest `node:crypto` computes through OpenSSL, `FixedHash` a digest computed here, and each class carries a static `key`. The registry is seeded from the class list in `src/algorithms/index.ts` on first use; importing the package mutates nothing, so `sideEffects` is `false`.
+- MCP, AI SDK, Pi and OMP share the executors in `src/tool-operations.ts`. MCP and Pi share the TypeBox schemas in `packages/shared/tool-schemas.ts`; OMP restates them with `pi.typebox`, and `test/omp-extension.test.ts` holds both to the same accept/reject answers.
+- A local MCP server runs `src/` from the built bin inside a checkout, like `_template`; `HASHES_DIST=1` keeps the bundle. `test/cli.test.ts` proves both modes and each guard.
+- Fixed during the refactor, each with a regression test: XXH64 used a wrong `PRIME64_2` and skipped `round()` in the merge and tail steps, so it never produced XXH64 (now identical to the reference `xxhash` on 603 inputs); BLAKE3 moved off `@noble/hashes` to its own implementation, identical to the reference `blake3` on 285 lengths up to 1 MiB; verify lowercased base64 before comparing; the tools drew a KDF salt and never returned it; pbkdf2 looked `digest` up through `Object.prototype`; a malformed hex salt shrank silently; `--version` hashed the flag; `-` for stdin was documented but not implemented.
+
+## Stack
+
+- **Runtime**: Node.js 26 and newer only (`engines >=26`, CI on 26). OpenSSL 3.6 brings `keccak-256`, and `Uint8Array` has native hex and base64.
+- **Language**: TypeScript (strict), relative imports end in `.ts`
+- **Build**: `vp pack` (tsdown), chunks under `dist/_chunks/` with stable names
+- **Test**: `vp test` (Vitest 5 bundled with vite-plus 1.0.0), APIs from `vite-plus/test`
+- **Lint and format**: `vp lint` and `vp fmt` with `@agntn/ox`, type-aware through `oxlint-tsgolint`
+- **Typecheck**: `tsc` (TypeScript 7) for the library, then the extensions and the tests after a build
+- **Hashing**: `node:crypto` (OpenSSL) for SHA-2, SHA-3, BLAKE2, RIPEMD-160, MD5, SHA-1, HMAC, scrypt and PBKDF2, `node:zlib` for CRC-32. Keccak-256 comes from OpenSSL too. BLAKE2b with a short output (`src/core/blake2b.ts`), BLAKE-256, BLAKE3, XXH64, FNV-1a and CRC-16/XMODEM are plain TypeScript: OpenSSL computes BLAKE2b only at 64 bytes. Hot loops keep every value an int32 (local variables, `Int32Array` views, branchless carries); a double or a heap number in the loop cost BLAKE2b 2-4x. No hashing dependency.
+- **Release**: changelogen
+- **Package manager**: pnpm 11
+
+## Scripts
+
+- `pnpm build` - `vp pack`
+- `pnpm dev` - `vp pack --watch`
+- `pnpm lint` - build, then `vp lint` and `vp fmt --check`
+- `pnpm fmt` - build, then `vp lint --fix` and `vp fmt` (the autofix workflow runs it on a clean checkout)
+- `pnpm typecheck` - library, build, extensions, tests
+- `pnpm test` - `vp test run`
+- `pnpm release` - test, build, and release
+
+## Structure
 
 ```
-shaha/
-├── src/
-│   ├── cli/           # Command handlers (build, query, info, source)
-│   ├── hasher/        # Hash algorithms via macro (impl_digest_hasher!)
-│   ├── source/        # Data sources: file, stdin, url, seclists, aspell
-│   ├── storage/       # Backends: parquet (local), r2 (S3/DuckDB)
-│   ├── config.rs      # TOML config loader (.shaha.toml, XDG)
-│   ├── lib.rs         # Public API exports
-│   └── main.rs        # CLI entry point
-└── tests/
-    └── integration.rs # All tests (unit + integration)
+src/core/                - Hash, NodeHash, FixedHash, types, errors, registry, name resolution, digest helpers, verify
+src/algorithms/          - one file per built-in algorithm, plus the builtins list in index.ts
+src/commands/            - citty subcommands
+src/tool-operations.ts   - executors shared by every agent surface
+src/mcp.ts, src/ai.ts    - MCP server and AI SDK tools
+packages/shared/         - tool contract (bounds, descriptions) and TypeBox schemas, shipped
+packages/pi/extensions/  - Pi extension
+packages/omp/extensions/ - OMP extension
+test/fixtures/           - typed Pi and OMP extension test hosts from _template
 ```
 
-## WHERE TO LOOK
+## Adding an algorithm
 
-| Task | Location | Pattern |
-|------|----------|---------|
-| Add hash algorithm | `src/hasher/mod.rs` | Use `impl_digest_hasher!` macro |
-| Add data source | `src/source/` | Implement `Source` trait |
-| Add storage backend | `src/storage/` | Implement `Storage` trait |
-| Add CLI command | `src/cli/` | Add to `Commands` enum in mod.rs |
-| Config options | `src/config.rs` | Nested TOML structure |
+1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `NodeHash` for a digest `getHashes()` lists on Node 26, `FixedHash` for a fixed-length digest computed here, `Hash` for anything else. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
+2. Add the class to `builtins` in `src/algorithms/index.ts` and its key to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
+3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
+4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.
 
-## ARCHITECTURE
+`test/index.test.ts` fails when the files, `builtins` and `builtinAlgorithms` disagree; `test/mcp.test.ts` fails when the tool contract lists differ from the registry.
 
-**Three core traits:**
+## Conventions
 
-```rust
-trait Hasher: Send + Sync {
-    fn name(&self) -> &'static str;
-    fn hash(&self, input: &[u8]) -> Vec<u8>;
-}
+- ESM only; emitted runtime files are `.mjs`, declarations `.d.mts`.
+- No `as any`, `@ts-ignore`, or `@ts-expect-error`.
+- Every bound a tool schema declares is enforced again in the executor, and every tool argument table in `TOOL_ARGUMENTS` matches its schema keys.
+- Tool schemas are closed (`additionalProperties: false`); an undeclared key is an error on every surface.
+- An algorithm's options besides `encoding` and `key` (salt, seed, KDF costs) reach every surface from one place: `info().options`, checked by `checkedParameters` in `src/core/options.ts`. The CLI turns them into flags, the tools take them as `parameters`, and a name the algorithm does not declare is an error, never dropped. Tool calls also cap KDF costs (`PARAMETER_LIMITS`, `MAX_SCRYPT_MEMORY`); the library leaves them to the caller. omptype ignores `maxProperties`, so the executor enforces `MAX_PARAMETERS` itself.
+- An MCP client sees only `content`, so every fact a follow-up call needs (a KDF's salt and cost) is in the text.
+- The CLI prints the digest alone on stdout; a salted digest's parameters go to stderr.
+- `pnpm install` hung in `importing_started` with pnpm 11.26 and the default import method on this machine; `--config.package-import-method=hardlink` works.
 
-trait Source {
-    fn name(&self) -> &str;
-    fn words(&self) -> Result<Box<dyn Iterator<Item = String>>>;
-    fn content_hash(&self) -> Result<Option<String>>;  // blake3 for dedup
-}
+## Contributing
 
-trait Storage {
-    fn write_batch(&mut self, records: Vec<HashRecord>) -> Result<()>;
-    fn finish(&mut self) -> Result<()>;
-    fn query(&self, hash_prefix: &[u8], algo: Option<&str>, limit: Option<usize>) -> Result<Vec<HashRecord>>;
-    fn stats(&self) -> Result<Stats>;
-}
-```
-
-## CONVENTIONS
-
-- **Hasher impl**: Use `impl_digest_hasher!` macro for Digest-based algorithms
-- **Source parsing**: `provider:path` syntax (seclists:Passwords/x.txt, aspell:en)
-- **Content dedup**: Sources implement `content_hash()` → blake3 of content
-- **Source metadata**: Stored in parquet as `shaha:source_hashes` JSON array
-- **Config priority**: CLI flags > env vars > .shaha.toml > ~/.config/shaha/config.toml
-- **No doc comments**: Code should be self-documenting (enforced by hook)
-
-## ANTI-PATTERNS
-
-- **No `as any` / `@ts-ignore`**: Rust project, but same principle - no type suppression
-- **No empty error handling**: Always propagate with `?` or handle explicitly
-- **No hardcoded paths**: Use `dirs` crate for XDG compliance
-- **No blocking in async**: DuckDB used for R2 is blocking, contained in r2.rs
-
-## SOURCE PROVIDERS
-
-| Provider | Pull | Usage |
-|----------|------|-------|
-| `seclists` | `shaha source pull seclists` | `--from seclists:Passwords/rockyou.txt` |
-| `aspell` | System package | `--from aspell:en` |
-| `file` | - | `--from file:words.txt` or positional |
-| URL | - | `--from https://example.com/words.txt` |
-
-## ALGORITHMS
-
-md5, sha1, sha256, sha512, hash160 (Bitcoin), hash256 (Bitcoin), keccak256 (Ethereum), blake3, ripemd160
-
-## COMMANDS
-
-```bash
-# Build
-shaha build words.txt -a sha256 -a md5
-shaha build --from seclists:Passwords/rockyou.txt
-
-# Query
-shaha query 5e8848                    # prefix search
-shaha query <hash> -a sha256          # filter by algo
-shaha query <hash> --format json
-
-# Info
-shaha info hashes.parquet
-
-# Source management
-shaha source pull seclists
-shaha source list seclists Passwords
-shaha source list aspell
-
-# R2/S3 (via config or flags)
-shaha build words.txt --r2
-shaha query 5e8848 --r2
-```
-
-## STORAGE
-
-**Parquet schema:**
-- `hash` (Binary) - raw bytes, sorted for binary search
-- `preimage` (Utf8) - original input
-- `algorithm` (Utf8) - "sha256", "md5", etc.
-- `sources` (List<Utf8>) - ["rockyou", "common"]
-
-**Metadata keys:**
-- `shaha:bloom_filter` - Base64-encoded bloom filter for fast rejection
-- `shaha:source_hashes` - JSON array of blake3 content hashes
-
-## NOTES
-
-- Row group stats enable prefix search without full scan
-- Bloom filter checked BEFORE parquet query for known-miss fast path
-- Source hash dedup skips rebuild if content unchanged (use `--force` to override)
-- R2 storage uses DuckDB's httpfs extension (not native S3 client)
+- Pull requests and issues use short, freeform descriptions focused on why a change is needed or what went wrong.

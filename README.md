@@ -1,160 +1,179 @@
-# shaha
+# @agntn/hashes
 
-[![Crates.io](https://img.shields.io/crates/v/shaha?style=flat&colorA=130f40&colorB=474787)](https://crates.io/crates/shaha)
-[![Downloads](https://img.shields.io/crates/d/shaha?style=flat&colorA=130f40&colorB=474787)](https://crates.io/crates/shaha)
-[![License](https://img.shields.io/crates/l/shaha?style=flat&colorA=130f40&colorB=474787)](LICENSE)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/oritwoen/shaha)
+[![npm version](https://npmx.dev/api/registry/badge/version/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
+[![npm downloads](https://npmx.dev/api/registry/badge/downloads/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
+[![license](https://npmx.dev/api/registry/badge/license/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/hashes)
 
-Hash database builder and reverse lookup tool. *SHA + aha!*
+#️⃣ Twenty-four hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
 
-Build precomputed hash databases from wordlists, then query them to find preimages.
+## Why?
 
-## Installation
+Ask a model for the SHA-256 of a string. It will give you 64 hex characters, very confidently. They will be wrong. Hashing is the one thing a language model can't fake, so it should call something that actually hashes. This is that something.
 
-```bash
-cargo install shaha
-```
+## ✨ Features
 
-Or build from source:
+- 🧮 **Twenty-four algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD-160, MD5, SHA-1, CRC-32, xxHash, FNV-1a, scrypt and PBKDF2.
+- 🪙 **The ones chains use.** Keccak-256, HASH160, double SHA-256, BLAKE2b-256 and -224, BLAKE-256, SHA-512Half and CRC-16/XMODEM. Ethereum, Bitcoin, Sui, Cardano, Decred, XRP Ledger, Stellar and TON, covered.
+- 🔑 **HMAC where it exists.** Eleven of them take a key. The rest say no instead of pretending.
+- 🧂 **KDFs that tell you the salt.** No salt given, a random one is drawn and printed next to the digest. Without it that digest is useless.
+- ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
+- ⚡ **Native where Node has it.** OpenSSL in `node:crypto` does the heavy lifting. Short BLAKE2b, BLAKE-256, BLAKE3 and the checksums are plain TypeScript. No hashing dependency at all.
+- 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too.
+- 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
+- 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share four tools and the code behind them.
+- 🧩 **Bring your own.** Extend `NodeHash` with any digest Node knows and `register()` the class.
 
-```bash
-git clone https://github.com/oritwoen/shaha
-cd shaha
-cargo build --release
-```
-
-## Usage
-
-### Build a hash database
-
-```bash
-# Single algorithm (default: sha256)
-shaha build words.txt
-
-# Multiple algorithms
-shaha build words.txt -a md5 -a sha256 -a keccak256
-
-# Custom output file
-shaha build words.txt -o mydb.parquet
-
-# With source metadata
-shaha build rockyou.txt -a hash160 -s rockyou
-```
-
-### Query for preimage
+## 📦 Install
 
 ```bash
-# Find preimage by hash
-shaha query 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-
-# Prefix search
-shaha query 5e8848
-
-# Filter by algorithm
-shaha query 5e8848 -a sha256
-
-# Output formats
-shaha query 5e8848 --format plain   # default
-shaha query 5e8848 --format json
-shaha query 5e8848 --format table
+pnpm add @agntn/hashes
 ```
 
-### Database info
+Node.js 26 or newer. No network, no keys, no config.
+
+## 🚀 First call
 
 ```bash
-shaha info hashes.parquet
+npx @agntn/hashes sha256 "hello world"
 ```
 
-Output:
 ```
-Database: "hashes.parquet"
-Records:  1000000
-Size:     45.32 MB
-Algorithms: sha256, md5, keccak256
-Sources:  rockyou
+b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
 ```
 
-## Algorithms
+The first word is the algorithm. Only the digest goes to stdout, so it pipes. For the bare `hashes` below, `pnpm add -g @agntn/hashes` once.
 
-| Name | Description | Output |
-|------|-------------|--------|
-| `md5` | MD5 | 128 bit |
-| `sha1` | SHA-1 | 160 bit |
-| `sha256` | SHA-256 | 256 bit |
-| `sha512` | SHA-512 | 512 bit |
-| `hash160` | RIPEMD160(SHA256(x)) - Bitcoin addresses | 160 bit |
-| `hash256` | SHA256(SHA256(x)) - Bitcoin blocks/txids | 256 bit |
-| `keccak256` | Keccak-256 - Ethereum | 256 bit |
-| `blake3` | BLAKE3 | 256 bit |
-| `ripemd160` | RIPEMD-160 | 160 bit |
-
-## Storage Format
-
-Databases are stored as [Apache Parquet](https://parquet.apache.org/) files with ZSTD compression.
-
-Schema:
-- `hash` (Binary) - hash bytes
-- `preimage` (Utf8) - original input data
-- `algorithm` (Utf8) - algorithm name
-- `sources` (List<Utf8>) - wordlist origins
-
-Parquet files can be queried with DuckDB, Polars, Spark, or Cloudflare R2 SQL.
-
-## Use Cases
-
-- **Security research** - reverse hash lookups
-- **CTF challenges** - quick hash cracking
-- **Forensics** - identify known passwords
-- **Blockchain analysis** - Bitcoin/Ethereum address research
-
-## Configuration
-
-Configuration is loaded from (in order of priority):
-1. CLI flags
-2. Environment variables
-3. `.shaha.toml` in current directory
-4. `~/.config/shaha/config.toml`
-
-### Example config file
-
-```toml
-[storage.r2]
-endpoint = "https://account-id.r2.cloudflarestorage.com"
-bucket = "my-bucket"
-access_key_id = "your-access-key"
-secret_access_key = "your-secret-key"
-region = "auto"
-path = "hashes.parquet"
-
-[defaults]
-algorithms = ["sha256", "md5"]
-output = "hashes.parquet"
-```
-
-### R2/S3 Storage
-
-Build and query directly from Cloudflare R2 or S3-compatible storage:
+A KDF is more talkative:
 
 ```bash
-# Build to R2
-shaha build words.txt --r2
-
-# Query from R2
-shaha query 5e8848 --r2
+hashes scrypt "correct horse battery staple"
 ```
 
-Environment variables:
-- `SHAHA_R2_ENDPOINT` - S3/R2 endpoint URL
-- `SHAHA_R2_BUCKET` - Bucket name
-- `SHAHA_R2_ACCESS_KEY_ID` or `AWS_ACCESS_KEY_ID`
-- `SHAHA_R2_SECRET_ACCESS_KEY` or `AWS_SECRET_ACCESS_KEY`
-- `SHAHA_R2_PATH` - Path within bucket
-- `SHAHA_R2_REGION` - Region (default: "auto")
+```
+N 16384, r 8, p 1, keyLength 64, salt 31f4aa33e6346bfa6d576a5dce9eec1c0d6c8e959271d03c2f489a71ac52453b
+bc010c96df4510eef56ce1a1fc1d140ee276b92d30a31e2ca2e065f6dac8977c9c1bd5d20951e54fbd5b4474984c0f45f5adbe8c7b18daeeacbef09dc330a902
+```
 
-## Roadmap
+The first line is stderr. Keep the salt, `--salt` takes it back. Run it again without one and you get a different digest. Salts are supposed to do that.
 
-- [ ] [R2 Data Catalog](https://developers.cloudflare.com/r2/data-catalog/) - Apache Iceberg integration for faster queries
+And verify, twice:
 
-## License
+```bash
+hashes verify sha256 abc "ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=" -e base64
+hashes verify sha256 abc "ungwv48bz+pbqudexa4ii7adyaowf3qctbd/yfiafa0=" -e base64
+```
 
-MIT
+```
+MATCH sha256 ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=
+MISMATCH sha256
+  expected ungwv48bz+pbqudexa4ii7adyaowf3qctbd/yfiafa0=
+  actual   ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=
+```
+
+Same letters, other bytes. The second one exits with 1.
+
+### Commands
+
+| Command      | What it does                                   | Example                                                    |
+| ------------ | ---------------------------------------------- | ---------------------------------------------------------- |
+| `hash`       | Digest of text, or of stdin with `-`           | `hashes hash blake3 - < file.bin`                          |
+| `hmac`       | Keyed digest                                   | `hashes hmac sha256 "message" "secret"`                    |
+| `verify`     | Compare with an expected digest, exit 1 if not | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592` |
+| `algorithms` | The list, `-f` keeps one family                | `hashes algorithms -f password`                            |
+| `info`       | One algorithm with its options                 | `hashes info pbkdf2`                                       |
+| `mcp`        | The MCP server on stdio                        | `hashes mcp`                                               |
+
+`hash` is the default, so `hashes md5 hello` works. Flags per command: `hashes <command> --help`.
+
+## 🧠 Library
+
+```ts
+import { create, resolveAlgorithm, digestMatches } from "@agntn/hashes";
+
+create("sha256").hash("abc").digest; // "ba7816bf8f01cfea..."
+create("sha256").hash("message", { key: "secret" }).operation; // "hmac"
+
+const blake3 = resolveAlgorithm("BLAKE3");
+blake3.hash(new Uint8Array([1, 2, 3]), { encoding: "base64" });
+
+const result = create("md5").hash("hello");
+digestMatches(result, "5D41402ABC4B2A76B9719D911017C592"); // true
+```
+
+That's most of it. `create()` wants the exact name. `resolveAlgorithm()` forgives case, spaces and underscores, so `SHA3_256` finds `sha3-256`. Every result has the digest, its length and the options it depends on. Something wrong? It's a `HashError`, and the message names the option. The types in [`src/core/types.ts`](./src/core/types.ts) are the rest.
+
+## 🗂️ Algorithms
+
+| Family            | Algorithms                                                                                                                                                    | HMAC                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| cryptographic     | sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256 | sha2, sha3, keccak256, blake2b, blake2s, ripemd160 |
+| legacy            | md5, sha1                                                                                                                                                     | yes                                                |
+| non-cryptographic | crc32, crc16-xmodem, xxhash, fnv1a                                                                                                                            | no                                                 |
+| password          | scrypt, pbkdf2                                                                                                                                                | no, they take a salt                               |
+
+MD5 and SHA-1 are broken for security. They're here for checksums and old systems. `hashes info <name>` has the security note for each.
+
+## 🤖 Agents
+
+```bash
+pi install npm:@agntn/hashes
+omp install @agntn/hashes
+```
+
+```json
+{
+  "mcpServers": {
+    "hashes": { "command": "npx", "args": ["-y", "@agntn/hashes", "mcp"] }
+  }
+}
+```
+
+Four tools: `hash_compute`, `hash_hmac`, `hash_verify` and `hash_algorithms`. Same four in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. A model that isn't sure calls `hash_algorithms` first.
+
+## 🚫 What this does not do
+
+Password storage for your app. scrypt and PBKDF2 are here so you can reproduce and check a digest, not to run your login. Signing and wallet keys live in [@agntn/keys](https://github.com/agntn/keys), ciphers in [@agntn/ciphers](https://github.com/agntn/ciphers).
+
+## 🧩 Adding an algorithm
+
+Missing one? Anything Node's OpenSSL knows is one small class:
+
+```ts
+import { NodeHash, register, create } from "@agntn/hashes";
+
+class Sha224 extends NodeHash {
+  static readonly key = "sha224";
+  protected readonly algorithm = "sha224";
+  protected readonly about = {
+    label: "SHA-224",
+    description: "SHA-2 family 224-bit hash",
+    family: "cryptographic",
+    digestLength: 28,
+  } as const;
+}
+
+register(Sha224);
+create("sha224").hash("abc").digest; // "23097d223405d8228642..."
+```
+
+Something OpenSSL doesn't have? Extend `Hash` and write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL, a spec or a reference implementation, never from this package.
+
+## 🛠️ Development
+
+```bash
+pnpm install
+pnpm dev          # vp pack --watch
+pnpm lint         # build, then vp lint and vp fmt --check
+pnpm typecheck    # tsc over the library, the extensions and the tests
+pnpm test         # vp test run
+pnpm build        # vp pack
+```
+
+## 💛 Thanks
+
+Built with help from two programs that give open source maintainers free access, [Claude for Open Source](https://claude.com/contact-sales/claude-for-oss) and [Codex for Open Source](https://developers.openai.com/community/codex-for-oss). Thanks for that <3
+
+## 📄 License
+
+[MIT](./LICENSE)

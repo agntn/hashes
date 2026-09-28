@@ -1,1 +1,12 @@
-/target
+node_modules
+dist
+*.tgz
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+.agents
+.claude
+.sisyphus
+.vitest/

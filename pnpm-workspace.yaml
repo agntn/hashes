@@ -1,0 +1,51 @@
+gitChecks: false
+
+allowBuilds:
+  "@google/genai": false
+  esbuild: true
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
+
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
+  vite-plus: 1.0.0
+
+overrides:
+  vite@*: "catalog:"
+
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"
+
+minimumReleaseAgeExclude:
+  - "@oh-my-pi/omp-stats@18.4.2"
+  - "@oh-my-pi/omptype@18.4.2"
+  - "@oh-my-pi/pi-agent-core@18.4.2"
+  - "@oh-my-pi/pi-ai@18.4.2"
+  - "@oh-my-pi/pi-catalog@18.4.2"
+  - "@oh-my-pi/pi-coding-agent@18.4.2"
+  - "@oh-my-pi/pi-mnemopi@18.4.2"
+  - "@oh-my-pi/pi-natives-darwin-arm64@18.4.2"
+  - "@oh-my-pi/pi-natives-darwin-x64@18.4.2"
+  - "@oh-my-pi/pi-natives-linux-arm64@18.4.2"
+  - "@oh-my-pi/pi-natives-linux-x64@18.4.2"
+  - "@oh-my-pi/pi-natives-win32-arm64@18.4.2"
+  - "@oh-my-pi/pi-natives-win32-x64@18.4.2"
+  - "@oh-my-pi/pi-natives@18.4.2"
+  - "@oh-my-pi/pi-tui@18.4.2"
+  - "@oh-my-pi/pi-utils@18.4.2"
+  - "@oh-my-pi/pi-wire@18.4.2"
+  - "@oh-my-pi/snapcompact@18.4.2"
+  - "@voidzero-dev/vite-plus-core@1.0.0"
+  - "@voidzero-dev/vite-plus-darwin-arm64@1.0.0"
+  - "@voidzero-dev/vite-plus-darwin-x64@1.0.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-gnu@1.0.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-musl@1.0.0"
+  - "@voidzero-dev/vite-plus-linux-x64-gnu@1.0.0"
+  - "@voidzero-dev/vite-plus-linux-x64-musl@1.0.0"
+  - "@voidzero-dev/vite-plus-win32-arm64-msvc@1.0.0"
+  - "@voidzero-dev/vite-plus-win32-x64-msvc@1.0.0"
+  - vite-plus@1.0.0
