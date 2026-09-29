@@ -6,7 +6,7 @@
     "omp-extension",
     "pi-package"
   ],
-  "homepage": "https://github.com/agntn/hashes#readme",
+  "homepage": "https://hashes.agntn.dev",
   "bugs": "https://github.com/agntn/hashes/issues",
   "license": "MIT",
   "author": "oritwoen (https://github.com/oritwoen)",

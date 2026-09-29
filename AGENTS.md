@@ -8,6 +8,7 @@ Keep AGENTS.md updated with project status.
 
 ## Status
 
+- `docs/` is the Docus site for hashes.agntn.dev, on the agntn instrument grammar and built from the ciphers site: landing with a live avalanche panel, a guide, one page per algorithm, and a playground that runs the tool executors in the browser. It bundles `../src` through an alias, so a deploy needs no root install; `docs/AGENTS.md` has the rules. The D1 id in `docs/wrangler.jsonc` stays all zeros until the database exists.
 - Aligned with `_template` and moved to Vite+ in the shape of `@agntn/explorers` (#143): `vp pack` builds, `vp lint` and `vp fmt` run the shared `@agntn/ox` policy from `vite.config.ts`, `vp test` runs Vitest 5.
 - Algorithms are classes, like ciphers and chains: `Hash` is the base, `FixedHash` a fixed-length digest, `BlockHash` a `FixedHash` built on an incremental `Hasher` with HMAC over its blocks, and each class carries a static `key`. The registry is seeded from the class list in `src/algorithms/index.ts` on first use; importing the package mutates nothing, so `sideEffects` is `false`.
 - MCP, AI SDK, Pi and OMP share the executors in `src/tool-operations.ts`. MCP and Pi share the TypeBox schemas in `packages/shared/tool-schemas.ts`; OMP restates them with `pi.typebox`, and `test/omp-extension.test.ts` holds both to the same accept/reject answers.
@@ -50,6 +51,7 @@ packages/shared/         - tool contract (bounds, descriptions) and TypeBox sche
 packages/pi/extensions/  - Pi extension
 packages/omp/extensions/ - OMP extension
 test/fixtures/           - typed Pi and OMP extension test hosts from _template
+docs/                    - the hashes.agntn.dev site, its own pnpm project, outside the root lint
 ```
 
 ## Adding an algorithm
@@ -58,8 +60,9 @@ test/fixtures/           - typed Pi and OMP extension test hosts from _template
 2. Add the class to `builtins` in `src/algorithms/index.ts` and its key to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
 3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.
+5. Add its page as `docs/content/2.algorithms/<position>.<name>.md` with `::algorithm-facts{name="<name>"}`, and its icon and blurb to `PRESENTATION` in `docs/app/utils/algorithms.ts`.
 
-`test/index.test.ts` fails when the files, `builtins` and `builtinAlgorithms` disagree; `test/mcp.test.ts` fails when the tool contract lists differ from the registry.
+`test/index.test.ts` fails when the files, `builtins` and `builtinAlgorithms` disagree; `test/mcp.test.ts` fails when the tool contract lists differ from the registry; `test/docs.test.ts` fails when an algorithm has no page.
 
 ## Conventions
 
