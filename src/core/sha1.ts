@@ -1,4 +1,4 @@
-/** SHA-1 (FIPS 180-4): big-endian words, eighty steps. */
+/** SHA-1 (FIPS 180-4) and SHA-0 (FIPS 180): big-endian words, eighty steps. */
 import { MerkleDamgard } from "./hasher.ts";
 
 /** Message schedule scratch, shared: hashing is synchronous. */
@@ -18,10 +18,7 @@ export class Sha1Hasher extends MerkleDamgard {
     const s = this.state;
     const w = W;
     for (let i = 0; i < 16; i++) w[i] = view.getInt32(offset + i * 4);
-    for (let i = 16; i < 80; i++) {
-      const x = w[i - 3]! ^ w[i - 8]! ^ w[i - 14]! ^ w[i - 16]!;
-      w[i] = (x << 1) | (x >>> 31);
-    }
+    this.expand(w);
     let a = s[0]!;
     let b = s[1]!;
     let c = s[2]!;
@@ -66,5 +63,25 @@ export class Sha1Hasher extends MerkleDamgard {
     s[2] = (s[2]! + c) | 0;
     s[3] = (s[3]! + d) | 0;
     s[4] = (s[4]! + e) | 0;
+  }
+
+  /**
+   * Extends the sixteen message words to eighty. The one-bit rotation is what SHA-1 added to
+   * SHA-0.
+   *
+   * @param {Int32Array} w The schedule, with its first sixteen words filled.
+   */
+  protected expand(w: Int32Array): void {
+    for (let i = 16; i < 80; i++) {
+      const x = w[i - 3]! ^ w[i - 8]! ^ w[i - 14]! ^ w[i - 16]!;
+      w[i] = (x << 1) | (x >>> 31);
+    }
+  }
+}
+
+/** SHA-0, the 1993 original: SHA-1 without the rotation in its message schedule. */
+export class Sha0Hasher extends Sha1Hasher {
+  protected override expand(w: Int32Array): void {
+    for (let i = 16; i < 80; i++) w[i] = w[i - 3]! ^ w[i - 8]! ^ w[i - 14]! ^ w[i - 16]!;
   }
 }

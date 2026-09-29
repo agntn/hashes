@@ -32,7 +32,7 @@ export interface HashOptions {
 export type HashFamily =
   /** sha256, sha512, blake2b, blake3, sha3-* */
   | "cryptographic"
-  /** md5, sha1: not collision-resistant but still useful for checksums */
+  /** md5, sha1, sha0: not collision-resistant but still useful for checksums */
   | "legacy"
   /** crc32, xxhash, fnv1a: fast, not security-grade */
   | "non-cryptographic"

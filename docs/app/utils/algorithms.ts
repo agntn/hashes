@@ -71,6 +71,7 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   },
   md5: { icon: "i-lucide-shield-alert", blurb: "Broken since 2004, still on every download page" },
   sha1: { icon: "i-lucide-shield-alert", blurb: "Broken since SHAttered, still inside Git" },
+  sha0: { icon: "i-lucide-shield-alert", blurb: "SHA-1 minus one rotation, replaced in 1995" },
   crc32: { icon: "i-lucide-file-digit", blurb: "The checksum in every ZIP, PNG and gzip" },
   "crc16-xmodem": {
     icon: "i-token-xlm",

@@ -15,6 +15,7 @@ import { Md5 } from "./md5.ts";
 import { Pbkdf2 } from "./pbkdf2.ts";
 import { Ripemd160 } from "./ripemd160.ts";
 import { Scrypt } from "./scrypt.ts";
+import { Sha0 } from "./sha0.ts";
 import { Sha1 } from "./sha1.ts";
 import { Sha256 } from "./sha256.ts";
 import { Sha3_256 } from "./sha3-256.ts";
@@ -47,6 +48,7 @@ export const builtins: readonly HashConstructor[] = [
   Hash256,
   Md5,
   Sha1,
+  Sha0,
   Crc32,
   Crc16Xmodem,
   Xxhash,
@@ -72,6 +74,7 @@ export {
   Pbkdf2,
   Ripemd160,
   Scrypt,
+  Sha0,
   Sha1,
   Sha256,
   Sha384,
