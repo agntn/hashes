@@ -29,6 +29,20 @@ function decodeExpected(
 }
 
 /**
+ * Refuses an expected digest that is not valid in its encoding. `digestMatches` answers false for
+ * one, and a verify that printed that false would call a `0x`-prefixed hex digest, or a base64 one
+ * checked as hex, a different digest when it is a wrong argument.
+ *
+ * @param expected - The digest to compare against, as text.
+ * @param encoding - Its encoding.
+ */
+export function assertExpected(expected: string, encoding: HashResult["encoding"]): void {
+  if (decodeExpected(expected, encoding) !== undefined) return;
+  const form = encoding === "hex" ? "hex digit pairs, without a 0x prefix" : encoding;
+  throw new InvalidOptionError("expected", `${expected.length} characters`, `must be ${form}`);
+}
+
+/**
  * Compares a computed digest with an expected one in constant time.
  *
  * @param result - The computed hash, in the encoding the expected digest is written in.
