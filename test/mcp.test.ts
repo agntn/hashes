@@ -163,6 +163,39 @@ describe("hashes MCP server", () => {
     expect(verify.text.startsWith("MATCH")).toBe(true);
   });
 
+  it("reads a hex or base64 key as the bytes it spells, RFC 4231 case 3", async () => {
+    const key = Buffer.alloc(20, 0xaa);
+    const hmac = createHmac("sha256", key).update(Buffer.alloc(50, 0xdd)).digest("hex");
+    const input = "dd".repeat(50);
+    const hex = await call("hash_hmac", {
+      algorithm: "sha256",
+      input,
+      inputEncoding: "hex",
+      key: key.toString("hex"),
+      keyEncoding: "hex",
+    });
+    const base64 = await call("hash_hmac", {
+      algorithm: "sha256",
+      input,
+      inputEncoding: "hex",
+      key: key.toString("base64"),
+      keyEncoding: "base64",
+    });
+    const odd = await call("hash_hmac", {
+      algorithm: "sha256",
+      input: "m",
+      key: "abc",
+      keyEncoding: "hex",
+    });
+
+    expect(hmac).toBe("773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe");
+    expect(hex.text.split("\n")[0]).toBe(hmac);
+    expect(base64.text.split("\n")[0]).toBe(hmac);
+    expect(odd.text).toBe(
+      "hash_hmac failed: Invalid option key=3 characters: must be hex digit pairs, without a 0x prefix",
+    );
+  });
+
   it("refuses an input that is not valid in its encoding instead of hashing fewer bytes", async () => {
     const prefixed = await call("hash_compute", {
       algorithm: "sha256",

@@ -64,6 +64,7 @@ const input = ref("hello world");
 const inputEncoding = ref<(typeof INPUT_ENCODINGS)[number]>("utf8");
 const encoding = ref<(typeof TEXT_ENCODINGS)[number]>("hex");
 const key = ref("secret");
+const keyEncoding = ref<(typeof INPUT_ENCODINGS)[number]>("utf8");
 const expected = ref("");
 const salt = ref("");
 const values = reactive<Record<string, string>>({});
@@ -126,7 +127,10 @@ const toolArgs = computed((): Record<string, unknown> => {
   }
   const args: Record<string, unknown> = { algorithm: entry.value.slug, input: input.value };
   if (inputEncoding.value !== "utf8") args.inputEncoding = inputEncoding.value;
-  if (operation.value === "hmac") args.key = key.value;
+  if (operation.value === "hmac") {
+    args.key = key.value;
+    if (keyEncoding.value !== "utf8") args.keyEncoding = keyEncoding.value;
+  }
   if (operation.value === "verify") args.expected = expected.value;
   if (encoding.value !== "hex") args.encoding = encoding.value;
   if (usesParameters.value && takesSalt.value && salt.value.trim()) args.salt = salt.value.trim();
@@ -233,6 +237,7 @@ const cliLine = computed(() => {
   }
   const flags = [
     inputEncoding.value !== "utf8" ? `--input-encoding ${inputEncoding.value}` : "",
+    typeof args.keyEncoding === "string" ? `--key-encoding ${args.keyEncoding}` : "",
     encoding.value !== "hex" ? `-e ${encoding.value}` : "",
     optionFlags({
       ...(typeof args.salt === "string" ? { salt: args.salt } : {}),
@@ -366,6 +371,10 @@ function readQuery(query: Record<string, unknown>) {
   const inEncoding = String(query.inputEncoding ?? "");
   if ((INPUT_ENCODINGS as readonly string[]).includes(inEncoding)) {
     inputEncoding.value = inEncoding as (typeof INPUT_ENCODINGS)[number];
+  }
+  const keyEncodingValue = String(query.keyEncoding ?? "");
+  if ((INPUT_ENCODINGS as readonly string[]).includes(keyEncodingValue)) {
+    keyEncoding.value = keyEncodingValue as (typeof INPUT_ENCODINGS)[number];
   }
   const outEncoding = String(query.encoding ?? "");
   if ((TEXT_ENCODINGS as readonly string[]).includes(outEncoding)) {
@@ -566,6 +575,20 @@ const shareLink = computed(() => {
                     variant="none"
                     spellcheck="false"
                     autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div v-if="operation === 'hmac'">
+                <dt><label for="playground-key-encoding">keyEncoding</label></dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-key-encoding"
+                    v-model="keyEncoding"
+                    :items="inputEncodingItems"
+                    value-key="value"
+                    variant="none"
+                    :search-input="false"
                     class="w-full"
                   />
                 </dd>

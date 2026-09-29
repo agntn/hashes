@@ -140,8 +140,29 @@ function encodingArgument(value: unknown): TextEncoding {
 }
 
 /**
- * Checks the input and reads it as its encoding says: text stays text, hex and base64 become
- * the bytes they spell.
+ * Reads a checked text argument as utf8 text, or as the bytes its hex or base64 spells.
+ *
+ * @param name - The text argument, for the error.
+ * @param text - Its checked value.
+ * @param encodingName - The encoding argument, for the error.
+ * @param encoding - The encoding argument as passed.
+ * @returns {HashInput} Text, or the decoded bytes.
+ */
+function decodedArgument(
+  name: string,
+  text: string,
+  encodingName: string,
+  encoding: unknown,
+): HashInput {
+  if (encoding === undefined) return text;
+  if (typeof encoding === "string" && (INPUT_ENCODINGS as readonly string[]).includes(encoding)) {
+    return decodeInput(text, encoding as InputEncoding, name);
+  }
+  throw new InvalidOptionError(encodingName, encoding, `use one of ${INPUT_ENCODINGS.join(", ")}`);
+}
+
+/**
+ * Checks the input and reads it as its encoding says.
  *
  * @param value - The input as passed.
  * @param encoding - The inputEncoding argument as passed.
@@ -149,15 +170,19 @@ function encodingArgument(value: unknown): TextEncoding {
  */
 function inputArgument(value: unknown, encoding: unknown): HashInput {
   const text = textArgument("input", value, MAX_INPUT_LENGTH);
-  if (encoding === undefined) return text;
-  if (typeof encoding === "string" && (INPUT_ENCODINGS as readonly string[]).includes(encoding)) {
-    return decodeInput(text, encoding as InputEncoding);
-  }
-  throw new InvalidOptionError(
-    "inputEncoding",
-    encoding,
-    `use one of ${INPUT_ENCODINGS.join(", ")}`,
-  );
+  return decodedArgument("input", text, "inputEncoding", encoding);
+}
+
+/**
+ * Checks the HMAC key and reads it as its encoding says.
+ *
+ * @param value - The key as passed.
+ * @param encoding - The keyEncoding argument as passed.
+ * @returns {HashInput} The key.
+ */
+function keyArgument(value: unknown, encoding: unknown): HashInput {
+  const text = textArgument("key", value, MAX_KEY_LENGTH);
+  return decodedArgument("key", text, "keyEncoding", encoding);
 }
 
 /**
@@ -337,14 +362,14 @@ export function hashCompute(params: HashComputeParams): ToolResult<DigestDetails
 /**
  * Computes an HMAC with an algorithm that offers it.
  *
- * @param params - Algorithm, input and its encoding, key and digest encoding.
+ * @param params - Algorithm, input and its encoding, key and its encoding, digest encoding.
  * @returns {ToolResult<DigestDetails>} The HMAC.
  */
 export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDetails> {
   assertArguments("hash_hmac", params);
   const algorithm = algorithmArgument(params.algorithm);
   const input = inputArgument(params.input, params.inputEncoding);
-  const key = textArgument("key", params.key, MAX_KEY_LENGTH);
+  const key = keyArgument(params.key, params.keyEncoding);
   const encoding = encodingArgument(params.encoding);
   if (!algorithm.info().hmac) {
     throw new InvalidOptionError("algorithm", algorithm.name(), "has no HMAC mode");

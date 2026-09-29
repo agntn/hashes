@@ -66,7 +66,9 @@ export const PARAMETER_DESCRIPTIONS = {
   input: "Input to hash, read as inputEncoding says",
   inputEncoding:
     "How to read input (default utf8). hex and base64 hash the bytes they spell, such as a public key or a raw transaction. hex takes no 0x prefix",
-  key: "HMAC key, read as UTF-8",
+  key: "HMAC key, read as keyEncoding says",
+  keyEncoding:
+    "How to read key (default utf8). hex and base64 give a binary key, such as a BIP32 chain code. hex takes no 0x prefix",
   encoding: "Digest encoding (default hex)",
   salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hash_verify needs it",
   expected: "Expected digest. Hex ignores case, base64 and base64url do not",
