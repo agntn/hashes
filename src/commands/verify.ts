@@ -2,7 +2,13 @@ import { defineCommand } from "citty";
 import { shown } from "../core/errors.ts";
 import { takesSalt } from "../core/digest.ts";
 import { MissingOptionError, digestMatches, resolveAlgorithm, type HashOptions } from "../index.ts";
-import { parameterArgs, parseEncoding, readInput, readParameters } from "./shared.ts";
+import {
+  inputEncodingArg,
+  parameterArgs,
+  parseEncoding,
+  readInput,
+  readParameters,
+} from "./shared.ts";
 
 export default defineCommand({
   meta: { name: "verify", description: "Verify input against an expected hash" },
@@ -16,6 +22,7 @@ export default defineCommand({
       alias: "e",
       default: "hex",
     },
+    "input-encoding": inputEncodingArg,
     ...parameterArgs,
   },
   run({ args }) {
@@ -25,7 +32,7 @@ export default defineCommand({
     if (parameters["salt"] === undefined && takesSalt(algorithm.info())) {
       throw new MissingOptionError("salt (the one the expected digest was made with)");
     }
-    const result = algorithm.hash(readInput(args.input), {
+    const result = algorithm.hash(readInput(args.input, args["input-encoding"]), {
       encoding,
       ...parameters,
     } as HashOptions);

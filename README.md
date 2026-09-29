@@ -19,7 +19,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - 🧂 **KDFs that tell you the salt.** No salt given, a random one is drawn and printed next to the digest. Without it that digest is useless.
 - ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
 - ⚡ **Plain TypeScript.** Every algorithm is computed right here. The library imports nothing from `node:*`, and there's no hashing dependency at all.
-- 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too.
+- 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too. Got a public key in hex? `--input-encoding hex` hashes its bytes, not the letters.
 - 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share four tools and the code behind them.
 - 🧩 **Bring your own.** Extend `FixedHash`, or `BlockHash` if you want HMAC too, and `register()` the class.
@@ -129,7 +129,7 @@ omp install @agntn/hashes
 }
 ```
 
-Four tools: `hash_compute`, `hash_hmac`, `hash_verify` and `hash_algorithms`. Same four in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. A model that isn't sure calls `hash_algorithms` first.
+Four tools: `hash_compute`, `hash_hmac`, `hash_verify` and `hash_algorithms`. Same four in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding`, same as the CLI flag. A model that isn't sure calls `hash_algorithms` first.
 
 ## 🚫 What this does not do
 

@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { resolveAlgorithm, type HashOptions } from "../index.ts";
 import {
   encodingArg,
+  inputEncodingArg,
   parameterArgs,
   parseEncoding,
   printDigest,
@@ -18,6 +19,7 @@ export default defineCommand({
       required: true,
     },
     input: { type: "positional", description: "Text to hash, or - for stdin", required: true },
+    "input-encoding": inputEncodingArg,
     encoding: encodingArg,
     ...parameterArgs,
   },
@@ -25,6 +27,11 @@ export default defineCommand({
     const algorithm = resolveAlgorithm(args.algorithm);
     const encoding = parseEncoding(args.encoding);
     const parameters = readParameters(algorithm, args);
-    printDigest(algorithm.hash(readInput(args.input), { encoding, ...parameters } as HashOptions));
+    printDigest(
+      algorithm.hash(readInput(args.input, args["input-encoding"]), {
+        encoding,
+        ...parameters,
+      } as HashOptions),
+    );
   },
 });

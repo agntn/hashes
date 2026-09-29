@@ -8,7 +8,7 @@
  */
 
 import type { Static } from "typebox";
-import { parameterText, takesSalt } from "./core/digest.ts";
+import { decodeInput, parameterText, takesSalt } from "./core/digest.ts";
 import { shown } from "./core/errors.ts";
 import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";
 import { algorithmInfos } from "./core/resolve.ts";
@@ -19,10 +19,12 @@ import {
   resolveAlgorithm,
   type AlgorithmInfo,
   type Hash,
+  type HashInput,
   type HashOptions,
   type HashResult,
 } from "./index.ts";
 import {
+  INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
@@ -47,6 +49,9 @@ export interface ToolResult<Details> {
 
 /** Encodings a tool can return: text only, since a tool answers in text. */
 export type TextEncoding = (typeof TEXT_ENCODINGS)[number];
+
+/** How a tool reads its input: text as UTF-8, or bytes written in hex or base64. */
+export type InputEncoding = (typeof INPUT_ENCODINGS)[number];
 
 export type ToolName = keyof typeof toolSchemas;
 
@@ -132,6 +137,27 @@ function encodingArgument(value: unknown): TextEncoding {
     return value as TextEncoding;
   }
   throw new InvalidOptionError("encoding", value, `use one of ${TEXT_ENCODINGS.join(", ")}`);
+}
+
+/**
+ * Checks the input and reads it as its encoding says: text stays text, hex and base64 become
+ * the bytes they spell.
+ *
+ * @param value - The input as passed.
+ * @param encoding - The inputEncoding argument as passed.
+ * @returns {HashInput} What to hash.
+ */
+function inputArgument(value: unknown, encoding: unknown): HashInput {
+  const text = textArgument("input", value, MAX_INPUT_LENGTH);
+  if (encoding === undefined) return text;
+  if (typeof encoding === "string" && (INPUT_ENCODINGS as readonly string[]).includes(encoding)) {
+    return decodeInput(text, encoding as InputEncoding);
+  }
+  throw new InvalidOptionError(
+    "inputEncoding",
+    encoding,
+    `use one of ${INPUT_ENCODINGS.join(", ")}`,
+  );
 }
 
 /**
@@ -294,13 +320,13 @@ function digestText(details: DigestDetails): string {
  * Hashes text with any registered algorithm. A KDF without a salt draws a random one and the
  * answer names it, since the digest cannot be reproduced without it.
  *
- * @param params - Algorithm, input, encoding and, for a KDF, the salt in hex.
+ * @param params - Algorithm, input and its encoding, digest encoding and, for a KDF, the salt in hex.
  * @returns {ToolResult<DigestDetails>} The digest.
  */
 export function hashCompute(params: HashComputeParams): ToolResult<DigestDetails> {
   assertArguments("hash_compute", params);
   const algorithm = algorithmArgument(params.algorithm);
-  const input = textArgument("input", params.input, MAX_INPUT_LENGTH);
+  const input = inputArgument(params.input, params.inputEncoding);
   const encoding = encodingArgument(params.encoding);
   const options = algorithmOptions(algorithm, params.salt, params.parameters);
   const result = algorithm.hash(input, { encoding, ...options } as HashOptions);
@@ -311,13 +337,13 @@ export function hashCompute(params: HashComputeParams): ToolResult<DigestDetails
 /**
  * Computes an HMAC with an algorithm that offers it.
  *
- * @param params - Algorithm, input, key and encoding.
+ * @param params - Algorithm, input and its encoding, key and digest encoding.
  * @returns {ToolResult<DigestDetails>} The HMAC.
  */
 export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDetails> {
   assertArguments("hash_hmac", params);
   const algorithm = algorithmArgument(params.algorithm);
-  const input = textArgument("input", params.input, MAX_INPUT_LENGTH);
+  const input = inputArgument(params.input, params.inputEncoding);
   const key = textArgument("key", params.key, MAX_KEY_LENGTH);
   const encoding = encodingArgument(params.encoding);
   if (!algorithm.info().hmac) {
@@ -331,13 +357,14 @@ export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDet
  * Hashes the input and compares the digest with an expected one, in constant time. Hex ignores
  * case; base64 and base64url do not. A KDF needs the salt the expected digest was made with.
  *
- * @param params - Algorithm, input, expected digest, its encoding and, for a KDF, the salt.
+ * @param params - Algorithm, input and its encoding, expected digest and its encoding and, for
+ *   a KDF, the salt.
  * @returns {ToolResult<VerifyDetails>} Whether the digests match, with both of them.
  */
 export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> {
   assertArguments("hash_verify", params);
   const algorithm = algorithmArgument(params.algorithm);
-  const input = textArgument("input", params.input, MAX_INPUT_LENGTH);
+  const input = inputArgument(params.input, params.inputEncoding);
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
   if (expected === "") throw new InvalidOptionError("expected", "", "must not be empty");
   const encoding = encodingArgument(params.encoding);

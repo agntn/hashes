@@ -25,6 +25,19 @@ describe("AI SDK tools", () => {
     });
   });
 
+  it("hashes the bytes a hex input spells", async () => {
+    const output = await hashTools.hash_compute.execute?.(
+      { algorithm: "sha256", input: "00ff", inputEncoding: "hex" },
+      options,
+    );
+
+    expect(output).toMatchObject({
+      digest: createHash("sha256")
+        .update(Buffer.from([0, 255]))
+        .digest("hex"),
+    });
+  });
+
   it("rejects an undeclared key before the executor runs", async () => {
     const schema = asSchema(hashTools.hash_compute.inputSchema);
     const result = await schema.validate?.({ algorithm: "sha256", input: "x", saltHex: "00" });
