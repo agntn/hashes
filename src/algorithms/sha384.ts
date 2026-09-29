@@ -18,7 +18,7 @@ export class Sha384 extends BlockHash {
    *
    * @returns {Hasher} A fresh one.
    */
-  protected hasher(): Hasher {
+  hasher(): Hasher {
     return new Sha512Hasher(48);
   }
 }

@@ -18,8 +18,8 @@ const K256 = new Int32Array([
   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ]);
 
-/** SHA-256 initial value. */
-const IV256 = new Int32Array([
+/** SHA-256 initial value, which BLAKE2s shares. */
+export const IV256 = new Int32Array([
   0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
 ]);
 
@@ -31,11 +31,7 @@ export class Sha256Hasher extends MerkleDamgard {
   protected readonly state = IV256.slice();
 
   constructor() {
-    super(64, 32, 8, false);
-  }
-
-  fresh(): this {
-    return new Sha256Hasher() as this;
+    super(64, 32, false);
   }
 
   protected compress(view: DataView, offset: number): void {
@@ -129,12 +125,8 @@ export class Sha512Hasher extends MerkleDamgard {
    * @param outputLength - 64 for SHA-512, 48 for SHA-384.
    */
   constructor(outputLength: 48 | 64 = 64) {
-    super(128, outputLength, 16, false);
+    super(128, outputLength, false);
     this.state = (outputLength === 48 ? IV384 : IV512).slice();
-  }
-
-  fresh(): this {
-    return new Sha512Hasher(this.outputLength as 48 | 64) as this;
   }
 
   protected compress(view: DataView, offset: number): void {

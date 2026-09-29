@@ -2,7 +2,7 @@
 import type { Hasher } from "./hasher.ts";
 
 /** A hash keyed for HMAC: the inner and outer states after their one padded key block each. */
-export interface KeyedHmac {
+interface KeyedHmac {
   inner: Hasher;
   outer: Hasher;
 }
@@ -11,30 +11,31 @@ export interface KeyedHmac {
  * Absorbs the padded key into an inner and an outer hasher. A key longer than the block is hashed
  * first, as the RFC asks.
  *
- * @param hasher - A fresh hasher of the underlying hash.
+ * @param create - Creates a fresh hasher of the underlying hash.
  * @param key - The HMAC key.
  * @returns {KeyedHmac} The two keyed states.
  */
-export function keyHmac(hasher: Hasher, key: Uint8Array): KeyedHmac {
-  const block = new Uint8Array(hasher.blockLength);
-  block.set(key.length > block.length ? hasher.fresh().update(key).digest() : key);
+function keyHmac(create: () => Hasher, key: Uint8Array): KeyedHmac {
+  const inner = create();
+  const block = new Uint8Array(inner.blockLength);
+  block.set(key.length > block.length ? create().update(key).digest() : key);
   for (let i = 0; i < block.length; i++) block[i] = block[i]! ^ 0x36;
-  const inner = hasher.fresh().update(block);
+  inner.update(block);
   for (let i = 0; i < block.length; i++) block[i] = block[i]! ^ (0x36 ^ 0x5c);
-  const outer = hasher.fresh().update(block);
+  const outer = create().update(block);
   return { inner, outer };
 }
 
 /**
  * Computes an HMAC.
  *
- * @param hasher - A fresh hasher of the underlying hash.
+ * @param create - Creates a fresh hasher of the underlying hash.
  * @param key - The HMAC key.
  * @param message - The message.
  * @returns {Uint8Array} The tag, as long as the hash's digest.
  */
-export function hmac(hasher: Hasher, key: Uint8Array, message: Uint8Array): Uint8Array {
-  const { inner, outer } = keyHmac(hasher, key);
+export function hmac(create: () => Hasher, key: Uint8Array, message: Uint8Array): Uint8Array {
+  const { inner, outer } = keyHmac(create, key);
   return outer.update(inner.update(message).digest()).digest();
 }
 
@@ -42,7 +43,7 @@ export function hmac(hasher: Hasher, key: Uint8Array, message: Uint8Array): Uint
  * Derives a key with PBKDF2-HMAC. The keyed states are built once and copied into two working
  * hashers on every iteration, so an iteration costs the blocks of the running value alone.
  *
- * @param hasher - A fresh hasher of the underlying hash.
+ * @param create - Creates a fresh hasher of the underlying hash.
  * @param password - The password.
  * @param salt - The salt.
  * @param iterations - Iteration count, at least 1.
@@ -50,16 +51,16 @@ export function hmac(hasher: Hasher, key: Uint8Array, message: Uint8Array): Uint
  * @returns {Uint8Array} The derived key.
  */
 export function pbkdf2(
-  hasher: Hasher,
+  create: () => Hasher,
   password: Uint8Array,
   salt: Uint8Array,
   iterations: number,
   keyLength: number,
 ): Uint8Array {
-  const keyed = keyHmac(hasher, password);
-  const inner = hasher.fresh();
-  const outer = hasher.fresh();
-  const length = hasher.outputLength;
+  const keyed = keyHmac(create, password);
+  const inner = create();
+  const outer = create();
+  const length = inner.outputLength;
   const u = new Uint8Array(length);
   const t = new Uint8Array(length);
   const first = new Uint8Array(salt.length + 4);

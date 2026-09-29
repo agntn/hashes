@@ -65,11 +65,7 @@ export class Ripemd160Hasher extends MerkleDamgard {
   ]);
 
   constructor() {
-    super(64, 20, 8, true);
-  }
-
-  fresh(): this {
-    return new Ripemd160Hasher() as this;
+    super(64, 20, true);
   }
 
   protected compress(view: DataView, offset: number): void {

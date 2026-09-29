@@ -2,12 +2,8 @@
  * BLAKE2s (RFC 7693) with a 32-byte output and no key, salt or personalization: 32-bit words,
  * ten rounds, 64-byte blocks.
  */
-import { Hasher, viewOf } from "./hasher.ts";
-
-/** SHA-256's initial values, which BLAKE2s shares. */
-const IV = new Int32Array([
-  0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-]);
+import { Blake2 } from "./hasher.ts";
+import { IV256 as IV } from "./sha2.ts";
 
 /** The message word each of the ten rounds feeds each G call. */
 const SIGMA = new Uint8Array([
@@ -88,54 +84,17 @@ function compress(h: Int32Array, block: DataView, counter: number, last: boolean
 }
 
 /** BLAKE2s-256. */
-export class Blake2sHasher extends Hasher {
-  readonly blockLength = 64;
-  readonly outputLength = 32;
-  private readonly state = IV.slice();
-  private readonly block = new Uint8Array(64);
+export class Blake2sHasher extends Blake2 {
+  protected readonly state = IV.slice();
   private readonly view = new DataView(this.block.buffer);
-  /** Bytes in the block buffer, which keeps the last block until the digest flags it. */
-  private position = 0;
-  /** Bytes compressed so far. */
-  private counter = 0;
 
   constructor() {
-    super();
+    super(64, 32);
     // Parameter block: 32-byte digest, no key, fanout 1, depth 1.
     this.state[0] = this.state[0]! ^ 0x01010020;
   }
 
-  fresh(): this {
-    return new Blake2sHasher() as this;
-  }
-
-  update(data: Uint8Array): this {
-    for (let offset = 0; offset < data.length;) {
-      if (this.position === 64) {
-        this.counter += 64;
-        compress(this.state, this.view, this.counter, false);
-        this.position = 0;
-      }
-      const end = Math.min(data.length, offset + 64 - this.position);
-      this.block.set(data.subarray(offset, end), this.position);
-      this.position += end - offset;
-      offset = end;
-    }
-    return this;
-  }
-
-  digestInto(out: Uint8Array): void {
-    this.block.fill(0, this.position);
-    compress(this.state, this.view, this.counter + this.position, true);
-    const view = viewOf(out);
-    for (let i = 0; i < 8; i++) view.setInt32(i * 4, this.state[i]!, true);
-  }
-
-  load(source: this): this {
-    this.state.set(source.state);
-    this.block.set(source.block);
-    this.position = source.position;
-    this.counter = source.counter;
-    return this;
+  protected compress(counter: number, last: boolean): void {
+    compress(this.state, this.view, counter, last);
   }
 }

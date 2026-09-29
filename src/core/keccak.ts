@@ -3,7 +3,7 @@
  * kept from before FIPS 202 changed the padding. The 25 lanes are 64-bit, held as a low then a
  * high 32-bit half, so the state is fifty int32 values.
  */
-import { Hasher, viewOf } from "./hasher.ts";
+import { Hasher, viewOf, wordsToBytes } from "./hasher.ts";
 
 /** Domain byte FIPS 202 puts after a SHA-3 message. */
 export const SHA3_PADDING = 0x06;
@@ -391,10 +391,6 @@ export class KeccakHasher extends Hasher {
     this.suffix = suffix;
   }
 
-  fresh(): this {
-    return new KeccakHasher(this.outputLength, this.suffix) as this;
-  }
-
   update(data: Uint8Array): this {
     const { state, blockLength: rate } = this;
     let offset = 0;
@@ -427,7 +423,7 @@ export class KeccakHasher extends Hasher {
     state[position >> 2] = state[position >> 2]! ^ (this.suffix << ((position & 3) << 3));
     state[last >> 2] = state[last >> 2]! ^ (0x80 << ((last & 3) << 3));
     permute(state);
-    for (let i = 0; i < this.outputLength; i++) out[i] = state[i >> 2]! >>> ((i & 3) << 3);
+    wordsToBytes(state, out, this.outputLength, true);
   }
 
   load(source: this): this {

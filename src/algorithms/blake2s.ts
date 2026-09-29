@@ -17,7 +17,7 @@ export class Blake2s extends BlockHash {
    *
    * @returns {Hasher} A fresh one.
    */
-  protected hasher(): Hasher {
+  hasher(): Hasher {
     return new Blake2sHasher();
   }
 }

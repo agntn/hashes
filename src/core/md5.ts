@@ -28,11 +28,7 @@ export class Md5Hasher extends MerkleDamgard {
   protected readonly state = new Int32Array([0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476]);
 
   constructor() {
-    super(64, 16, 8, true);
-  }
-
-  fresh(): this {
-    return new Md5Hasher() as this;
+    super(64, 16, true);
   }
 
   protected compress(view: DataView, offset: number): void {

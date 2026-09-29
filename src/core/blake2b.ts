@@ -3,7 +3,7 @@
  * Sui, 28 for Cardano key hashes. No key, salt or personalization. Words are 64-bit, held as low
  * and high 32-bit halves.
  */
-import { Hasher } from "./hasher.ts";
+import { Blake2 } from "./hasher.ts";
 
 /** SHA-512's initial values, which BLAKE2b shares, as low and high halves. */
 const IV = new Uint32Array([
@@ -36,7 +36,7 @@ const SCHEDULE = new Uint8Array([
  * @param counter - Bytes hashed through this block.
  * @param last - Whether this is the final block.
  */
-function compress(h: Uint32Array, m: Int32Array, counter: number, last: boolean): void {
+function compress(h: Int32Array, m: Int32Array, counter: number, last: boolean): void {
   let l0 = h[0]! | 0;
   let h0 = h[1]! | 0;
   let l1 = h[2]! | 0;
@@ -395,59 +395,23 @@ if (new Uint8Array(new Uint32Array([1]).buffer)[0] !== 1) {
 }
 
 /** BLAKE2b with an output of 1 to 64 bytes and no key, salt or personalization. */
-export class Blake2bHasher extends Hasher {
-  readonly blockLength = 128;
-  readonly outputLength: number;
-  private readonly state = new Uint32Array(16);
-  private readonly block = new Uint8Array(128);
+export class Blake2bHasher extends Blake2 {
+  protected readonly state = new Int32Array(16);
+  /** The block buffer as thirty-two little-endian halves. */
   private readonly words = new Int32Array(this.block.buffer);
-  /** Bytes in the block buffer, which keeps the last block until the digest flags it. */
-  private position = 0;
-  /** Bytes compressed so far. */
-  private counter = 0;
 
   /**
    * @param outputLength - Digest bytes, 1 to 64.
    */
   constructor(outputLength: number) {
-    super();
-    this.outputLength = outputLength;
+    super(128, outputLength);
     this.state.set(IV);
     // Parameter block: digest length, no key, fanout 1, depth 1.
     this.state[0] = this.state[0]! ^ (0x01010000 | outputLength);
   }
 
-  fresh(): this {
-    return new Blake2bHasher(this.outputLength) as this;
-  }
-
-  update(data: Uint8Array): this {
-    for (let offset = 0; offset < data.length;) {
-      if (this.position === 128) {
-        this.counter += 128;
-        compress(this.state, this.words, this.counter, false);
-        this.position = 0;
-      }
-      const end = Math.min(data.length, offset + 128 - this.position);
-      this.block.set(data.subarray(offset, end), this.position);
-      this.position += end - offset;
-      offset = end;
-    }
-    return this;
-  }
-
-  digestInto(out: Uint8Array): void {
-    this.block.fill(0, this.position);
-    compress(this.state, this.words, this.counter + this.position, true);
-    out.set(new Uint8Array(this.state.buffer, 0, this.outputLength));
-  }
-
-  load(source: this): this {
-    this.state.set(source.state);
-    this.block.set(source.block);
-    this.position = source.position;
-    this.counter = source.counter;
-    return this;
+  protected compress(counter: number, last: boolean): void {
+    compress(this.state, this.words, counter, last);
   }
 }
 

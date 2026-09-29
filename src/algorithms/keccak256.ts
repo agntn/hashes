@@ -19,7 +19,7 @@ export class Keccak256 extends BlockHash {
    *
    * @returns {Hasher} A fresh one.
    */
-  protected hasher(): Hasher {
+  hasher(): Hasher {
     return new KeccakHasher(32, KECCAK_PADDING);
   }
 }

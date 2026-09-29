@@ -11,11 +11,7 @@ export class Sha1Hasher extends MerkleDamgard {
   ]);
 
   constructor() {
-    super(64, 20, 8, false);
-  }
-
-  fresh(): this {
-    return new Sha1Hasher() as this;
+    super(64, 20, false);
   }
 
   protected compress(view: DataView, offset: number): void {

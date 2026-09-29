@@ -15,10 +15,7 @@ export default defineConfig({
         "error",
         {
           allow: [
-            /*
-             * Algorithms, hashers, results and inputs carry bytes and methods; hashing never
-             * writes to them. A hasher passed to HMAC or a KDF is only a template for fresh ones.
-             */
+            /* Algorithms, results and inputs carry bytes and methods; hashing never writes to them. */
             {
               from: "file",
               name: [
@@ -28,7 +25,6 @@ export default defineConfig({
                 "HashInput",
                 "HashOptions",
                 "HashResult",
-                "Hasher",
                 "ToolResult",
               ],
             },

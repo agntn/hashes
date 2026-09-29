@@ -165,7 +165,7 @@ export function scrypt(
   keyLength: number,
 ): Uint8Array {
   const words = 32 * r;
-  const b = pbkdf2(new Sha256Hasher(), password, salt, 1, p * 128 * r);
+  const b = pbkdf2(() => new Sha256Hasher(), password, salt, 1, p * 128 * r);
   const view = new DataView(b.buffer);
   const v = new Int32Array(words * N);
   let x = new Int32Array(words);
@@ -188,5 +188,5 @@ export function scrypt(
     }
     for (let i = 0; i < words; i++) view.setInt32(base + i * 4, x[i]!, true);
   }
-  return pbkdf2(new Sha256Hasher(), password, b, 1, keyLength);
+  return pbkdf2(() => new Sha256Hasher(), password, b, 1, keyLength);
 }

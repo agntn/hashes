@@ -7,11 +7,11 @@ import type { AlgorithmInfo } from "./types.ts";
 /** Base class for a fixed-length digest built from a `Hasher`, with HMAC over its blocks. */
 export abstract class BlockHash extends FixedHash {
   /**
-   * Creates the hasher that computes the digest.
+   * Creates the hasher that computes the digest, for input that arrives in pieces.
    *
    * @returns {Hasher} A hasher with nothing absorbed.
    */
-  protected abstract hasher(): Hasher;
+  abstract hasher(): Hasher;
 
   /**
    * Hashes the input in one pass.
@@ -31,7 +31,7 @@ export abstract class BlockHash extends FixedHash {
    * @returns {Uint8Array} The tag.
    */
   protected override hmac(key: Uint8Array, bytes: Uint8Array): Uint8Array {
-    return hmac(this.hasher(), key, bytes);
+    return hmac(() => this.hasher(), key, bytes);
   }
 
   /**

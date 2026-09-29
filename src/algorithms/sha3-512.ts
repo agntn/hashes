@@ -17,7 +17,7 @@ export class Sha3_512 extends BlockHash {
    *
    * @returns {Hasher} A fresh one.
    */
-  protected hasher(): Hasher {
+  hasher(): Hasher {
     return new KeccakHasher(64, SHA3_PADDING);
   }
 }
