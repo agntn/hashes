@@ -55,6 +55,7 @@ const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: string; a
   },
 ];
 
+const route = useRoute();
 const router = useRouter();
 
 const operation = ref<Operation>("hash");
@@ -388,10 +389,28 @@ const shareQuery = computed(() => {
   return query;
 });
 
-/** Deep link from the address bar once mounted; a prerendered page hydrates with an empty route query. */
+/**
+ * Deep link once after mount. A prerendered page hydrates with an empty `route.query` and Nuxt
+ * restores the address only afterwards, so the first non-empty query is read once, whichever
+ * comes first.
+ */
+function applyDeepLink() {
+  const stop = watch(
+    () => route.query,
+    (query) => {
+      readQuery(query as Record<string, unknown>);
+      stop();
+    },
+    { once: true, flush: "post" },
+  );
+  if (Object.keys(route.query).length > 0) {
+    stop();
+    readQuery(route.query as Record<string, unknown>);
+  }
+}
+
 onMounted(() => {
-  const params = new URLSearchParams(window.location.search);
-  if ([...params.keys()].length > 0) readQuery(Object.fromEntries(params));
+  applyDeepLink();
   watch(shareQuery, (query) => {
     void router.replace({ query });
   });
