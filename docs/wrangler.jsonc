@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "agntn-hashes",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "c0575cb0-c597-498d-87e4-b3f4bb47638a"
     }
   ],
   "routes": [{ "pattern": "hashes.agntn.dev", "custom_domain": true }],

@@ -8,7 +8,7 @@ Keep AGENTS.md updated with project status.
 
 ## Status
 
-- `docs/` is the Docus site for hashes.agntn.dev, on the agntn instrument grammar and built from the ciphers site: landing with a live avalanche panel, a guide, one page per algorithm, and a playground that runs the tool executors in the browser. It bundles `../src` through an alias, so a deploy needs no root install; `docs/AGENTS.md` has the rules. The D1 id in `docs/wrangler.jsonc` stays all zeros until the database exists.
+- `docs/` is the Docus site for hashes.agntn.dev, on the agntn instrument grammar and built from the ciphers site: landing with a live avalanche panel, a guide, one page per algorithm, and a playground that runs the tool executors in the browser. It bundles `../src` through an alias, so a deploy needs no root install; `docs/AGENTS.md` has the rules.
 - Aligned with `_template` and moved to Vite+ in the shape of `@agntn/explorers` (#143): `vp pack` builds, `vp lint` and `vp fmt` run the shared `@agntn/ox` policy from `vite.config.ts`, `vp test` runs Vitest 5.
 - Algorithms are classes, like ciphers and chains: `Hash` is the base, `FixedHash` a fixed-length digest, `BlockHash` a `FixedHash` built on an incremental `Hasher` with HMAC over its blocks, and each class carries a static `key`. The registry is seeded from the class list in `src/algorithms/index.ts` on first use; importing the package mutates nothing, so `sideEffects` is `false`.
 - MCP, AI SDK, Pi and OMP share the executors in `src/tool-operations.ts`. MCP and Pi share the TypeBox schemas in `packages/shared/tool-schemas.ts`; OMP restates them with `pi.typebox`, and `test/omp-extension.test.ts` holds both to the same accept/reject answers.
