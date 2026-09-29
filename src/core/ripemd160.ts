@@ -2,7 +2,8 @@
  * RIPEMD-160: little-endian words, two parallel lines of five rounds, each round sixteen steps.
  * The right line runs the five boolean functions in reverse order.
  */
-import { MerkleDamgard } from "./hasher.ts";
+import { MerkleDamgard, assertBytes } from "./hasher.ts";
+import { sha256 } from "./sha2.ts";
 
 /** Word each step of the left line reads. */
 const RL = new Uint8Array([
@@ -160,4 +161,25 @@ export class Ripemd160Hasher extends MerkleDamgard {
     s[4] = (s[0]! + bl + cr) | 0;
     s[0] = t;
   }
+}
+
+/**
+ * RIPEMD-160 of the input.
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 20 bytes.
+ */
+export function ripemd160(data: Uint8Array): Uint8Array {
+  assertBytes(data, "data");
+  return new Ripemd160Hasher().update(data).digest();
+}
+
+/**
+ * RIPEMD-160 of SHA-256, the hash behind Bitcoin's public key and script addresses.
+ *
+ * @param data - Bytes to hash, usually a public key or a script.
+ * @returns {Uint8Array} 20 bytes.
+ */
+export function hash160(data: Uint8Array): Uint8Array {
+  return ripemd160(sha256(data));
 }

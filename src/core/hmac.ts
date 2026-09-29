@@ -1,5 +1,6 @@
 /** HMAC (RFC 2104) over any `Hasher`, and PBKDF2 (RFC 8018) over HMAC. */
-import type { Hasher } from "./hasher.ts";
+import { InvalidOptionError } from "./errors.ts";
+import { type Hasher, assertBytes } from "./hasher.ts";
 
 /** A hash keyed for HMAC: the inner and outer states after their one padded key block each. */
 interface KeyedHmac {
@@ -35,6 +36,8 @@ function keyHmac(create: () => Hasher, key: Uint8Array): KeyedHmac {
  * @returns {Uint8Array} The tag, as long as the hash's digest.
  */
 export function hmac(create: () => Hasher, key: Uint8Array, message: Uint8Array): Uint8Array {
+  assertBytes(key, "key");
+  assertBytes(message, "message");
   const { inner, outer } = keyHmac(create, key);
   return outer.update(inner.update(message).digest()).digest();
 }
@@ -57,6 +60,16 @@ export function pbkdf2(
   iterations: number,
   keyLength: number,
 ): Uint8Array {
+  assertBytes(password, "password");
+  assertBytes(salt, "salt");
+  for (const [name, value] of [
+    ["iterations", iterations],
+    ["keyLength", keyLength],
+  ] as const) {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      throw new InvalidOptionError(name, value, "must be a positive integer");
+    }
+  }
   const keyed = keyHmac(create, password);
   const inner = create();
   const outer = create();

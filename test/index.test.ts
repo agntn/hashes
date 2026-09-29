@@ -14,15 +14,32 @@ import {
   InvalidOptionError,
   MissingOptionError,
   UnknownAlgorithmError,
+  Blake2bHasher,
+  Ripemd160Hasher,
+  Sha256Hasher,
+  Sha512Hasher,
   algorithms,
+  blake256,
+  blake2b,
   builtinAlgorithms,
+  crc16Xmodem,
+  crc32,
   create,
   digestMatches,
   has,
+  hash160,
+  hash256,
   hashCategories,
+  hmac,
+  keccak256,
   normalizeError,
+  pbkdf2,
   register,
   resolveAlgorithm,
+  ripemd160,
+  sha256,
+  sha3_256,
+  sha512,
   version,
   type Pbkdf2Options,
   type ScryptOptions,
@@ -432,6 +449,146 @@ describe("hashes chains use", () => {
   it("crc16-xmodem matches the catalogue check value", () => {
     expect(create("crc16-xmodem").hash("123456789").digest).toBe("31c3");
     expect(create("crc16-xmodem").hash("").digest).toBe("0000");
+  });
+});
+
+describe("byte functions", () => {
+  /** Lengths around every block size and the padding edge of each hash. */
+  const LENGTHS = [
+    0, 1, 20, 27, 28, 32, 33, 55, 56, 63, 64, 65, 111, 112, 127, 128, 129, 135, 136, 137, 1000,
+  ];
+  const inputs = LENGTHS.map((length) =>
+    Uint8Array.from({ length }, (_, i) => (i * 131 + length) & 0xff),
+  );
+  const binary = (name: string, bytes: Uint8Array): Uint8Array =>
+    create(name).hash(bytes, { encoding: "binary" }).digest as Uint8Array;
+
+  it("give the registry's digest for every length", () => {
+    const functions = {
+      sha256,
+      sha512,
+      ripemd160,
+      hash160,
+      hash256,
+      keccak256,
+      "sha3-256": sha3_256,
+      blake256,
+      "blake2b-256": (bytes: Uint8Array) => blake2b(bytes, 32),
+      "blake2b-224": (bytes: Uint8Array) => blake2b(bytes, 28),
+      blake2b: (bytes: Uint8Array) => blake2b(bytes, 64),
+      crc32,
+      "crc16-xmodem": crc16Xmodem,
+    };
+    for (const [name, digest] of Object.entries(functions)) {
+      for (const bytes of inputs)
+        expect(digest(bytes), `${name} of ${bytes.length}`).toEqual(binary(name, bytes));
+    }
+  });
+
+  it("match Node for the digests OpenSSL and zlib compute", () => {
+    for (const bytes of inputs) {
+      expect(sha256(bytes).toHex()).toBe(createHash("sha256").update(bytes).digest("hex"));
+      expect(sha512(bytes).toHex()).toBe(createHash("sha512").update(bytes).digest("hex"));
+      expect(ripemd160(bytes).toHex()).toBe(createHash("ripemd160").update(bytes).digest("hex"));
+      expect(sha3_256(bytes).toHex()).toBe(createHash("sha3-256").update(bytes).digest("hex"));
+      expect(new DataView(crc32(bytes).buffer).getUint32(0)).toBe(zlibCrc32(bytes));
+    }
+  });
+
+  it("return a Uint8Array of the digest's length", () => {
+    for (const [digest, length] of [
+      [sha256(new Uint8Array(1)), 32],
+      [hash160(new Uint8Array(1)), 20],
+      [blake2b(new Uint8Array(1), 1), 1],
+      [crc16Xmodem(new Uint8Array(1)), 2],
+    ] as const) {
+      expect(digest).toBeInstanceOf(Uint8Array);
+      expect(digest).toHaveLength(length);
+    }
+  });
+
+  it("take a Buffer and a subarray as the bytes they show", () => {
+    const bytes = Buffer.from("zażółć gęślą jaźń");
+    const framed = new Uint8Array(bytes.length + 8);
+    framed.set(bytes, 4);
+    expect(sha256(bytes)).toEqual(sha256(new Uint8Array(bytes)));
+    expect(sha256(framed.subarray(4, 4 + bytes.length))).toEqual(sha256(new Uint8Array(bytes)));
+  });
+
+  it("run HMAC and PBKDF2 over an exported hasher as Node does", () => {
+    const hashers = {
+      sha256: () => new Sha256Hasher(),
+      sha512: () => new Sha512Hasher(),
+      ripemd160: () => new Ripemd160Hasher(),
+    };
+    const password = new TextEncoder().encode("abandon ability able about above absent");
+    const salt = new TextEncoder().encode("mnemonic");
+    for (const [name, create] of Object.entries(hashers)) {
+      for (const key of [
+        new Uint8Array(0),
+        new Uint8Array(20).fill(0x0b),
+        new Uint8Array(200).fill(0xaa),
+      ]) {
+        for (const bytes of inputs) {
+          expect(hmac(create, key, bytes).toHex()).toBe(
+            createHmac(name, key).update(bytes).digest("hex"),
+          );
+        }
+      }
+      expect(pbkdf2(create, password, salt, 2048, 64).toHex()).toBe(
+        pbkdf2Sync(password, salt, 2048, 64, name).toString("hex"),
+      );
+    }
+    expect(hmac(() => new Blake2bHasher(64), new Uint8Array(3), new Uint8Array(3))).toEqual(
+      create("blake2b").hash(new Uint8Array(3), { key: new Uint8Array(3), encoding: "binary" })
+        .digest,
+    );
+  });
+
+  it("refuse anything but bytes instead of hashing it as something else", () => {
+    const loose = (value: unknown) => value as Uint8Array;
+    expect(() => sha256(loose("abc"))).toThrow(
+      new HashError("data must be a Uint8Array, not string"),
+    );
+    expect(() => keccak256(loose([1, 2, 3]))).toThrow(
+      new HashError("data must be a Uint8Array, not object"),
+    );
+    expect(() => blake256(loose(null))).toThrow(
+      new HashError("message must be a Uint8Array, not null"),
+    );
+    expect(() => crc32(loose(new ArrayBuffer(4)))).toThrow(HashError);
+    expect(() => hmac(() => new Sha256Hasher(), loose("key"), new Uint8Array(0))).toThrow(
+      new HashError("key must be a Uint8Array, not string"),
+    );
+    expect(() => pbkdf2(() => new Sha256Hasher(), new Uint8Array(1), loose("salt"), 1, 32)).toThrow(
+      new HashError("salt must be a Uint8Array, not string"),
+    );
+  });
+
+  it("build SHA-512 at 64 bytes and SHA-384 at 48, nothing in between", () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    expect(new Sha512Hasher(48).update(bytes).digest().toHex()).toBe(
+      createHash("sha384").update(bytes).digest("hex"),
+    );
+    for (const length of [32, 0, Number.NaN]) {
+      expect(() => new Sha512Hasher(length as 64)).toThrow(InvalidOptionError);
+    }
+  });
+
+  it("refuse a BLAKE2b length outside 1 to 64 bytes", () => {
+    for (const length of [0, 65, 1.5, Number.NaN]) {
+      expect(() => blake2b(new Uint8Array(1), length)).toThrow(InvalidOptionError);
+      expect(() => new Blake2bHasher(length)).toThrow(InvalidOptionError);
+    }
+  });
+
+  it("refuse PBKDF2 costs and lengths that are not positive integers", () => {
+    const derive = (iterations: number, keyLength: number) =>
+      pbkdf2(() => new Sha256Hasher(), new Uint8Array(1), new Uint8Array(1), iterations, keyLength);
+    for (const bad of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => derive(bad, 32)).toThrow(InvalidOptionError);
+      expect(() => derive(1, bad)).toThrow(InvalidOptionError);
+    }
   });
 });
 

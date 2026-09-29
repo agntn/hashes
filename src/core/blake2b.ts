@@ -3,7 +3,8 @@
  * Sui, 28 for Cardano key hashes. No key, salt or personalization. Words are 64-bit, held as low
  * and high 32-bit halves.
  */
-import { Blake2 } from "./hasher.ts";
+import { InvalidOptionError } from "./errors.ts";
+import { Blake2, assertBytes } from "./hasher.ts";
 
 /** SHA-512's initial values, which BLAKE2b shares, as low and high halves. */
 const IV = new Uint32Array([
@@ -404,6 +405,9 @@ export class Blake2bHasher extends Blake2 {
    * @param outputLength - Digest bytes, 1 to 64.
    */
   constructor(outputLength: number) {
+    if (!Number.isInteger(outputLength) || outputLength < 1 || outputLength > 64) {
+      throw new InvalidOptionError("outputLength", outputLength, "must be an integer from 1 to 64");
+    }
     super(128, outputLength);
     this.state.set(IV);
     // Parameter block: digest length, no key, fanout 1, depth 1.
@@ -419,9 +423,10 @@ export class Blake2bHasher extends Blake2 {
  * Computes BLAKE2b with the given output length.
  *
  * @param data - Bytes to hash.
- * @param length - Output bytes, 1 to 64.
+ * @param outputLength - Output bytes, 1 to 64.
  * @returns {Uint8Array} The digest.
  */
-export function blake2b(data: Uint8Array, length: number): Uint8Array {
-  return new Blake2bHasher(length).update(data).digest();
+export function blake2b(data: Uint8Array, outputLength: number): Uint8Array {
+  assertBytes(data, "data");
+  return new Blake2bHasher(outputLength).update(data).digest();
 }

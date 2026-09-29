@@ -3,6 +3,7 @@
  * hashes a whole input at once; a `Hasher` takes it in pieces, which is what lets PBKDF2 key the
  * HMAC state once and copy it on every iteration instead of hashing the padded key again.
  */
+import { HashError } from "./errors.ts";
 
 /** Incremental state of a hash that works in blocks. */
 export abstract class Hasher {
@@ -54,6 +55,21 @@ export abstract class Hasher {
  */
 export function viewOf(data: Uint8Array): DataView {
   return new DataView(data.buffer, data.byteOffset, data.byteLength);
+}
+
+/**
+ * Throws unless the value is bytes. A string or a plain array would otherwise hash to a digest of
+ * something else without a word.
+ *
+ * @param value - What the caller passed.
+ * @param name - The argument's name, for the message.
+ */
+export function assertBytes(value: unknown, name: string): asserts value is Uint8Array {
+  if (!(value instanceof Uint8Array)) {
+    throw new HashError(
+      `${name} must be a Uint8Array, not ${value === null ? "null" : typeof value}`,
+    );
+  }
 }
 
 /**

@@ -3,7 +3,7 @@
  * kept from before FIPS 202 changed the padding. The 25 lanes are 64-bit, held as a low then a
  * high 32-bit half, so the state is fifty int32 values.
  */
-import { Hasher, viewOf, wordsToBytes } from "./hasher.ts";
+import { Hasher, assertBytes, viewOf, wordsToBytes } from "./hasher.ts";
 
 /** Domain byte FIPS 202 puts after a SHA-3 message. */
 export const SHA3_PADDING = 0x06;
@@ -431,4 +431,26 @@ export class KeccakHasher extends Hasher {
     this.position = source.position;
     return this;
   }
+}
+
+/**
+ * Keccak-256 with the original padding, as Ethereum hashes with it.
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 32 bytes.
+ */
+export function keccak256(data: Uint8Array): Uint8Array {
+  assertBytes(data, "data");
+  return new KeccakHasher(32, KECCAK_PADDING).update(data).digest();
+}
+
+/**
+ * SHA3-256 (FIPS 202).
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 32 bytes.
+ */
+export function sha3_256(data: Uint8Array): Uint8Array {
+  assertBytes(data, "data");
+  return new KeccakHasher(32, SHA3_PADDING).update(data).digest();
 }

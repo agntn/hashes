@@ -4,7 +4,8 @@
  * part above 2^32 into the high half. Summing up to five terms at once ran about 30% faster in an
  * interleaved run than a branchless int32 carry after each addition, the way BLAKE2b adds two.
  */
-import { MerkleDamgard } from "./hasher.ts";
+import { InvalidOptionError } from "./errors.ts";
+import { MerkleDamgard, assertBytes } from "./hasher.ts";
 
 /** SHA-256 round constants. */
 const K256 = new Int32Array([
@@ -125,6 +126,10 @@ export class Sha512Hasher extends MerkleDamgard {
    * @param outputLength - 64 for SHA-512, 48 for SHA-384.
    */
   constructor(outputLength: 48 | 64 = 64) {
+    // Any other length would truncate SHA-512 under its own IV, which is no standard hash.
+    if (outputLength !== 48 && outputLength !== 64) {
+      throw new InvalidOptionError("outputLength", outputLength, "must be 48 or 64");
+    }
     super(128, outputLength, false);
     this.state = (outputLength === 48 ? IV384 : IV512).slice();
   }
@@ -232,6 +237,7 @@ function add(s: Int32Array, i: number, high: number, low: number): void {
  * @returns {Uint8Array} 32 bytes.
  */
 export function sha256(data: Uint8Array): Uint8Array {
+  assertBytes(data, "data");
   return new Sha256Hasher().update(data).digest();
 }
 
@@ -242,5 +248,16 @@ export function sha256(data: Uint8Array): Uint8Array {
  * @returns {Uint8Array} 64 bytes.
  */
 export function sha512(data: Uint8Array): Uint8Array {
+  assertBytes(data, "data");
   return new Sha512Hasher().update(data).digest();
+}
+
+/**
+ * SHA-256 of SHA-256, which Bitcoin hashes blocks, transactions and checksums with.
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 32 bytes.
+ */
+export function hash256(data: Uint8Array): Uint8Array {
+  return sha256(sha256(data));
 }

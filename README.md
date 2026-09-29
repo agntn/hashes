@@ -105,6 +105,8 @@ digestMatches(result, "5D41402ABC4B2A76B9719D911017C592"); // true
 
 That's most of it. `create()` wants the exact name. `resolveAlgorithm()` forgives case, spaces and underscores, so `SHA3_256` finds `sha3-256`. Every result has the digest, its length and the options it depends on. Something wrong? It's a `HashError`, and the message names the option. The types in [`src/core/types.ts`](./src/core/types.ts) are the rest.
 
+Only need bytes in and bytes out? `sha256`, `hash160`, `keccak256` and friends take a `Uint8Array` and return one. No registry comes along. `hmac` and `pbkdf2` run over `Sha512Hasher` and the other hashers. The list is in [the hashing guide](https://hashes.agntn.dev/guide/hashing).
+
 ## 🗂️ Algorithms
 
 | Category          | Algorithms                                                                                                                                                    | HMAC                                               |
