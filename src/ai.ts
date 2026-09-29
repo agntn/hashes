@@ -4,6 +4,7 @@ import { tool, type Tool } from "ai";
 import { z } from "zod";
 import {
   HASH_FAMILIES,
+  INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
@@ -26,6 +27,7 @@ import {
 
 const algorithm = z.string().min(1).max(MAX_ALGORITHM_LENGTH).describe(d.algorithm);
 const input = z.string().max(MAX_INPUT_LENGTH).describe(d.input);
+const inputEncoding = z.enum(INPUT_ENCODINGS).optional().describe(d.inputEncoding);
 const encoding = z.enum(TEXT_ENCODINGS).optional().describe(d.encoding);
 const salt = z.string().regex(new RegExp(SALT_PATTERN)).optional();
 const parameters = z
@@ -45,6 +47,7 @@ type Output<Details> = Details & { text: string };
 const hashComputeInput = z.strictObject({
   algorithm,
   input,
+  inputEncoding,
   encoding,
   salt: salt.describe(d.salt),
   parameters,
@@ -62,6 +65,7 @@ export const hashComputeTool: Tool<z.infer<typeof hashComputeInput>, Output<Dige
 const hashHmacInput = z.strictObject({
   algorithm: algorithm.describe(d.hmacAlgorithm),
   input,
+  inputEncoding,
   key: z.string().max(MAX_KEY_LENGTH).describe(d.key),
   encoding,
 });
@@ -78,6 +82,7 @@ export const hashHmacTool: Tool<z.infer<typeof hashHmacInput>, Output<DigestDeta
 const hashVerifyInput = z.strictObject({
   algorithm,
   input,
+  inputEncoding,
   expected: z.string().min(1).max(MAX_EXPECTED_LENGTH).describe(d.expected),
   encoding: z.enum(TEXT_ENCODINGS).optional().describe(d.expectedEncoding),
   salt: salt.describe(d.verifySalt),

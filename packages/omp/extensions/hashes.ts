@@ -18,6 +18,7 @@ import {
   PARAMETER_DESCRIPTIONS,
   SALT_PATTERN,
   TEXT_ENCODINGS,
+  INPUT_ENCODINGS,
   TOOL_DESCRIPTIONS,
   TOOL_TITLES,
 } from "../../shared/tool-contract.ts";
@@ -158,6 +159,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     maxLength: MAX_INPUT_LENGTH,
     description: d.input,
   });
+  const inputEncoding = Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.inputEncoding }));
   const encoding = Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.encoding }));
   const salt = Type.Optional(
     Type.String({
@@ -178,7 +180,10 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     name: "hash_compute",
     label: TOOL_TITLES.hash_compute,
     description: TOOL_DESCRIPTIONS.hash_compute,
-    parameters: Type.Object({ algorithm, input, encoding, salt, parameters }, closed),
+    parameters: Type.Object(
+      { algorithm, input, inputEncoding, encoding, salt, parameters },
+      closed,
+    ),
     approval: "read",
     async execute(_toolCallId, params) {
       return (await loadToolOperations()).hashCompute(params);
@@ -206,6 +211,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
           description: d.hmacAlgorithm,
         }),
         input,
+        inputEncoding,
         key: Type.String({ maxLength: MAX_KEY_LENGTH, description: d.key }),
         encoding,
       },
@@ -235,6 +241,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
       {
         algorithm,
         input,
+        inputEncoding,
         expected: Type.String({
           minLength: 1,
           maxLength: MAX_EXPECTED_LENGTH,

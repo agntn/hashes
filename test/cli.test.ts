@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createHash, scryptSync } from "node:crypto";
+import { createHash, createHmac, scryptSync } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -72,6 +72,24 @@ describe("hashes CLI", () => {
 
   it("hashes stdin for -", () => {
     expect(run(["sha256", "-"], "piped bytes").stdout).toBe(`${sha256("piped bytes")}\n`);
+  });
+
+  it("hashes the bytes --input-encoding hex spells, from the argument or stdin", () => {
+    const key = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+    const hash160 = "751e76e8199196d454941c45d1b3a323f1433bd6\n";
+
+    expect(run(["hash160", key, "--input-encoding", "hex"]).stdout).toBe(hash160);
+    expect(run(["hash160", "-", "--input-encoding", "hex"], `${key}\n`).stdout).toBe(hash160);
+    expect(run(["hmac", "sha256", "AA==", "k", "--input-encoding", "base64"]).stdout).toBe(
+      `${createHmac("sha256", "k")
+        .update(Buffer.from([0]))
+        .digest("hex")}\n`,
+    );
+    expect(run(["verify", "sha256", "00", sha256("\0"), "--input-encoding", "hex"]).code).toBe(0);
+    expect(run(["sha256", "0x00", "--input-encoding", "hex"])).toMatchObject({
+      code: 1,
+      stderr: "Invalid option input=4 characters: must be hex digit pairs, without a 0x prefix\n",
+    });
   });
 
   it("keeps a drawn KDF salt on stderr and the digest alone on stdout", () => {

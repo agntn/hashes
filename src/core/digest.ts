@@ -111,12 +111,15 @@ export function guarded(algorithm: string, compute: () => HashResult): HashResul
   }
 }
 
+/** How a string stands for bytes: text read as UTF-8, or the bytes it spells in hex or base64. */
+export type InputEncoding = "hex" | "base64" | "utf8";
+
 /** Salt options the KDFs share. */
 export interface SaltOptions {
   /** Salt as bytes or encoded text. Default: 32 random bytes. */
   salt?: HashInput;
   /** Encoding of a string salt. Default: `hex`. */
-  saltEncoding?: "hex" | "base64" | "utf8";
+  saltEncoding?: InputEncoding;
 }
 
 /**
@@ -131,7 +134,7 @@ export function resolveSalt(options?: Readonly<SaltOptions>): Uint8Array {
   if (salt === undefined) return crypto.getRandomValues(new Uint8Array(32));
   const encoding = options?.saltEncoding ?? "hex";
   // Empty bytes are refused like an empty string: the reported salt "" could not be passed back.
-  const bytes = typeof salt === "string" ? decodeSalt(salt, encoding) : salt;
+  const bytes = typeof salt === "string" ? decodeText(salt, encoding) : salt;
   if (bytes === undefined || bytes.length === 0) {
     throw new InvalidOptionError("salt", salt, `must be whole bytes in ${encoding}`);
   }
@@ -139,19 +142,38 @@ export function resolveSalt(options?: Readonly<SaltOptions>): Uint8Array {
 }
 
 /**
- * Decodes a string salt, strictly: an invalid digit is an error, not a shorter salt.
+ * Decodes a string, strictly: an invalid digit is an error, not fewer bytes.
  *
- * @param salt - The salt as text.
- * @param encoding - Its encoding.
+ * @param text - The string.
+ * @param encoding - How it stands for bytes.
  * @returns {Uint8Array | undefined} Its bytes, or undefined when it is not valid.
  */
-function decodeSalt(salt: string, encoding: "hex" | "base64" | "utf8"): Uint8Array | undefined {
-  if (encoding === "utf8") return new TextEncoder().encode(salt);
+function decodeText(text: string, encoding: InputEncoding): Uint8Array | undefined {
+  if (encoding === "utf8") return new TextEncoder().encode(text);
   try {
-    return encoding === "hex" ? Uint8Array.fromHex(salt) : Uint8Array.fromBase64(salt);
+    return encoding === "hex" ? Uint8Array.fromHex(text) : Uint8Array.fromBase64(text);
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Reads an input given as a string. UTF-8 stays text; hex and base64 become the bytes they
+ * spell, with surrounding whitespace ignored, so a public key or a raw transaction hashes as
+ * bytes and not as the characters that write it down.
+ *
+ * @param text - The input as given.
+ * @param encoding - How it stands for bytes.
+ * @returns {HashInput} Text, or the decoded bytes.
+ */
+export function decodeInput(text: string, encoding: InputEncoding): HashInput {
+  if (encoding === "utf8") return text;
+  const bytes = decodeText(text.trim(), encoding);
+  if (bytes === undefined) {
+    const form = encoding === "hex" ? "hex digit pairs, without a 0x prefix" : "base64";
+    throw new InvalidOptionError("input", `${text.length} characters`, `must be ${form}`);
+  }
+  return bytes;
 }
 
 /** The largest KDF cost or key length OpenSSL took, a C int, so a larger one stays an error. */

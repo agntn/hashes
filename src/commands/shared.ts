@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { TEXT_ENCODINGS } from "../../packages/shared/tool-contract.ts";
-import { ENCODING_OPTION, parameterText } from "../core/digest.ts";
+import { INPUT_ENCODINGS, TEXT_ENCODINGS } from "../../packages/shared/tool-contract.ts";
+import { ENCODING_OPTION, decodeInput, parameterText, type InputEncoding } from "../core/digest.ts";
 import {
   InvalidOptionError,
   builtinAlgorithms,
@@ -22,6 +22,14 @@ export const encodingArg = {
   description: ENCODING_OPTION.description,
   alias: "e",
   default: "hex",
+} as const;
+
+/** The `--input-encoding` flag of every command that hashes an input. */
+export const inputEncodingArg = {
+  type: "string",
+  description:
+    "How to read the input: utf8, or hex and base64 for the bytes they spell (a public key, a raw transaction)",
+  default: "utf8",
 } as const;
 
 /** A string flag citty parses. */
@@ -89,13 +97,26 @@ export function parseEncoding(value: string | undefined): OutputEncoding {
 }
 
 /**
- * Reads the input argument: `-` means the bytes on stdin, anything else is the text itself.
+ * Reads the input argument: `-` means stdin, anything else is the input itself. In utf8 it is
+ * hashed as given, stdin byte for byte; in hex or base64 it is decoded to the bytes it spells.
  *
  * @param value - The argument as given.
- * @returns {HashInput} Text, or the bytes read from stdin.
+ * @param encoding - The `--input-encoding` flag as given.
+ * @returns {HashInput} Text, or bytes.
  */
-export function readInput(value: string): HashInput {
-  return value === "-" ? new Uint8Array(readFileSync(0)) : value;
+export function readInput(value: string, encoding: string | undefined): HashInput {
+  const inputEncoding = encoding ?? "utf8";
+  if (!(INPUT_ENCODINGS as readonly string[]).includes(inputEncoding)) {
+    throw new InvalidOptionError(
+      "input-encoding",
+      inputEncoding,
+      `use one of ${INPUT_ENCODINGS.join(", ")}`,
+    );
+  }
+  const stdin = value === "-" ? new Uint8Array(readFileSync(0)) : undefined;
+  if (inputEncoding === "utf8") return stdin ?? value;
+  const text = stdin === undefined ? value : new TextDecoder().decode(stdin);
+  return decodeInput(text, inputEncoding as InputEncoding);
 }
 
 /**

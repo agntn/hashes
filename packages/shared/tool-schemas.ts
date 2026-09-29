@@ -7,6 +7,7 @@
 import { Type, type TObject, type TProperties } from "typebox";
 import {
   HASH_FAMILIES,
+  INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
@@ -37,6 +38,7 @@ const algorithm = Type.String({
   description: d.algorithm,
 });
 const input = Type.String({ maxLength: MAX_INPUT_LENGTH, description: d.input });
+const inputEncoding = Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.inputEncoding }));
 const encoding = Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.encoding }));
 const salt = Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.salt }));
 const parameters = Type.Optional(
@@ -47,7 +49,14 @@ const parameters = Type.Optional(
   ),
 );
 
-export const hashComputeSchema = closed({ algorithm, input, encoding, salt, parameters });
+export const hashComputeSchema = closed({
+  algorithm,
+  input,
+  inputEncoding,
+  encoding,
+  salt,
+  parameters,
+});
 
 export const hashHmacSchema = closed({
   algorithm: Type.String({
@@ -56,6 +65,7 @@ export const hashHmacSchema = closed({
     description: d.hmacAlgorithm,
   }),
   input,
+  inputEncoding,
   key: Type.String({ maxLength: MAX_KEY_LENGTH, description: d.key }),
   encoding,
 });
@@ -63,6 +73,7 @@ export const hashHmacSchema = closed({
 export const hashVerifySchema = closed({
   algorithm,
   input,
+  inputEncoding,
   expected: Type.String({
     minLength: 1,
     maxLength: MAX_EXPECTED_LENGTH,

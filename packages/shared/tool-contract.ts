@@ -32,6 +32,7 @@ export const PARAMETER_LIMITS: Readonly<Record<string, number>> = {
 export const MAX_SCRYPT_MEMORY = 256 * 1024 * 1024;
 
 export const TEXT_ENCODINGS = ["hex", "base64", "base64url"] as const;
+export const INPUT_ENCODINGS = ["utf8", "hex", "base64"] as const;
 export const HASH_FAMILIES = ["cryptographic", "legacy", "non-cryptographic", "password"] as const;
 export const BUILTIN_ALGORITHMS =
   "sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256, md5, sha1, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2";
@@ -41,10 +42,11 @@ export const HMAC_ALGORITHMS =
 /** What each tool does, the same text on every surface. */
 export const TOOL_DESCRIPTIONS = {
   hash_compute:
-    "Hash text with any registered algorithm. The answer is the digest, then the algorithm, encoding, length and, for scrypt and pbkdf2, the salt and cost parameters needed to reproduce it.",
-  hash_hmac: "Compute an HMAC of text with a key, using an algorithm that has an HMAC mode.",
+    "Hash text or bytes with any registered algorithm. The answer is the digest, then the algorithm, encoding, length and, for scrypt and pbkdf2, the salt and cost parameters needed to reproduce it.",
+  hash_hmac:
+    "Compute an HMAC of text or bytes with a key, using an algorithm that has an HMAC mode.",
   hash_verify:
-    "Hash text and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt and pbkdf2 need the salt the expected digest was made with.",
+    "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt and pbkdf2 need the salt the expected digest was made with.",
   hash_algorithms:
     "List the registered algorithms with family, digest size and HMAC support, or describe one algorithm with its options.",
 } as const;
@@ -61,7 +63,9 @@ export const TOOL_TITLES = {
 export const PARAMETER_DESCRIPTIONS = {
   algorithm: `Algorithm name, case-insensitive: ${BUILTIN_ALGORITHMS}`,
   hmacAlgorithm: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
-  input: "Text to hash, read as UTF-8",
+  input: "Input to hash, read as inputEncoding says",
+  inputEncoding:
+    "How to read input (default utf8). hex and base64 hash the bytes they spell, such as a public key or a raw transaction. hex takes no 0x prefix",
   key: "HMAC key, read as UTF-8",
   encoding: "Digest encoding (default hex)",
   salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hash_verify needs it",
