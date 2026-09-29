@@ -15,46 +15,12 @@ const SIGMA = new Uint8Array([
   2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0,
 ]);
 
-/** The block's words and the working vector, shared: hashing is synchronous. */
+/** The block's words, shared: hashing is synchronous. */
 const M = new Int32Array(16);
-const V = new Int32Array(16);
 
 /**
- * The G mixing function on four words of the working vector.
- *
- * @param v - Working vector, updated in place.
- * @param a - Index of the first word.
- * @param b - Index of the second word.
- * @param c - Index of the third word.
- * @param d - Index of the fourth word.
- * @param x - First message word.
- * @param y - Second message word.
- */
-function g(v: Int32Array, a: number, b: number, c: number, d: number, x: number, y: number): void {
-  let va = v[a]!;
-  let vb = v[b]!;
-  let vc = v[c]!;
-  let vd = v[d]!;
-  va = (va + vb + x) | 0;
-  vd ^= va;
-  vd = (vd >>> 16) | (vd << 16);
-  vc = (vc + vd) | 0;
-  vb ^= vc;
-  vb = (vb >>> 12) | (vb << 20);
-  va = (va + vb + y) | 0;
-  vd ^= va;
-  vd = (vd >>> 8) | (vd << 24);
-  vc = (vc + vd) | 0;
-  vb ^= vc;
-  vb = (vb >>> 7) | (vb << 25);
-  v[a] = va;
-  v[b] = vb;
-  v[c] = vc;
-  v[d] = vd;
-}
-
-/**
- * Compresses one 64-byte block into the state.
+ * Compresses one 64-byte block into the state. The working vector lives in sixteen locals and
+ * each round inlines its eight G calls, with the message words picked through `SIGMA`.
  *
  * @param h - Chained state, eight words, updated in place.
  * @param block - A view over the block.
@@ -63,24 +29,129 @@ function g(v: Int32Array, a: number, b: number, c: number, d: number, x: number,
  */
 function compress(h: Int32Array, block: DataView, counter: number, last: boolean): void {
   const m = M;
-  const v = V;
   for (let i = 0; i < 16; i++) m[i] = block.getInt32(i * 4, true);
-  v.set(h);
-  v.set(IV, 8);
-  v[12] = IV[4]! ^ counter;
-  v[13] = IV[5]! ^ Math.floor(counter / 0x1_0000_0000);
-  if (last) v[14] = ~IV[6]!;
+  let v0 = h[0]!;
+  let v1 = h[1]!;
+  let v2 = h[2]!;
+  let v3 = h[3]!;
+  let v4 = h[4]!;
+  let v5 = h[5]!;
+  let v6 = h[6]!;
+  let v7 = h[7]!;
+  let v8 = IV[0]!;
+  let v9 = IV[1]!;
+  let v10 = IV[2]!;
+  let v11 = IV[3]!;
+  let v12 = IV[4]! ^ counter;
+  let v13 = IV[5]! ^ Math.floor(counter / 0x1_0000_0000);
+  let v14 = last ? ~IV[6]! : IV[6]!;
+  let v15 = IV[7]!;
   for (let s = 0; s < 160; s += 16) {
-    g(v, 0, 4, 8, 12, m[SIGMA[s]!]!, m[SIGMA[s + 1]!]!);
-    g(v, 1, 5, 9, 13, m[SIGMA[s + 2]!]!, m[SIGMA[s + 3]!]!);
-    g(v, 2, 6, 10, 14, m[SIGMA[s + 4]!]!, m[SIGMA[s + 5]!]!);
-    g(v, 3, 7, 11, 15, m[SIGMA[s + 6]!]!, m[SIGMA[s + 7]!]!);
-    g(v, 0, 5, 10, 15, m[SIGMA[s + 8]!]!, m[SIGMA[s + 9]!]!);
-    g(v, 1, 6, 11, 12, m[SIGMA[s + 10]!]!, m[SIGMA[s + 11]!]!);
-    g(v, 2, 7, 8, 13, m[SIGMA[s + 12]!]!, m[SIGMA[s + 13]!]!);
-    g(v, 3, 4, 9, 14, m[SIGMA[s + 14]!]!, m[SIGMA[s + 15]!]!);
+    v0 = (v0 + v4 + m[SIGMA[s + 0]!]!) | 0;
+    v12 ^= v0;
+    v12 = (v12 >>> 16) | (v12 << 16);
+    v8 = (v8 + v12) | 0;
+    v4 ^= v8;
+    v4 = (v4 >>> 12) | (v4 << 20);
+    v0 = (v0 + v4 + m[SIGMA[s + 1]!]!) | 0;
+    v12 ^= v0;
+    v12 = (v12 >>> 8) | (v12 << 24);
+    v8 = (v8 + v12) | 0;
+    v4 ^= v8;
+    v4 = (v4 >>> 7) | (v4 << 25);
+    v1 = (v1 + v5 + m[SIGMA[s + 2]!]!) | 0;
+    v13 ^= v1;
+    v13 = (v13 >>> 16) | (v13 << 16);
+    v9 = (v9 + v13) | 0;
+    v5 ^= v9;
+    v5 = (v5 >>> 12) | (v5 << 20);
+    v1 = (v1 + v5 + m[SIGMA[s + 3]!]!) | 0;
+    v13 ^= v1;
+    v13 = (v13 >>> 8) | (v13 << 24);
+    v9 = (v9 + v13) | 0;
+    v5 ^= v9;
+    v5 = (v5 >>> 7) | (v5 << 25);
+    v2 = (v2 + v6 + m[SIGMA[s + 4]!]!) | 0;
+    v14 ^= v2;
+    v14 = (v14 >>> 16) | (v14 << 16);
+    v10 = (v10 + v14) | 0;
+    v6 ^= v10;
+    v6 = (v6 >>> 12) | (v6 << 20);
+    v2 = (v2 + v6 + m[SIGMA[s + 5]!]!) | 0;
+    v14 ^= v2;
+    v14 = (v14 >>> 8) | (v14 << 24);
+    v10 = (v10 + v14) | 0;
+    v6 ^= v10;
+    v6 = (v6 >>> 7) | (v6 << 25);
+    v3 = (v3 + v7 + m[SIGMA[s + 6]!]!) | 0;
+    v15 ^= v3;
+    v15 = (v15 >>> 16) | (v15 << 16);
+    v11 = (v11 + v15) | 0;
+    v7 ^= v11;
+    v7 = (v7 >>> 12) | (v7 << 20);
+    v3 = (v3 + v7 + m[SIGMA[s + 7]!]!) | 0;
+    v15 ^= v3;
+    v15 = (v15 >>> 8) | (v15 << 24);
+    v11 = (v11 + v15) | 0;
+    v7 ^= v11;
+    v7 = (v7 >>> 7) | (v7 << 25);
+    v0 = (v0 + v5 + m[SIGMA[s + 8]!]!) | 0;
+    v15 ^= v0;
+    v15 = (v15 >>> 16) | (v15 << 16);
+    v10 = (v10 + v15) | 0;
+    v5 ^= v10;
+    v5 = (v5 >>> 12) | (v5 << 20);
+    v0 = (v0 + v5 + m[SIGMA[s + 9]!]!) | 0;
+    v15 ^= v0;
+    v15 = (v15 >>> 8) | (v15 << 24);
+    v10 = (v10 + v15) | 0;
+    v5 ^= v10;
+    v5 = (v5 >>> 7) | (v5 << 25);
+    v1 = (v1 + v6 + m[SIGMA[s + 10]!]!) | 0;
+    v12 ^= v1;
+    v12 = (v12 >>> 16) | (v12 << 16);
+    v11 = (v11 + v12) | 0;
+    v6 ^= v11;
+    v6 = (v6 >>> 12) | (v6 << 20);
+    v1 = (v1 + v6 + m[SIGMA[s + 11]!]!) | 0;
+    v12 ^= v1;
+    v12 = (v12 >>> 8) | (v12 << 24);
+    v11 = (v11 + v12) | 0;
+    v6 ^= v11;
+    v6 = (v6 >>> 7) | (v6 << 25);
+    v2 = (v2 + v7 + m[SIGMA[s + 12]!]!) | 0;
+    v13 ^= v2;
+    v13 = (v13 >>> 16) | (v13 << 16);
+    v8 = (v8 + v13) | 0;
+    v7 ^= v8;
+    v7 = (v7 >>> 12) | (v7 << 20);
+    v2 = (v2 + v7 + m[SIGMA[s + 13]!]!) | 0;
+    v13 ^= v2;
+    v13 = (v13 >>> 8) | (v13 << 24);
+    v8 = (v8 + v13) | 0;
+    v7 ^= v8;
+    v7 = (v7 >>> 7) | (v7 << 25);
+    v3 = (v3 + v4 + m[SIGMA[s + 14]!]!) | 0;
+    v14 ^= v3;
+    v14 = (v14 >>> 16) | (v14 << 16);
+    v9 = (v9 + v14) | 0;
+    v4 ^= v9;
+    v4 = (v4 >>> 12) | (v4 << 20);
+    v3 = (v3 + v4 + m[SIGMA[s + 15]!]!) | 0;
+    v14 ^= v3;
+    v14 = (v14 >>> 8) | (v14 << 24);
+    v9 = (v9 + v14) | 0;
+    v4 ^= v9;
+    v4 = (v4 >>> 7) | (v4 << 25);
   }
-  for (let i = 0; i < 8; i++) h[i] = h[i]! ^ v[i]! ^ v[i + 8]!;
+  h[0] = h[0]! ^ v0 ^ v8;
+  h[1] = h[1]! ^ v1 ^ v9;
+  h[2] = h[2]! ^ v2 ^ v10;
+  h[3] = h[3]! ^ v3 ^ v11;
+  h[4] = h[4]! ^ v4 ^ v12;
+  h[5] = h[5]! ^ v5 ^ v13;
+  h[6] = h[6]! ^ v6 ^ v14;
+  h[7] = h[7]! ^ v7 ^ v15;
 }
 
 /** BLAKE2s-256. */

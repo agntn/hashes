@@ -41,12 +41,33 @@ export class Md5Hasher extends MerkleDamgard {
     let d = s[3]!;
     let f = 0;
     let r = 0;
-    for (let i = 0; i < 64; i++) {
-      if (i < 16) f = ((b & c) | (~b & d)) + x[i]!;
-      else if (i < 32) f = ((d & b) | (~d & c)) + x[(5 * i + 1) & 15]!;
-      else if (i < 48) f = (b ^ c ^ d) + x[(3 * i + 5) & 15]!;
-      else f = (c ^ (b | ~d)) + x[(7 * i) & 15]!;
-      f = (f + a + K[i]!) | 0;
+    // One loop per round, each with its function and word order written out.
+    for (let i = 0; i < 16; i++) {
+      f = (((b & c) | (~b & d)) + x[i]! + a + K[i]!) | 0;
+      r = S[i]!;
+      a = d;
+      d = c;
+      c = b;
+      b = (b + ((f << r) | (f >>> (32 - r)))) | 0;
+    }
+    for (let i = 16; i < 32; i++) {
+      f = (((d & b) | (~d & c)) + x[(5 * i + 1) & 15]! + a + K[i]!) | 0;
+      r = S[i]!;
+      a = d;
+      d = c;
+      c = b;
+      b = (b + ((f << r) | (f >>> (32 - r)))) | 0;
+    }
+    for (let i = 32; i < 48; i++) {
+      f = ((b ^ c ^ d) + x[(3 * i + 5) & 15]! + a + K[i]!) | 0;
+      r = S[i]!;
+      a = d;
+      d = c;
+      c = b;
+      b = (b + ((f << r) | (f >>> (32 - r)))) | 0;
+    }
+    for (let i = 48; i < 64; i++) {
+      f = ((c ^ (b | ~d)) + x[(7 * i) & 15]! + a + K[i]!) | 0;
       r = S[i]!;
       a = d;
       d = c;

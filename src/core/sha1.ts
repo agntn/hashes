@@ -28,12 +28,33 @@ export class Sha1Hasher extends MerkleDamgard {
     let d = s[3]!;
     let e = s[4]!;
     let f = 0;
-    for (let i = 0; i < 80; i++) {
-      if (i < 20) f = ((b & c) | (~b & d)) + 0x5a827999;
-      else if (i < 40) f = (b ^ c ^ d) + 0x6ed9eba1;
-      else if (i < 60) f = ((b & c) | (b & d) | (c & d)) - 0x70e44324;
-      else f = (b ^ c ^ d) - 0x359d3e2a;
-      f = (f + ((a << 5) | (a >>> 27)) + e + w[i]!) | 0;
+    // One loop per round, each with its function and constant written out.
+    for (let i = 0; i < 20; i++) {
+      f = (((b & c) | (~b & d)) + 0x5a827999 + ((a << 5) | (a >>> 27)) + e + w[i]!) | 0;
+      e = d;
+      d = c;
+      c = (b << 30) | (b >>> 2);
+      b = a;
+      a = f;
+    }
+    for (let i = 20; i < 40; i++) {
+      f = ((b ^ c ^ d) + 0x6ed9eba1 + ((a << 5) | (a >>> 27)) + e + w[i]!) | 0;
+      e = d;
+      d = c;
+      c = (b << 30) | (b >>> 2);
+      b = a;
+      a = f;
+    }
+    for (let i = 40; i < 60; i++) {
+      f = (((b & c) | (b & d) | (c & d)) - 0x70e44324 + ((a << 5) | (a >>> 27)) + e + w[i]!) | 0;
+      e = d;
+      d = c;
+      c = (b << 30) | (b >>> 2);
+      b = a;
+      a = f;
+    }
+    for (let i = 60; i < 80; i++) {
+      f = ((b ^ c ^ d) - 0x359d3e2a + ((a << 5) | (a >>> 27)) + e + w[i]!) | 0;
       e = d;
       d = c;
       c = (b << 30) | (b >>> 2);

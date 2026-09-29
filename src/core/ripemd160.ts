@@ -32,31 +32,8 @@ const SR = new Uint8Array([
   14, 6, 9, 12, 9, 12, 5, 15, 8, 8, 5, 12, 9, 12, 5, 14, 6, 8, 13, 6, 5, 15, 13, 11, 11,
 ]);
 
-/** Round constants of the left line. */
-const KL = new Int32Array([0x00000000, 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xa953fd4e]);
-
-/** Round constants of the right line. */
-const KR = new Int32Array([0x50a28be6, 0x5c4dd124, 0x6d703ef3, 0x7a6d76e9, 0x00000000]);
-
 /** The block's words, shared: hashing is synchronous. */
 const X = new Int32Array(16);
-
-/**
- * The boolean function of one round.
- *
- * @param round - 0 to 4.
- * @param x - First word.
- * @param y - Second word.
- * @param z - Third word.
- * @returns {number} The mixed word.
- */
-function f(round: number, x: number, y: number, z: number): number {
-  if (round === 0) return x ^ y ^ z;
-  if (round === 1) return (x & y) | (~x & z);
-  if (round === 2) return (x | ~y) ^ z;
-  if (round === 3) return (x & z) | (y & ~z);
-  return x ^ (y | ~z);
-}
 
 /** RIPEMD-160. */
 export class Ripemd160Hasher extends MerkleDamgard {
@@ -84,9 +61,10 @@ export class Ripemd160Hasher extends MerkleDamgard {
     let er = el;
     let t = 0;
     let r = 0;
-    for (let i = 0; i < 80; i++) {
-      const round = (i / 16) | 0;
-      t = (al + f(round, bl, cl, dl) + x[RL[i]!]! + KL[round]!) | 0;
+    // One loop per round, each with its boolean functions written out: the left line runs them
+    // in order, the right line in reverse.
+    for (let i = 0; i < 16; i++) {
+      t = (al + (bl ^ cl ^ dl) + x[RL[i]!]!) | 0;
       r = SL[i]!;
       t = (((t << r) | (t >>> (32 - r))) + el) | 0;
       al = el;
@@ -94,7 +72,79 @@ export class Ripemd160Hasher extends MerkleDamgard {
       dl = (cl << 10) | (cl >>> 22);
       cl = bl;
       bl = t;
-      t = (ar + f(4 - round, br, cr, dr) + x[RR[i]!]! + KR[round]!) | 0;
+      t = (ar + (br ^ (cr | ~dr)) + x[RR[i]!]! + 0x50a28be6) | 0;
+      r = SR[i]!;
+      t = (((t << r) | (t >>> (32 - r))) + er) | 0;
+      ar = er;
+      er = dr;
+      dr = (cr << 10) | (cr >>> 22);
+      cr = br;
+      br = t;
+    }
+    for (let i = 16; i < 32; i++) {
+      t = (al + ((bl & cl) | (~bl & dl)) + x[RL[i]!]! + 0x5a827999) | 0;
+      r = SL[i]!;
+      t = (((t << r) | (t >>> (32 - r))) + el) | 0;
+      al = el;
+      el = dl;
+      dl = (cl << 10) | (cl >>> 22);
+      cl = bl;
+      bl = t;
+      t = (ar + ((br & dr) | (cr & ~dr)) + x[RR[i]!]! + 0x5c4dd124) | 0;
+      r = SR[i]!;
+      t = (((t << r) | (t >>> (32 - r))) + er) | 0;
+      ar = er;
+      er = dr;
+      dr = (cr << 10) | (cr >>> 22);
+      cr = br;
+      br = t;
+    }
+    for (let i = 32; i < 48; i++) {
+      t = (al + ((bl | ~cl) ^ dl) + x[RL[i]!]! + 0x6ed9eba1) | 0;
+      r = SL[i]!;
+      t = (((t << r) | (t >>> (32 - r))) + el) | 0;
+      al = el;
+      el = dl;
+      dl = (cl << 10) | (cl >>> 22);
+      cl = bl;
+      bl = t;
+      t = (ar + ((br | ~cr) ^ dr) + x[RR[i]!]! + 0x6d703ef3) | 0;
+      r = SR[i]!;
+      t = (((t << r) | (t >>> (32 - r))) + er) | 0;
+      ar = er;
+      er = dr;
+      dr = (cr << 10) | (cr >>> 22);
+      cr = br;
+      br = t;
+    }
+    for (let i = 48; i < 64; i++) {
+      t = (al + ((bl & dl) | (cl & ~dl)) + x[RL[i]!]! + 0x8f1bbcdc) | 0;
+      r = SL[i]!;
+      t = (((t << r) | (t >>> (32 - r))) + el) | 0;
+      al = el;
+      el = dl;
+      dl = (cl << 10) | (cl >>> 22);
+      cl = bl;
+      bl = t;
+      t = (ar + ((br & cr) | (~br & dr)) + x[RR[i]!]! + 0x7a6d76e9) | 0;
+      r = SR[i]!;
+      t = (((t << r) | (t >>> (32 - r))) + er) | 0;
+      ar = er;
+      er = dr;
+      dr = (cr << 10) | (cr >>> 22);
+      cr = br;
+      br = t;
+    }
+    for (let i = 64; i < 80; i++) {
+      t = (al + (bl ^ (cl | ~dl)) + x[RL[i]!]! + 0xa953fd4e) | 0;
+      r = SL[i]!;
+      t = (((t << r) | (t >>> (32 - r))) + el) | 0;
+      al = el;
+      el = dl;
+      dl = (cl << 10) | (cl >>> 22);
+      cl = bl;
+      bl = t;
+      t = (ar + (br ^ cr ^ dr) + x[RR[i]!]!) | 0;
       r = SR[i]!;
       t = (((t << r) | (t >>> (32 - r))) + er) | 0;
       ar = er;
