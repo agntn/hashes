@@ -28,7 +28,15 @@ const HASHES: Readonly<Record<string, new () => BlockHash>> = {
   "sha3-512": Sha3_512,
 };
 
-const DIGESTS = Object.keys(HASHES);
+/**
+ * Lists the hashes PBKDF2 takes. A module-level list would keep every class in `HASHES` in a
+ * bundle that never touches PBKDF2, since esbuild cannot drop the call that builds it.
+ *
+ * @returns {string} Their names, comma-separated.
+ */
+function digests(): string {
+  return Object.keys(HASHES).join(", ");
+}
 
 /** Options PBKDF2 takes besides the encoding. */
 export interface Pbkdf2Options extends HashOptions, SaltOptions {
@@ -51,7 +59,7 @@ function parameters(options?: Readonly<Pbkdf2Options>) {
   const { iterations = 600_000, digest = "sha512", keyLength = 64 } = options ?? {};
   assertPositiveIntegers({ iterations, keyLength });
   if (!Object.hasOwn(HASHES, digest)) {
-    throw new InvalidOptionError("digest", digest, `use one of ${DIGESTS.join(", ")}`);
+    throw new InvalidOptionError("digest", digest, `use one of ${digests()}`);
   }
   return { iterations, digest, keyLength };
 }
@@ -87,7 +95,7 @@ export class Pbkdf2 extends Hash {
           type: "string",
           required: false,
           default: "sha512",
-          description: `Underlying hash: ${DIGESTS.join(", ")}`,
+          description: `Underlying hash: ${digests()}`,
         },
         {
           name: "keyLength",

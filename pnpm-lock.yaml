@@ -51,6 +51,9 @@ importers:
       changelogen:
         specifier: 0.6.2
         version: 0.6.2
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       oxlint-tsgolint:
         specifier: 7.0.2003
         version: 7.0.2003
