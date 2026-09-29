@@ -1,6 +1,5 @@
 import { FixedHash } from "../core/fixed-hash.ts";
-import { Ripemd160Hasher } from "../core/ripemd160.ts";
-import { sha256 } from "../core/sha2.ts";
+import { hash160 } from "../core/ripemd160.ts";
 
 export class Hash160 extends FixedHash {
   static readonly key = "hash160";
@@ -21,6 +20,6 @@ export class Hash160 extends FixedHash {
    * @returns {Uint8Array} The 20-byte hash.
    */
   protected digest(bytes: Uint8Array): Uint8Array {
-    return new Ripemd160Hasher().update(sha256(bytes)).digest();
+    return hash160(bytes);
   }
 }

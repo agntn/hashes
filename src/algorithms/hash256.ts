@@ -1,5 +1,5 @@
 import { FixedHash } from "../core/fixed-hash.ts";
-import { sha256 } from "../core/sha2.ts";
+import { hash256 } from "../core/sha2.ts";
 
 export class Hash256 extends FixedHash {
   static readonly key = "hash256";
@@ -21,6 +21,6 @@ export class Hash256 extends FixedHash {
    * @returns {Uint8Array} The 32-byte hash.
    */
   protected digest(bytes: Uint8Array): Uint8Array {
-    return sha256(sha256(bytes));
+    return hash256(bytes);
   }
 }
