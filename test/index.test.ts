@@ -470,6 +470,19 @@ describe("key derivation", () => {
     ).toThrow(/Invalid option p=16777216/);
   });
 
+  it("refuses costs and key lengths above a C int before any work, as OpenSSL did", () => {
+    const tooLarge = 2 ** 31;
+    expect(() =>
+      create("pbkdf2").hash("pw", { salt, iterations: tooLarge } as Pbkdf2Options),
+    ).toThrow(/Invalid option iterations=2147483648/);
+    expect(() =>
+      create("pbkdf2").hash("pw", { salt, iterations: 1, keyLength: tooLarge } as Pbkdf2Options),
+    ).toThrow(/Invalid option keyLength=2147483648/);
+    expect(() =>
+      create("scrypt").hash("pw", { salt, N: 2, r: 1, keyLength: tooLarge } as ScryptOptions),
+    ).toThrow(/Invalid option keyLength=2147483648/);
+  });
+
   it("refuses zero r, p and keyLength", () => {
     for (const cost of [{ r: 0 }, { p: 0 }, { keyLength: 0 }]) {
       expect(() =>
