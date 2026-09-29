@@ -6,7 +6,8 @@ export class Blake2s extends BlockHash {
   static readonly key = "blake2s";
   protected readonly about = {
     label: "BLAKE2s",
-    description: "BLAKE2s 256-bit hash, optimized for 32-bit platforms, smaller state than BLAKE2b",
+    description:
+      "BLAKE2s 256-bit hash, optimized for 32-bit platforms, smaller state than BLAKE2b, used by WireGuard",
     family: "cryptographic",
     digestLength: 32,
     securityNote: "128-bit collision resistance, 256-bit preimage resistance",

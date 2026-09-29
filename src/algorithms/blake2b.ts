@@ -6,8 +6,7 @@ export class Blake2b extends BlockHash {
   static readonly key = "blake2b";
   protected readonly about = {
     label: "BLAKE2b",
-    description:
-      "BLAKE2b 512-bit hash, fast and secure, used by many modern protocols (Argon2, WireGuard)",
+    description: "BLAKE2b 512-bit hash, fast and secure, the hash inside Argon2",
     family: "cryptographic",
     digestLength: 64,
     securityNote: "256-bit collision resistance, 512-bit preimage resistance",
