@@ -162,6 +162,9 @@ describe("digests", () => {
         const input = new Uint8Array(length).map((_, index) => (index * 7 + length) & 0xff);
         expect(hash.hash(input).digest).toBe(createHash(openssl).update(input).digest("hex"));
       }
+      // A view at an odd offset: blocks are read through a DataView, never assumed aligned.
+      const shifted = new Uint8Array(301).map((_, index) => index * 3).subarray(1);
+      expect(hash.hash(shifted).digest).toBe(createHash(openssl).update(shifted).digest("hex"));
       const message = new Uint8Array(200).map((_, index) => index);
       // Keys around each block size: 64, 72 (sha3-512), 128 and 136 (sha3-256, keccak256).
       for (const length of [0, 1, 63, 64, 65, 71, 72, 73, 127, 128, 129, 135, 136, 137, 300]) {
