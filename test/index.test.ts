@@ -557,6 +557,9 @@ describe("byte functions", () => {
       new HashError("message must be a Uint8Array, not null"),
     );
     expect(() => crc32(loose(new ArrayBuffer(4)))).toThrow(HashError);
+    expect(() => blake2b(new Uint8Array(1), 64, loose("UA_F4Jumble_H"))).toThrow(
+      new HashError("personalization must be a Uint8Array, not string"),
+    );
     for (const hasher of [
       new Sha256Hasher(),
       new Sha512Hasher(),
@@ -590,6 +593,89 @@ describe("byte functions", () => {
       expect(() => blake2b(new Uint8Array(1), length)).toThrow(InvalidOptionError);
       expect(() => new Blake2bHasher(length)).toThrow(InvalidOptionError);
     }
+  });
+
+  it("personalize BLAKE2b as Python's hashlib does", () => {
+    const ascii = (text: string) => new TextEncoder().encode(text);
+    // Python hashlib.blake2b(data, digest_size=length, person=personalization).
+    for (const [data, length, personalization, digest] of [
+      [
+        new Uint8Array(0),
+        64,
+        Uint8Array.from([...ascii("UA_F4Jumble_H"), 0, 0, 0]),
+        "c74ca4ba9f11b8300b364aadef413c9b7379d5e2f4110c109ff943d1bf446957087720638d6d3c91f7a9067d51ddf3c52ac959ceaaee3cbd5071cef72fcfc21d",
+      ],
+      [
+        ascii("abc"),
+        64,
+        Uint8Array.from([...ascii("UA_F4Jumble_G"), 1, 2, 1]),
+        "3ca7f474c174bd0115190e1e09451055928a8a4da3718edd2ea6ecf507299372fe5b8c47024be81342ac9af3b5bc47151a98c9236af15afc86680a5624467032",
+      ],
+      [
+        Uint8Array.from({ length: 200 }, (_, i) => i),
+        38,
+        ascii("ZcashPoW"),
+        "de9a31a73652820f2eae61766383ecef002e53307324026506e915b4e04e126eb37644232e53",
+      ],
+      [
+        Uint8Array.from({ length: 128 }, (_, i) => i),
+        32,
+        ascii("0123456789abcdef"),
+        "68f5bac43bc706250ecbf60870c6e7c556f62ab2e572d17d6da79e07667a91fa",
+      ],
+    ] as const) {
+      expect(blake2b(data, length, personalization).toHex()).toBe(digest);
+    }
+    const bytes = new Uint8Array([1, 2, 3]);
+    expect(blake2b(bytes, 64, new Uint8Array(0))).toEqual(blake2b(bytes, 64));
+    expect(blake2b(bytes, 64, new Uint8Array(16))).toEqual(blake2b(bytes, 64));
+  });
+
+  it("jumble a Zcash Unified Address with personalized BLAKE2b", () => {
+    const personal = (tag: string, round: number, block = 0) =>
+      Uint8Array.from([...new TextEncoder().encode(tag), round, block & 0xff, block >>> 8]);
+    const xor = (bytes: Uint8Array, mask: Uint8Array) =>
+      bytes.map((byte, index) => byte ^ mask[index]!);
+    const expand = (round: number, input: Uint8Array, length: number) => {
+      const out = new Uint8Array(Math.ceil(length / 64) * 64);
+      for (let block = 0; block * 64 < length; block++)
+        out.set(blake2b(input, 64, personal("UA_F4Jumble_G", round, block)), block * 64);
+      return out.subarray(0, length);
+    };
+    // ZIP 316 F4Jumble forwards, against zcash-test-vectors `f4jumble.json`, normal then jumbled.
+    for (const [normal, jumbled] of [
+      [
+        "5d7a8f739a2d9e945b0ce152a8049e294c4d6e66b164939daffa2ef6ee6921481cdd86b3cc4318d9614fc820905d042b",
+        "0304d029141b995da5387c125970673504d6c764d91ea6c082123770c7139ccd88ee27368cd0c0921a0444c8e5858d22",
+      ],
+      [
+        "b1ef9ca3f24988c7b3534201cfb1cd8dbf69b8250c18ef41294ca97993db546c1fe01f7e9c8e36d6a5e29d4e30a73594bf5098421c69378af1e40f64e125946f",
+        "5271fa3321f3adbcfb075196883d542b438ec6339176537daf859841fe6a56222bff76d1662b5509a9e1079e446eeedd2e683c31aae3ee1851d7954328526be1",
+      ],
+      [
+        "62c2fa7b2fecbcb64b6968912a6381ce3dc166d56a1d62f5a8d7551db5fd9313e8c7203d996af7d477083756d59af80d06a745f44ab023752cb5b406ed8985e18130ab33362697b0e4e4c763ccb8f676495c222f7fba1e31defa3d5a57efc2e1e9b01a035587d5fb1a38e01d94903d3c3e0ad3360c1d3710acd20b183e31d49f",
+        "498cf1b1ba6f4577effe64151d67469adc30acc325e326207e7d78487085b4162669f82f02f9774c0cc26ae6e1a76f1e266c6a9a8a2f4ffe8d2d676b1ed71cc47195a3f19208998f7d8cdfc0b74d2a96364d733a62b4273c77d9828aa1fa061588a7c4c88dd3d3dde02239557acfaad35c55854f4541e1a1b3bc8c17076e7316",
+      ],
+      [
+        "25c9a138f49b1a537edcf04be34a9851a7af9db6990ed83dd64af3597c04323ea51b0052ad8084a8b9da948d320dadd64f5431e61ddf658d24ae67c22c8d1309131fc00fe7f235734276d38d47f1e191e00c7a1d48af046827591e9733a97fa6b679f3dc601d008285edcbdae69ce8fc1be4aac00ff2711ebd931de518856878f7",
+        "7508a3a146714f229db91b543e240633ed57853f6451c9db6d64c6e86af1b88b28704f608582c53c51ce7d5b8548827a971d2b98d41b7f6258655902440cd66ee11e84dbfac7d2a43696fd0468810a3d9637c3fa58e7d2d341ef250fa09b9fb71a78a41d389370138a55ea58fcde779d714a04e0d30e61dc2d8be0da61cd684509",
+      ],
+    ]) {
+      const message = Uint8Array.fromHex(normal!);
+      const leftLength = Math.min(64, Math.floor(message.length / 2));
+      const a = message.subarray(0, leftLength);
+      const b = message.subarray(leftLength);
+      const x = xor(b, expand(0, a, b.length));
+      const y = xor(a, blake2b(x, leftLength, personal("UA_F4Jumble_H", 0)));
+      const d = xor(x, expand(1, y, x.length));
+      const c = xor(y, blake2b(d, leftLength, personal("UA_F4Jumble_H", 1)));
+      expect(c.toHex() + d.toHex()).toBe(jumbled);
+    }
+  });
+
+  it("refuse a BLAKE2b personalization longer than 16 bytes", () => {
+    expect(() => blake2b(new Uint8Array(1), 64, new Uint8Array(17))).toThrow(InvalidOptionError);
+    expect(() => new Blake2bHasher(64, new Uint8Array(17))).toThrow(InvalidOptionError);
   });
 
   it("refuse PBKDF2 costs and lengths that are not positive integers", () => {

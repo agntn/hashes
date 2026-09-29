@@ -1,10 +1,10 @@
 /**
  * BLAKE2b (RFC 7693) with any output length from 1 to 64 bytes: 64 for plain `blake2b`, 32 on
- * Sui, 28 for Cardano key hashes. No key, salt or personalization. Words are 64-bit, held as low
- * and high 32-bit halves.
+ * Sui, 28 for Cardano key hashes. An optional personalization serves Zcash, whose F4Jumble tags
+ * every call with one. No key or salt. Words are 64-bit, held as low and high 32-bit halves.
  */
 import { InvalidOptionError } from "./errors.ts";
-import { Blake2 } from "./hasher.ts";
+import { Blake2, assertBytes } from "./hasher.ts";
 
 /** SHA-512's initial values, which BLAKE2b shares, as low and high halves. */
 const IV = /* @__PURE__ */ new Uint32Array([
@@ -403,7 +403,7 @@ function littleEndian(): boolean {
   return new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
 }
 
-/** BLAKE2b with an output of 1 to 64 bytes and no key, salt or personalization. */
+/** BLAKE2b with an output of 1 to 64 bytes, an optional personalization and no key or salt. */
 export class Blake2bHasher extends Blake2 {
   protected readonly state = new Int32Array(16);
   /** The block buffer as thirty-two little-endian halves. */
@@ -411,18 +411,37 @@ export class Blake2bHasher extends Blake2 {
 
   /**
    * @param outputLength - Digest bytes, 1 to 64.
+   * @param personalization - Up to 16 bytes, zero padded, as Python's `hashlib.blake2b(person=)`
+   * takes it. Zcash's F4Jumble passes `UA_F4Jumble_H` or `UA_F4Jumble_G` and three counter bytes.
    */
-  constructor(outputLength: number) {
+  constructor(outputLength: number, personalization?: Uint8Array) {
     if (!LITTLE_ENDIAN) {
       throw new Error("BLAKE2b here reads blocks and the state as little-endian bytes");
     }
     if (!Number.isInteger(outputLength) || outputLength < 1 || outputLength > 64) {
       throw new InvalidOptionError("outputLength", outputLength, "must be an integer from 1 to 64");
     }
+    if (personalization !== undefined) {
+      assertBytes(personalization, "personalization");
+      if (personalization.length > 16) {
+        throw new InvalidOptionError(
+          "personalization",
+          `${personalization.length} bytes`,
+          "must be at most 16 bytes",
+        );
+      }
+    }
     super(128, outputLength);
     this.state.set(IV);
     // Parameter block: digest length, no key, fanout 1, depth 1.
     this.state[0] = this.state[0]! ^ (0x01010000 | outputLength);
+    if (personalization !== undefined) {
+      // The parameter block ends with the personalization, which lands on the last four halves.
+      const padded = new Uint8Array(16);
+      padded.set(personalization);
+      const person = new Int32Array(padded.buffer);
+      for (let i = 0; i < 4; i++) this.state[12 + i] = this.state[12 + i]! ^ person[i]!;
+    }
   }
 
   protected compress(counter: number, last: boolean): void {
@@ -435,8 +454,13 @@ export class Blake2bHasher extends Blake2 {
  *
  * @param data - Bytes to hash.
  * @param outputLength - Output bytes, 1 to 64.
+ * @param personalization - Up to 16 bytes, zero padded. Left out, the field stays zero.
  * @returns {Uint8Array} The digest.
  */
-export function blake2b(data: Uint8Array, outputLength: number): Uint8Array {
-  return new Blake2bHasher(outputLength).update(data).digest();
+export function blake2b(
+  data: Uint8Array,
+  outputLength: number,
+  personalization?: Uint8Array,
+): Uint8Array {
+  return new Blake2bHasher(outputLength, personalization).update(data).digest();
 }
