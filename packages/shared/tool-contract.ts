@@ -66,25 +66,35 @@ export const TOOL_TITLES = {
   hash_algorithms: "Hash Algorithms",
 } as const;
 
+/**
+ * Builds the argument descriptions. Behind a pure call because esbuild keeps a module-level
+ * template literal with a substitution, and with it this text, in a bundle that never reads it.
+ *
+ * @returns {Readonly<Record<string, string>>} The descriptions by argument name.
+ */
+function parameterDescriptions() {
+  return {
+    algorithm: `Algorithm name, case-insensitive: ${BUILTIN_ALGORITHMS}`,
+    hmacAlgorithm: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
+    input: "Input to hash, read as inputEncoding says",
+    inputEncoding:
+      "How to read input (default utf8). hex and base64 hash the bytes they spell, such as a public key or a raw transaction. hex takes no 0x prefix",
+    key: "HMAC key, read as keyEncoding says",
+    keyEncoding:
+      "How to read key (default utf8). hex and base64 give a binary key, such as a BIP32 chain code. hex takes no 0x prefix",
+    encoding: "Digest encoding (default hex)",
+    salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hash_verify needs it",
+    expected: "Expected digest. Hex ignores case, base64 and base64url do not",
+    expectedEncoding: "Encoding of the expected digest (default hex)",
+    verifySalt:
+      "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
+    parameters:
+      "Options the algorithm takes besides encoding, key and salt, as hash_algorithms lists them: seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
+    category: "Category to list. Omit to list every category",
+    family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
+    describe: "Registered algorithm to describe with its options. Omit to list",
+  } as const;
+}
+
 /** What each argument means, the same text in every schema that declares it. */
-export const PARAMETER_DESCRIPTIONS = {
-  algorithm: `Algorithm name, case-insensitive: ${BUILTIN_ALGORITHMS}`,
-  hmacAlgorithm: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
-  input: "Input to hash, read as inputEncoding says",
-  inputEncoding:
-    "How to read input (default utf8). hex and base64 hash the bytes they spell, such as a public key or a raw transaction. hex takes no 0x prefix",
-  key: "HMAC key, read as keyEncoding says",
-  keyEncoding:
-    "How to read key (default utf8). hex and base64 give a binary key, such as a BIP32 chain code. hex takes no 0x prefix",
-  encoding: "Digest encoding (default hex)",
-  salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hash_verify needs it",
-  expected: "Expected digest. Hex ignores case, base64 and base64url do not",
-  expectedEncoding: "Encoding of the expected digest (default hex)",
-  verifySalt:
-    "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
-  parameters:
-    "Options the algorithm takes besides encoding, key and salt, as hash_algorithms lists them: seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
-  category: "Category to list. Omit to list every category",
-  family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
-  describe: "Registered algorithm to describe with its options. Omit to list",
-} as const;
+export const PARAMETER_DESCRIPTIONS = /* @__PURE__ */ parameterDescriptions();

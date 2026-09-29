@@ -6,7 +6,7 @@ import { Blake2 } from "./hasher.ts";
 import { IV256 as IV } from "./sha2.ts";
 
 /** The message word each of the ten rounds feeds each G call. */
-const SIGMA = new Uint8Array([
+const SIGMA = /* @__PURE__ */ new Uint8Array([
   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11,
   7, 5, 3, 11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4, 7, 9, 3, 1, 13, 12, 11, 14, 2, 6,
   5, 10, 4, 0, 15, 8, 9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13, 2, 12, 6, 10, 0, 11, 8,

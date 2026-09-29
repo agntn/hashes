@@ -8,7 +8,7 @@ import { InvalidOptionError } from "./errors.ts";
 import { MerkleDamgard } from "./hasher.ts";
 
 /** SHA-256 round constants. */
-const K256 = new Int32Array([
+const K256 = /* @__PURE__ */ new Int32Array([
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
   0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
   0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -20,7 +20,7 @@ const K256 = new Int32Array([
 ]);
 
 /** SHA-256 initial value, which BLAKE2s shares. */
-export const IV256 = new Int32Array([
+export const IV256 = /* @__PURE__ */ new Int32Array([
   0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
 ]);
 
@@ -80,7 +80,7 @@ export class Sha256Hasher extends MerkleDamgard {
 }
 
 /** SHA-512 round constants, high then low half. */
-const K512 = new Int32Array([
+const K512 = /* @__PURE__ */ new Int32Array([
   0x428a2f98, 0xd728ae22, 0x71374491, 0x23ef65cd, 0xb5c0fbcf, 0xec4d3b2f, 0xe9b5dba5, 0x8189dbbc,
   0x3956c25b, 0xf348b538, 0x59f111f1, 0xb605d019, 0x923f82a4, 0xaf194f9b, 0xab1c5ed5, 0xda6d8118,
   0xd807aa98, 0xa3030242, 0x12835b01, 0x45706fbe, 0x243185be, 0x4ee4b28c, 0x550c7dc3, 0xd5ffb4e2,
@@ -104,13 +104,13 @@ const K512 = new Int32Array([
 ]);
 
 /** SHA-512 initial value. */
-const IV512 = new Int32Array([
+const IV512 = /* @__PURE__ */ new Int32Array([
   0x6a09e667, 0xf3bcc908, 0xbb67ae85, 0x84caa73b, 0x3c6ef372, 0xfe94f82b, 0xa54ff53a, 0x5f1d36f1,
   0x510e527f, 0xade682d1, 0x9b05688c, 0x2b3e6c1f, 0x1f83d9ab, 0xfb41bd6b, 0x5be0cd19, 0x137e2179,
 ]);
 
 /** SHA-384 initial value. */
-const IV384 = new Int32Array([
+const IV384 = /* @__PURE__ */ new Int32Array([
   0xcbbb9d5d, 0xc1059ed8, 0x629a292a, 0x367cd507, 0x9159015a, 0x3070dd17, 0x152fecd8, 0xf70e5939,
   0x67332667, 0xffc00b31, 0x8eb44a87, 0x68581511, 0xdb0c2e0d, 0x64f98fa7, 0x47b5481d, 0xbefa4fa4,
 ]);

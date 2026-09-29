@@ -68,6 +68,7 @@
     "@types/node": "26.6.3",
     "ai": "7.0.118",
     "changelogen": "0.6.2",
+    "esbuild": "0.28.2",
     "oxlint-tsgolint": "7.0.2003",
     "typescript": "7.0.2",
     "vite": "catalog:",

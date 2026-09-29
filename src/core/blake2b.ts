@@ -7,7 +7,7 @@ import { InvalidOptionError } from "./errors.ts";
 import { Blake2 } from "./hasher.ts";
 
 /** SHA-512's initial values, which BLAKE2b shares, as low and high halves. */
-const IV = new Uint32Array([
+const IV = /* @__PURE__ */ new Uint32Array([
   0xf3bcc908, 0x6a09e667, 0x84caa73b, 0xbb67ae85, 0xfe94f82b, 0x3c6ef372, 0x5f1d36f1, 0xa54ff53a,
   0xade682d1, 0x510e527f, 0x2b3e6c1f, 0x9b05688c, 0xfb41bd6b, 0x1f83d9ab, 0x137e2179, 0x5be0cd19,
 ]);
@@ -16,7 +16,7 @@ const IV = new Uint32Array([
  * The message word each of the twelve rounds feeds each G call, as indices of low halves.
  * Rounds 11 and 12 repeat the first two permutations.
  */
-const SCHEDULE = new Uint8Array([
+const SCHEDULE = /* @__PURE__ */ new Uint8Array([
   0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 28, 20, 8, 16, 18, 30, 26, 12, 2, 24,
   0, 4, 22, 14, 10, 6, 22, 16, 24, 0, 10, 4, 30, 26, 20, 28, 6, 12, 14, 2, 18, 8, 14, 18, 6, 2, 26,
   24, 22, 28, 4, 12, 10, 20, 8, 0, 30, 16, 18, 0, 10, 14, 4, 8, 20, 30, 28, 2, 22, 24, 12, 16, 6,
@@ -391,8 +391,16 @@ function compress(h: Int32Array, m: Int32Array, counter: number, last: boolean):
   h[15] = h[15]! ^ h7 ^ h15;
 }
 
-if (new Uint8Array(new Uint32Array([1]).buffer)[0] !== 1) {
-  throw new Error("BLAKE2b here reads blocks and the state as little-endian bytes");
+/** Whether this platform stores typed arrays little-endian, as the block reads assume. */
+const LITTLE_ENDIAN = /* @__PURE__ */ littleEndian();
+
+/**
+ * Reads the platform's byte order.
+ *
+ * @returns {boolean} True on a little-endian platform.
+ */
+function littleEndian(): boolean {
+  return new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
 }
 
 /** BLAKE2b with an output of 1 to 64 bytes and no key, salt or personalization. */
@@ -405,6 +413,9 @@ export class Blake2bHasher extends Blake2 {
    * @param outputLength - Digest bytes, 1 to 64.
    */
   constructor(outputLength: number) {
+    if (!LITTLE_ENDIAN) {
+      throw new Error("BLAKE2b here reads blocks and the state as little-endian bytes");
+    }
     if (!Number.isInteger(outputLength) || outputLength < 1 || outputLength > 64) {
       throw new InvalidOptionError("outputLength", outputLength, "must be an integer from 1 to 64");
     }

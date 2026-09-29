@@ -2,7 +2,7 @@
 import { MerkleDamgard } from "./hasher.ts";
 
 /** The constant of each step, from the sine table. */
-const K = new Int32Array([
+const K = /* @__PURE__ */ new Int32Array([
   0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
   0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
   0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
@@ -14,7 +14,7 @@ const K = new Int32Array([
 ]);
 
 /** Left rotation of each step. */
-const S = new Uint8Array([
+const S = /* @__PURE__ */ new Uint8Array([
   7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14,
   20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6,
   10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
