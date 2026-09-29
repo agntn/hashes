@@ -344,6 +344,19 @@ describe("hashes chains use", () => {
     expect(create("keccak256").hash("abc").digest).not.toBe(create("sha3-256").hash("abc").digest);
   });
 
+  it("sha0 matches the FIPS 180 vectors and differs from sha1", () => {
+    // FIPS 180 (1993), appendices A, B and C; OpenSSL and hashlib no longer ship SHA-0.
+    expect(create("sha0").hash("abc").digest).toBe("0164b8a914cd2a5e74c4f7ff082c4d97f1edf880");
+    expect(
+      create("sha0").hash("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq").digest,
+    ).toBe("d2516ee1acfa5baf33dfc1c471e438449ef134c8");
+    expect(create("sha0").hash("a".repeat(1_000_000)).digest).toBe(
+      "3232affa48628a26653b5aaa44541fd90d690603",
+    );
+    expect(create("sha0").hash("").digest).toBe("f96cea198ad1dd5617ac084a3d92c6107708c0ef");
+    expect(create("sha0").hash("abc").digest).not.toBe(create("sha1").hash("abc").digest);
+  });
+
   it("blake2b-256 and blake2b-224 match the reference BLAKE2b", () => {
     // Python hashlib.blake2b(data, digest_size=32 or 28).
     expect(create("blake2b-256").hash("").digest).toBe(

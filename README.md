@@ -5,7 +5,7 @@
 [![license](https://npmx.dev/api/registry/badge/license/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/hashes)
 
-#️⃣ Twenty-four hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
+#️⃣ Twenty-five hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
 
 Docs, and a playground where the library runs in your browser: [hashes.agntn.dev](https://hashes.agntn.dev).
 
@@ -15,7 +15,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 
 ## ✨ Features
 
-- 🧮 **Twenty-four algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD-160, MD5, SHA-1, CRC-32, xxHash, FNV-1a, scrypt and PBKDF2.
+- 🧮 **Twenty-five algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD-160, MD5, SHA-1, SHA-0, CRC-32, xxHash, FNV-1a, scrypt and PBKDF2.
 - 🪙 **The ones chains use.** Keccak-256, HASH160, double SHA-256, BLAKE2b-256 and -224, BLAKE-256, SHA-512Half and CRC-16/XMODEM. Ethereum, Bitcoin, Sui, Cardano, Decred, XRP Ledger, Stellar and TON, covered.
 - 🔑 **HMAC where it exists.** Eleven of them take a key. The rest say no instead of pretending.
 - 🧂 **KDFs that tell you the salt.** No salt given, a random one is drawn and printed next to the digest. Without it that digest is useless.
@@ -110,11 +110,11 @@ That's most of it. `create()` wants the exact name. `resolveAlgorithm()` forgive
 | Family            | Algorithms                                                                                                                                                    | HMAC                                               |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | cryptographic     | sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256 | sha2, sha3, keccak256, blake2b, blake2s, ripemd160 |
-| legacy            | md5, sha1                                                                                                                                                     | yes                                                |
+| legacy            | md5, sha1, sha0                                                                                                                                               | yes                                                |
 | non-cryptographic | crc32, crc16-xmodem, xxhash, fnv1a                                                                                                                            | no                                                 |
 | password          | scrypt, pbkdf2                                                                                                                                                | no, they take a salt                               |
 
-MD5 and SHA-1 are broken for security. They're here for checksums and old systems. `hashes info <name>` has the security note for each.
+MD5, SHA-1 and SHA-0 are broken for security. They're here for checksums, old systems and old papers. `hashes info <name>` has the security note for each.
 
 ## 🤖 Agents
 

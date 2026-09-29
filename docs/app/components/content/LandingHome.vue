@@ -64,7 +64,8 @@ const { samples, paused, current, step } = useLandingHash();
             {{ spellOutCapital(familySize("cryptographic")) }} cryptographic ones, from SHA-256 to
             BLAKE3, with the compositions chains actually use: Keccak-256 with its old padding,
             HASH160, double SHA-256, BLAKE2b cut to 32 and 28 bytes. MD5 and SHA-1 sit under legacy,
-            broken and still everywhere. {{ spellOutCapital(familySize("non-cryptographic")) }}
+            broken and still everywhere, next to SHA-0, which never got that far.
+            {{ spellOutCapital(familySize("non-cryptographic")) }}
             checksums for tables and files, and {{ spellOut(familySize("password")) }} KDFs that
             print the salt they drew. {{ spellOutCapital(HMAC_COUNT) }} of them take a key. The
             rest say no instead of pretending.

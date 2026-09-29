@@ -4,7 +4,7 @@ Keep AGENTS.md updated with project status.
 
 ## Scope
 
-`@agntn/hashes`: hash, HMAC, verify and look up 24 hash and key derivation algorithms, including the constructions cryptocurrencies use. Library, CLI (`hashes`), MCP server, AI SDK tools, Pi and OMP extensions. Local computation only: no network, no state, no keys to configure. Formerly `hashhouse` (`~/Projekty/oritwoen/hashhouse`); the rename was a clean cutover without the old `hh` binary. Signing and wallet keys belong to `@agntn/keys`, ciphers to `@agntn/ciphers`.
+`@agntn/hashes`: hash, HMAC, verify and look up 25 hash and key derivation algorithms, including the constructions cryptocurrencies use. Library, CLI (`hashes`), MCP server, AI SDK tools, Pi and OMP extensions. Local computation only: no network, no state, no keys to configure. Formerly `hashhouse` (`~/Projekty/oritwoen/hashhouse`); the rename was a clean cutover without the old `hh` binary. Signing and wallet keys belong to `@agntn/keys`, ciphers to `@agntn/ciphers`.
 
 ## Status
 

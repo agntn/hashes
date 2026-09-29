@@ -25,6 +25,7 @@ export const builtinAlgorithms = [
   // Legacy
   "md5",
   "sha1",
+  "sha0",
   // Non-cryptographic
   "crc32",
   "crc16-xmodem",
