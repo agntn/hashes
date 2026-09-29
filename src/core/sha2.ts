@@ -1,8 +1,8 @@
 /**
  * SHA-256, SHA-384 and SHA-512 (FIPS 180-4). SHA-512 keeps each 64-bit word as a high and a low
  * 32-bit half. A sum adds its low halves as unsigned numbers, exact below 2^53, and carries the
- * part above 2^32 into the high half. Summing five terms at once measured 40% faster here than a
- * branchless int32 carry after each addition, the way BLAKE2b adds two.
+ * part above 2^32 into the high half. Summing up to five terms at once ran about 30% faster in an
+ * interleaved run than a branchless int32 carry after each addition, the way BLAKE2b adds two.
  */
 import { MerkleDamgard } from "./hasher.ts";
 
