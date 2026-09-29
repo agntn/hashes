@@ -1208,8 +1208,9 @@ const shareLink = computed(() => {
   }
 }
 @media (width < 400px) {
+  /* The label column fits the longest label, `inputEncoding`, with room to spare. */
   .playground .console-readout-rows > div {
-    grid-template-columns: 5rem minmax(0, 1fr);
+    grid-template-columns: 6.25rem minmax(0, 1fr);
     gap: 8px;
     padding: 10px 12px;
   }
