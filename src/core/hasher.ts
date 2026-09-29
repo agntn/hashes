@@ -135,6 +135,7 @@ export abstract class MerkleDamgard extends Hasher {
   protected abstract compress(view: DataView, offset: number): void;
 
   update(data: Uint8Array): this {
+    assertBytes(data, "data");
     const { buffer, blockLength: block } = this;
     const length = data.length;
     let position = this.position;
@@ -227,6 +228,7 @@ export abstract class Blake2 extends Hasher {
   protected abstract compress(counter: number, last: boolean): void;
 
   update(data: Uint8Array): this {
+    assertBytes(data, "data");
     const { block, blockLength } = this;
     let position = this.position;
     for (let offset = 0; offset < data.length;) {

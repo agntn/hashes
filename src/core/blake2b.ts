@@ -4,7 +4,7 @@
  * and high 32-bit halves.
  */
 import { InvalidOptionError } from "./errors.ts";
-import { Blake2, assertBytes } from "./hasher.ts";
+import { Blake2 } from "./hasher.ts";
 
 /** SHA-512's initial values, which BLAKE2b shares, as low and high halves. */
 const IV = new Uint32Array([
@@ -427,6 +427,5 @@ export class Blake2bHasher extends Blake2 {
  * @returns {Uint8Array} The digest.
  */
 export function blake2b(data: Uint8Array, outputLength: number): Uint8Array {
-  assertBytes(data, "data");
   return new Blake2bHasher(outputLength).update(data).digest();
 }

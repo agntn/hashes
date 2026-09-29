@@ -392,6 +392,7 @@ export class KeccakHasher extends Hasher {
   }
 
   update(data: Uint8Array): this {
+    assertBytes(data, "data");
     const { state, blockLength: rate } = this;
     let offset = 0;
     while (offset < data.length) {
@@ -440,7 +441,6 @@ export class KeccakHasher extends Hasher {
  * @returns {Uint8Array} 32 bytes.
  */
 export function keccak256(data: Uint8Array): Uint8Array {
-  assertBytes(data, "data");
   return new KeccakHasher(32, KECCAK_PADDING).update(data).digest();
 }
 
@@ -451,6 +451,5 @@ export function keccak256(data: Uint8Array): Uint8Array {
  * @returns {Uint8Array} 32 bytes.
  */
 export function sha3_256(data: Uint8Array): Uint8Array {
-  assertBytes(data, "data");
   return new KeccakHasher(32, SHA3_PADDING).update(data).digest();
 }

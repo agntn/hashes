@@ -5,7 +5,7 @@
  * interleaved run than a branchless int32 carry after each addition, the way BLAKE2b adds two.
  */
 import { InvalidOptionError } from "./errors.ts";
-import { MerkleDamgard, assertBytes } from "./hasher.ts";
+import { MerkleDamgard } from "./hasher.ts";
 
 /** SHA-256 round constants. */
 const K256 = new Int32Array([
@@ -237,7 +237,6 @@ function add(s: Int32Array, i: number, high: number, low: number): void {
  * @returns {Uint8Array} 32 bytes.
  */
 export function sha256(data: Uint8Array): Uint8Array {
-  assertBytes(data, "data");
   return new Sha256Hasher().update(data).digest();
 }
 
@@ -248,7 +247,6 @@ export function sha256(data: Uint8Array): Uint8Array {
  * @returns {Uint8Array} 64 bytes.
  */
 export function sha512(data: Uint8Array): Uint8Array {
-  assertBytes(data, "data");
   return new Sha512Hasher().update(data).digest();
 }
 

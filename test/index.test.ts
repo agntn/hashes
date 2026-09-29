@@ -557,6 +557,16 @@ describe("byte functions", () => {
       new HashError("message must be a Uint8Array, not null"),
     );
     expect(() => crc32(loose(new ArrayBuffer(4)))).toThrow(HashError);
+    for (const hasher of [
+      new Sha256Hasher(),
+      new Sha512Hasher(),
+      new Ripemd160Hasher(),
+      new Blake2bHasher(32),
+    ]) {
+      expect(() => hasher.update(loose("abc"))).toThrow(
+        new HashError("data must be a Uint8Array, not string"),
+      );
+    }
     expect(() => hmac(() => new Sha256Hasher(), loose("key"), new Uint8Array(0))).toThrow(
       new HashError("key must be a Uint8Array, not string"),
     );

@@ -2,7 +2,7 @@
  * RIPEMD-160: little-endian words, two parallel lines of five rounds, each round sixteen steps.
  * The right line runs the five boolean functions in reverse order.
  */
-import { MerkleDamgard, assertBytes } from "./hasher.ts";
+import { MerkleDamgard } from "./hasher.ts";
 import { sha256 } from "./sha2.ts";
 
 /** Word each step of the left line reads. */
@@ -170,7 +170,6 @@ export class Ripemd160Hasher extends MerkleDamgard {
  * @returns {Uint8Array} 20 bytes.
  */
 export function ripemd160(data: Uint8Array): Uint8Array {
-  assertBytes(data, "data");
   return new Ripemd160Hasher().update(data).digest();
 }
 
