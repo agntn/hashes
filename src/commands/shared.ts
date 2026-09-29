@@ -32,6 +32,13 @@ export const inputEncodingArg = {
   default: "utf8",
 } as const;
 
+/** The `--key-encoding` flag of `hmac`. */
+export const keyEncodingArg = {
+  type: "string",
+  description: "How to read the key: utf8, or hex and base64 for a binary key (a BIP32 chain code)",
+  default: "utf8",
+} as const;
+
 /** A string flag citty parses. */
 interface StringArg {
   readonly type: "string";
@@ -97,6 +104,19 @@ export function parseEncoding(value: string | undefined): OutputEncoding {
 }
 
 /**
+ * Checks an input encoding flag.
+ *
+ * @param flag - The flag name, for the error.
+ * @param value - The flag as given.
+ * @returns {InputEncoding} The encoding, `utf8` when omitted.
+ */
+function parseInputEncoding(flag: string, value: string | undefined): InputEncoding {
+  const encoding = value ?? "utf8";
+  if ((INPUT_ENCODINGS as readonly string[]).includes(encoding)) return encoding as InputEncoding;
+  throw new InvalidOptionError(flag, encoding, `use one of ${INPUT_ENCODINGS.join(", ")}`);
+}
+
+/**
  * Reads the input argument: `-` means stdin, anything else is the input itself. In utf8 it is
  * hashed as given, stdin byte for byte; in hex or base64 it is decoded to the bytes it spells.
  *
@@ -105,18 +125,22 @@ export function parseEncoding(value: string | undefined): OutputEncoding {
  * @returns {HashInput} Text, or bytes.
  */
 export function readInput(value: string, encoding: string | undefined): HashInput {
-  const inputEncoding = encoding ?? "utf8";
-  if (!(INPUT_ENCODINGS as readonly string[]).includes(inputEncoding)) {
-    throw new InvalidOptionError(
-      "input-encoding",
-      inputEncoding,
-      `use one of ${INPUT_ENCODINGS.join(", ")}`,
-    );
-  }
+  const inputEncoding = parseInputEncoding("input-encoding", encoding);
   const stdin = value === "-" ? new Uint8Array(readFileSync(0)) : undefined;
   if (inputEncoding === "utf8") return stdin ?? value;
   const text = stdin === undefined ? value : new TextDecoder().decode(stdin);
-  return decodeInput(text, inputEncoding as InputEncoding);
+  return decodeInput(text, inputEncoding);
+}
+
+/**
+ * Reads the HMAC key argument as the `--key-encoding` flag says.
+ *
+ * @param value - The key as given.
+ * @param encoding - The `--key-encoding` flag as given.
+ * @returns {HashInput} Text, or bytes.
+ */
+export function readKey(value: string, encoding: string | undefined): HashInput {
+  return decodeInput(value, parseInputEncoding("key-encoding", encoding), "key");
 }
 
 /**

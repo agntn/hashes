@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { asSchema } from "ai";
 import { describe, expect, it } from "vite-plus/test";
 import { hashTools } from "../src/ai.ts";
@@ -22,6 +22,19 @@ describe("AI SDK tools", () => {
       algorithm: "sha256",
       digest,
       text: `${digest}\nsha256, hex, 32 bytes`,
+    });
+  });
+
+  it("keys an HMAC with the bytes a hex key spells", async () => {
+    const output = await hashTools.hash_hmac.execute?.(
+      { algorithm: "sha256", input: "m", key: "aaff", keyEncoding: "hex" },
+      options,
+    );
+
+    expect(output).toMatchObject({
+      digest: createHmac("sha256", Buffer.from([0xaa, 0xff]))
+        .update("m")
+        .digest("hex"),
     });
   });
 

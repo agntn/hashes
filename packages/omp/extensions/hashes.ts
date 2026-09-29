@@ -213,6 +213,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
         input,
         inputEncoding,
         key: Type.String({ maxLength: MAX_KEY_LENGTH, description: d.key }),
+        keyEncoding: Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.keyEncoding })),
         encoding,
       },
       closed,

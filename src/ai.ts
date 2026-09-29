@@ -67,6 +67,7 @@ const hashHmacInput = z.strictObject({
   input,
   inputEncoding,
   key: z.string().max(MAX_KEY_LENGTH).describe(d.key),
+  keyEncoding: z.enum(INPUT_ENCODINGS).optional().describe(d.keyEncoding),
   encoding,
 });
 

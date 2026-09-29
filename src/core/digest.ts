@@ -164,14 +164,15 @@ function decodeText(text: string, encoding: InputEncoding): Uint8Array | undefin
  *
  * @param text - The input as given.
  * @param encoding - How it stands for bytes.
+ * @param name - The argument the text came from, for the error.
  * @returns {HashInput} Text, or the decoded bytes.
  */
-export function decodeInput(text: string, encoding: InputEncoding): HashInput {
+export function decodeInput(text: string, encoding: InputEncoding, name = "input"): HashInput {
   if (encoding === "utf8") return text;
   const bytes = decodeText(text.trim(), encoding);
   if (bytes === undefined) {
     const form = encoding === "hex" ? "hex digit pairs, without a 0x prefix" : "base64";
-    throw new InvalidOptionError("input", `${text.length} characters`, `must be ${form}`);
+    throw new InvalidOptionError(name, `${text.length} characters`, `must be ${form}`);
   }
   return bytes;
 }

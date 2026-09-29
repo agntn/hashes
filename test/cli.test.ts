@@ -92,6 +92,22 @@ describe("hashes CLI", () => {
     });
   });
 
+  it("reads the HMAC key as --key-encoding says", () => {
+    const key = Buffer.alloc(20, 0xaa);
+    const hmac = `${createHmac("sha256", key).update("m").digest("hex")}\n`;
+
+    expect(run(["hmac", "sha256", "m", key.toString("hex"), "--key-encoding", "hex"]).stdout).toBe(
+      hmac,
+    );
+    expect(
+      run(["hmac", "sha256", "m", key.toString("base64"), "--key-encoding", "base64"]).stdout,
+    ).toBe(hmac);
+    expect(run(["hmac", "sha256", "m", "k", "--key-encoding", "latin1"])).toMatchObject({
+      code: 1,
+      stderr: "Invalid option key-encoding=latin1: use one of utf8, hex, base64\n",
+    });
+  });
+
   it("keeps a drawn KDF salt on stderr and the digest alone on stdout", () => {
     const { stderr, stdout } = run(["pbkdf2", "pw"]);
     expect(stdout).toMatch(/^[0-9a-f]{128}\n$/);

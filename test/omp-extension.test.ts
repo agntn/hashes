@@ -81,6 +81,8 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     { algorithm: "sha256", input: "x", key: "k", salt: "00" },
     { algorithm: "sha256", input: "00", key: "k", inputEncoding: "hex" },
     { algorithm: "sha256", input: "00", key: "k", inputEncoding: "binary" },
+    { algorithm: "sha256", input: "x", key: "aa", keyEncoding: "hex" },
+    { algorithm: "sha256", input: "x", key: "aa", keyEncoding: "base64url" },
   ],
   hash_verify: [
     { algorithm: "sha256", input: "x", expected: "ab" },
