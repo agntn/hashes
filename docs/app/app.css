@@ -1,0 +1,2826 @@
+@theme {
+  --font-sans: "Figtree", sans-serif;
+  --font-mono: "Fira Code", monospace;
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+  --color-amber-800: #92400e;
+  --color-amber-900: #78350f;
+  --color-amber-950: #451a03;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  background-color: #eef1f4;
+  background-image: radial-gradient(
+    ellipse 70% 36% at 50% -10%,
+    rgb(217 119 6 / 0.06),
+    transparent 60%
+  );
+  background-repeat: no-repeat;
+}
+
+::selection {
+  background-color: color-mix(in oklch, var(--ui-primary) 28%, transparent);
+}
+
+h1,
+h2,
+h3,
+[data-slot="title"] {
+  letter-spacing: -0.03em;
+  font-weight: 500;
+}
+
+.font-mono,
+.tool-console,
+.roster,
+code,
+kbd,
+pre,
+samp {
+  font-variant-ligatures: none;
+  font-variant-numeric: tabular-nums;
+}
+
+:root {
+  --ui-bg: #eef1f4;
+  --ui-bg-muted: #e3e8ed;
+  --ui-bg-elevated: #ffffff;
+  --ui-bg-accented: #d5dce3;
+  --ui-border: #c3ccd5;
+  --ui-border-muted: #dde3e9;
+  --ui-border-accented: #a9b4c0;
+  --ui-text-dimmed: #6b7580;
+  --ui-primary: var(--color-amber-700);
+  --hashes-fill: var(--color-amber-600);
+  --hashes-fill-hover: var(--color-amber-700);
+  --hashes-fill-text: #ffffff;
+  --hashes-line: var(--ui-border);
+  --hashes-glow: rgb(217 119 6 / 0.1);
+  --hashes-cell-active: rgb(217 119 6 / 0.08);
+  --hashes-dots: rgb(15 23 42 / 0.06);
+  --hashes-frame: 0 0 0 1px var(--ui-border);
+  --hashes-del: #b42318;
+  --shiki-foreground: #1a2430;
+  --shiki-color-text: #1a2430;
+  --shiki-background: transparent;
+  --shiki-token-comment: #6d757e;
+  --shiki-token-keyword: #b45309;
+  --shiki-token-function: #92400e;
+  --shiki-token-string: #0369a1;
+  --shiki-token-string-expression: #0369a1;
+  --shiki-token-constant: #9a6b00;
+  --shiki-token-parameter: #334155;
+  --shiki-token-punctuation: #5c6672;
+  --shiki-token-link: #b45309;
+}
+
+.dark {
+  --ui-bg: #0b0d10;
+  --ui-bg-muted: #11141a;
+  --ui-bg-elevated: #161a20;
+  --ui-bg-accented: #1f242c;
+  --ui-border: #262c35;
+  --ui-border-muted: #1c2128;
+  --ui-border-accented: #333b46;
+  --ui-text-dimmed: #7d8590;
+  --ui-primary: var(--color-amber-300);
+  --hashes-fill: var(--color-amber-300);
+  --hashes-fill-hover: var(--color-amber-200);
+  --hashes-fill-text: #451a03;
+  --hashes-line: var(--ui-border-muted);
+  --hashes-glow: rgb(252 211 77 / 0.09);
+  --hashes-cell-active: rgb(252 211 77 / 0.11);
+  --hashes-dots: rgb(255 255 255 / 0.05);
+  --hashes-frame: 0 0 0 1px var(--ui-border);
+  --hashes-del: #ff7b72;
+  --shiki-foreground: #d5e4ee;
+  --shiki-color-text: #d5e4ee;
+  --shiki-background: transparent;
+  --shiki-token-comment: #6d7884;
+  --shiki-token-keyword: #fcd34d;
+  --shiki-token-function: #fde68a;
+  --shiki-token-string: #7dd3fc;
+  --shiki-token-string-expression: #7dd3fc;
+  --shiki-token-constant: #e3b341;
+  --shiki-token-parameter: #c5d0da;
+  --shiki-token-punctuation: #8a929c;
+  --shiki-token-link: #fcd34d;
+}
+
+html.dark {
+  background-color: #0b0d10;
+  background-image: none;
+}
+
+html.dark body {
+  background-color: #0b0d10;
+  background-image: radial-gradient(
+    ellipse 60% 32% at 50% -6%,
+    rgb(252 211 77 / 0.08),
+    transparent 60%
+  );
+  background-repeat: no-repeat;
+}
+
+@media (width >= 64rem) {
+  body::before,
+  body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    z-index: 0;
+    width: max(0px, calc((100vw - var(--ui-container, 80rem)) / 2));
+    pointer-events: none;
+    background-image: radial-gradient(circle, var(--hashes-dots) 1px, transparent 1.2px);
+    background-size: 18px 18px;
+  }
+
+  body::before {
+    left: 0;
+    border-right: 1px solid var(--ui-border-muted);
+  }
+
+  body::after {
+    right: 0;
+    border-left: 1px solid var(--ui-border-muted);
+  }
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+.hashes-frame {
+  box-shadow: var(--hashes-frame);
+}
+
+.hashes-landing {
+  overflow-anchor: none;
+}
+
+/* Sections split by the panel line with ticks under it, like the site header's edge. */
+.hashes-section {
+  position: relative;
+  border-top: 1px solid var(--console-line);
+}
+.hashes-section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, var(--console-corner) 0 1px, transparent 1px 12px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+/* Landing bars stay one line whatever the sample: the title ends in an ellipsis, the meta never wraps and goes on a phone. */
+.hashes-landing .tool-console > .console-bar {
+  flex-wrap: nowrap;
+}
+.hashes-landing .tool-console > .console-bar > .console-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hashes-landing .tool-console > .console-bar > .console-meta,
+.hashes-landing .tool-console > .console-bar > .console-hosts {
+  flex: none;
+  white-space: nowrap;
+}
+@media (width < 640px) {
+  .hashes-landing .tool-console > .console-bar > .console-meta,
+  .hashes-landing .tool-console > .console-bar > .console-hosts {
+    display: none;
+  }
+}
+/* On the landing inline code sits in 14 px copy with no Nuxt UI size class behind it, and never splits:
+   a package path broken at its slash split its box in two. */
+.hashes-landing .hashes-code {
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+/* An identifier inside an uppercase label keeps its own case. */
+.console-label-key {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.hashes-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+
+.hashes-hero {
+  position: relative;
+}
+
+.hashes-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse 50% 60% at 50% 30%, var(--hashes-glow), transparent 70%);
+  pointer-events: none;
+}
+
+/* Section animations */
+
+.hashes-roll-enter-active,
+.hashes-roll-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.hashes-roll-enter-from {
+  opacity: 0;
+  transform: translateY(0.45em);
+}
+
+.hashes-roll-leave-to {
+  opacity: 0;
+  transform: translateY(-0.45em);
+}
+
+.hashes-roll-slot {
+  display: inline-block;
+}
+
+.tok-kw {
+  color: var(--shiki-token-keyword);
+}
+
+.tok-fn {
+  color: var(--shiki-token-function);
+}
+
+.tok-str {
+  color: var(--shiki-token-string);
+}
+
+.tok-cm {
+  color: var(--shiki-token-comment);
+}
+
+.tok-key {
+  color: var(--ui-text-highlighted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hashes-roll-enter-active,
+  .hashes-roll-leave-active {
+    transition: none;
+  }
+}
+
+/* Inline code as a boxed value: one quiet edge like the tags, no radius or fill, the identifier in the highlight colour. */
+/* Where docs code has to wrap, each line gets its own whole box instead of a box cut open at the break. */
+.hashes-code {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  font-weight: 400;
+  color: var(--ui-text-highlighted);
+}
+
+/* UDropdownMenu in the tooltip's grammar: one quiet edge with an accent segment, the top right corner cut, mono items. */
+.hashes-menu {
+  position: relative;
+  isolation: isolate;
+  min-width: 15rem;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-mono);
+}
+.hashes-menu::before,
+.hashes-menu::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+}
+.hashes-menu::before {
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(var(--console-accent), var(--console-accent)) 0 0 / 14px 1px no-repeat,
+    color-mix(in srgb, var(--ui-text-muted) 35%, var(--ui-bg));
+}
+.hashes-menu::after {
+  inset: 1px;
+  z-index: -1;
+  background: color-mix(in srgb, var(--ui-text-muted) 5%, var(--ui-bg));
+}
+.hashes-menu-group {
+  padding: 4px;
+}
+.hashes-menu-separator {
+  margin-inline: 0;
+  background: var(--console-line);
+}
+.hashes-menu-item {
+  padding: 7px 10px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--ui-text);
+}
+.hashes-menu-item::before {
+  border-radius: 0;
+}
+.hashes-menu-item[data-highlighted]::before {
+  background: color-mix(in srgb, var(--ui-text-muted) 8%, transparent);
+  box-shadow: inset 2px 0 0 var(--console-accent);
+}
+.hashes-menu-item[data-highlighted] {
+  color: var(--ui-text-highlighted);
+}
+.hashes-menu-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--ui-text-muted);
+}
+.hashes-menu-item[data-highlighted] .hashes-menu-icon {
+  color: var(--console-accent);
+}
+
+/* The page foot's edit and report links as a section title: a rule that starts at a dot, boxed buttons, a hatched block at the end. */
+[role="separator"]:has(a[href*="/edit/"]) [data-slot="border"] {
+  border-color: var(--console-line);
+}
+[role="separator"]:has(a[href*="/edit/"]) [data-slot="border"]:first-child {
+  position: relative;
+}
+[role="separator"]:has(a[href*="/edit/"]) [data-slot="border"]:first-child::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--console-corner);
+}
+[role="separator"]:has(a[href*="/edit/"])::after {
+  content: "";
+  flex: none;
+  width: 28px;
+  height: 7px;
+  margin-left: 12px;
+  background: repeating-linear-gradient(135deg, var(--console-corner) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+[role="separator"]:has(a[href*="/edit/"]) [data-slot="container"] > div {
+  gap: 8px;
+}
+[role="separator"]:has(a[href*="/edit/"]) [data-slot="container"] > div > span {
+  display: none;
+}
+[role="separator"]:has(a[href*="/edit/"]) a {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+[role="separator"]:has(a[href*="/edit/"]) a [data-slot="leadingIcon"] {
+  width: 12px;
+  height: 12px;
+}
+[role="separator"]:has(a[href*="/edit/"]) a:hover {
+  color: var(--ui-text-highlighted);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--console-accent) 55%, transparent);
+}
+[role="separator"]:has(a[href*="/edit/"]) a:hover [data-slot="leadingIcon"] {
+  color: var(--console-accent);
+}
+@media (width < 640px) {
+  [role="separator"]:has(a[href*="/edit/"]) [data-slot="container"] {
+    flex-shrink: 0;
+    max-width: 100%;
+    white-space: normal;
+  }
+  /* Each button stays one line; the pair wraps between them, never inside a label. */
+  [role="separator"]:has(a[href*="/edit/"]) [data-slot="container"] a {
+    white-space: nowrap;
+  }
+  [role="separator"]:has(a[href*="/edit/"]) [data-slot="container"] > div {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  [role="separator"]:has(a[href*="/edit/"])::after {
+    display: none;
+  }
+}
+
+/* The page header ends in a section rule instead of a border: a dot, the line, a hatched block, ticks under it. */
+.hashes-page-header {
+  position: relative;
+  padding-bottom: 28px;
+}
+/* The body right under the header starts as close to the rule as the description sits above it. */
+.hashes-page-header + div {
+  margin-top: 20px;
+}
+.hashes-page-header::before {
+  content: "";
+  position: absolute;
+  right: 40px;
+  bottom: 0;
+  left: 0;
+  height: 7px;
+  background:
+    radial-gradient(circle at 3px 3.5px, var(--console-corner) 0 1.5px, transparent 2px) no-repeat,
+    linear-gradient(var(--console-line), var(--console-line)) 8px 3px / calc(100% - 8px) 1px
+      no-repeat,
+    repeating-linear-gradient(90deg, var(--console-corner) 0 1px, transparent 1px 12px) 20px 5px /
+      calc(100% - 20px) 2px no-repeat;
+  opacity: 0.9;
+}
+.hashes-page-header::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  height: 7px;
+  background: repeating-linear-gradient(135deg, var(--console-corner) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+
+/* The site header: a quiet bottom line with ticks under it like the ruler, the icon buttons boxed. */
+.hashes-site-header {
+  border-bottom-color: var(--console-line);
+}
+.hashes-site-header::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, var(--console-corner) 0 1px, transparent 1px 12px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.hashes-site-header [data-slot="right"] > a[data-slot="base"],
+.hashes-site-header [data-slot="right"] > button[data-slot="base"] {
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  color: var(--ui-text-muted);
+}
+.hashes-site-header [data-slot="right"] > a[data-slot="base"]:hover,
+.hashes-site-header [data-slot="right"] > button[data-slot="base"]:hover {
+  background: color-mix(in srgb, var(--ui-text-muted) 6%, transparent);
+  color: var(--console-accent);
+}
+
+/* The search field as the family's input: a dashed readout with corner brackets, the prompt in mono, the glyph in the accent. */
+.hashes-search {
+  position: relative;
+  height: 34px;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--ui-text-muted) 4%, var(--ui-bg));
+  box-shadow: none;
+  outline: 1px dashed var(--console-line);
+  outline-offset: -1px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--ui-text-muted);
+}
+.hashes-search::before,
+.hashes-search::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+.hashes-search::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--console-corner);
+  border-left: 1px solid var(--console-corner);
+}
+.hashes-search::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid var(--console-corner);
+  border-bottom: 1px solid var(--console-corner);
+}
+.hashes-search [data-slot="leadingIcon"] {
+  color: var(--console-accent);
+}
+.hashes-search:hover {
+  color: var(--ui-text-highlighted);
+  outline-color: color-mix(in srgb, var(--console-accent) 45%, var(--console-line));
+}
+
+/* The search modal: the clipped shell with an accent segment, no radius or shadow, like the tooltip and the menu. */
+.hashes-search-modal {
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+  isolation: isolate;
+}
+.hashes-search-modal::before,
+.hashes-search-modal::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 14px) 0,
+    100% 14px,
+    100% 100%,
+    14px 100%,
+    0 calc(100% - 14px)
+  );
+}
+.hashes-search-modal::before {
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(var(--console-accent), var(--console-accent)) 0 0 / 18px 1px no-repeat,
+    color-mix(in srgb, var(--ui-text-muted) 35%, var(--ui-bg));
+}
+.hashes-search-modal::after {
+  inset: 1px;
+  z-index: -1;
+  background: var(--ui-bg);
+}
+.hashes-palette {
+  --tw-divide-opacity: 1;
+}
+.hashes-palette > * + * {
+  border-color: var(--console-line) !important;
+}
+/* The input row as the instrument's bar: tinted, the prompt in mono, ticks under it like the ruler. */
+.hashes-palette-input {
+  position: relative;
+  background: color-mix(in srgb, var(--ui-text-muted) 5%, var(--ui-bg));
+}
+.hashes-palette-input::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, var(--console-corner) 0 1px, transparent 1px 12px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.hashes-palette-input input {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+.hashes-palette-input [data-slot="leadingIcon"] {
+  color: var(--console-accent);
+}
+.hashes-palette-close {
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  color: var(--ui-text-muted) !important;
+}
+.hashes-palette-close [data-slot="leadingIcon"] {
+  color: var(--ui-text-muted);
+}
+.hashes-palette-close:hover [data-slot="leadingIcon"] {
+  color: var(--console-accent);
+}
+/* Group labels as section titles: mono uppercase, a rule from a dot to the edge. */
+.hashes-palette-group {
+  padding: 8px 6px;
+}
+.hashes-palette-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+.hashes-palette-label::after {
+  content: "";
+  flex: 1;
+  height: 7px;
+  background:
+    radial-gradient(circle at 3px 3.5px, var(--console-corner) 0 1.5px, transparent 2px) no-repeat,
+    linear-gradient(var(--console-line), var(--console-line)) 8px 3px / calc(100% - 8px) 1px
+      no-repeat;
+}
+/* Items: the page name in mono, what it covers in the reading face, the highlighted one on the accent edge. */
+.hashes-palette-item {
+  padding: 7px 10px;
+}
+.hashes-palette-item::before {
+  border-radius: 0 !important;
+}
+.hashes-palette-item[data-highlighted]::before {
+  background: color-mix(in srgb, var(--ui-text-muted) 7%, transparent) !important;
+  box-shadow: inset 2px 0 0 var(--console-accent);
+}
+.hashes-palette-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--ui-text-dimmed);
+}
+.hashes-palette-item[data-highlighted] .hashes-palette-icon {
+  color: var(--console-accent);
+}
+.hashes-palette-name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ui-text-highlighted);
+}
+.hashes-palette-about,
+.hashes-palette-text {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ui-text-muted);
+}
+.hashes-palette-text > .hashes-palette-name {
+  margin-right: 6px;
+}
+.hashes-palette mark {
+  color: var(--console-accent) !important;
+  background: color-mix(in srgb, var(--ui-primary) 12%, transparent) !important;
+}
+.hashes-palette-empty {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Keys as boxed tags: no radius, one quiet edge, mono. */
+.hashes-kbd {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  color: var(--ui-text-muted);
+}
+
+/* The hero zone, shared by the landing and the playground: brackets, crosses, readouts, the circuit into the instrument. */
+/* The wide gutters of the landing and the playground (px-8, sm:px-12, lg:px-16). */
+.hero-page {
+  width: 100%;
+  max-width: var(--ui-container);
+  margin-inline: auto;
+  padding: 88px 2rem 80px;
+  text-align: center;
+}
+@media (width >= 40rem) {
+  .hero-page {
+    padding-inline: 3rem;
+  }
+}
+@media (width >= 64rem) {
+  .hero-page {
+    padding-inline: 4rem;
+  }
+}
+.hero-zone {
+  position: relative;
+  margin-inline: auto;
+  padding: 32px 48px 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3Cpath d='M16 18h4m-2-2v4' fill='none' stroke='%23818a94' stroke-opacity='.1'/%3E%3C/svg%3E");
+  background-size: 36px 36px;
+  background-position: 24px 20px;
+}
+/* The halo stays at the top of the page and fades out before the instrument, so both sit on the same canvas. */
+.hero-page.hashes-hero::before {
+  background: radial-gradient(ellipse 42% 32% at 50% 20%, var(--hashes-glow), transparent 75%);
+}
+.hero-zone > :not(.hero-bracket, .hero-cross) {
+  position: relative;
+}
+.hero-metrics,
+.hero-share,
+.hero-share-read {
+  max-width: 48rem;
+  margin-inline: auto;
+}
+.hero-bracket {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  border-block: 1px solid var(--console-corner);
+  pointer-events: none;
+}
+.hero-bracket::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  width: 3px;
+  height: 22px;
+  background: var(--console-corner);
+}
+.hero-bracket-l {
+  left: 0;
+  border-left: 1px solid var(--console-corner);
+}
+.hero-bracket-l::after {
+  left: 4px;
+}
+.hero-bracket-r {
+  right: 0;
+  border-right: 1px solid var(--console-corner);
+}
+.hero-bracket-r::after {
+  right: 4px;
+}
+.hero-cross {
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  line-height: 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--console-corner);
+  pointer-events: none;
+}
+.hero-cross-tl {
+  left: -7px;
+}
+.hero-cross-tr {
+  right: -7px;
+}
+.hero-title {
+  margin: 28px auto 0;
+  max-width: 48rem;
+  font-family: var(--font-sans);
+  font-size: clamp(2.25rem, 1.2rem + 3.6vw, 3.75rem);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  color: var(--ui-text-highlighted);
+}
+.hero-title span {
+  color: var(--ui-primary);
+}
+.hero-lead {
+  max-width: 36rem;
+  margin: 20px auto 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ui-text-muted);
+}
+/* Three readouts in one row: label, a large tabular value, one quiet line under it. */
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 32px auto 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+.hero-metrics > div {
+  min-width: 0;
+  padding: 2px 20px 12px;
+}
+.hero-metrics > div + div {
+  box-shadow: inset 1px 0 0 var(--console-line);
+}
+.hero-metrics dt {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+.hero-metrics dd {
+  margin: 6px 0 0;
+  font-size: 28px;
+  line-height: 1.1;
+  color: var(--ui-text-highlighted);
+  white-space: nowrap;
+}
+.hero-metrics dd > span {
+  font-size: 13px;
+  color: var(--ui-text-dimmed);
+}
+.hero-metrics dd.hero-metric-accent {
+  color: var(--console-accent);
+}
+.hero-metrics dd.hero-metric-sub {
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ui-text-dimmed);
+  white-space: normal;
+}
+/* The share bar: closed records hatched, the open ones an accent outline, the way the gauges mark them. */
+.hero-share {
+  display: flex;
+  gap: 3px;
+  height: 9px;
+  margin-top: 4px;
+  padding-inline: 20px;
+}
+.hero-share-closed {
+  background: repeating-linear-gradient(135deg, var(--console-corner) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  transform-origin: left;
+  animation: hero-grow 900ms ease-out both;
+}
+.hero-share-open {
+  box-shadow: inset 0 0 0 1px var(--console-accent);
+  transform-origin: right;
+  animation: hero-grow 900ms ease-out 200ms both;
+}
+@keyframes hero-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.hero-share-read {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-inline: 20px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-dimmed);
+}
+.hero-share-read > span:last-child {
+  color: var(--console-accent);
+}
+/* The circuit from the install line down into the instrument's bar: a dotted drop, a thick segment, a node. */
+/* The zone centers its text; whatever instrument hangs under it reads from the left. */
+.hero-instrument {
+  text-align: left;
+  position: relative;
+  margin-top: 56px;
+}
+.hero-circuit {
+  position: absolute;
+  bottom: 100%;
+  left: calc(50% - 80px);
+  width: 160px;
+  height: 56px;
+  overflow: visible;
+}
+.hero-circuit-rail {
+  fill: none;
+  stroke: var(--console-line);
+  stroke-dasharray: 1 2;
+}
+/* The call runs down the rail once per sample, into the instrument's bar. */
+.hero-circuit-live {
+  fill: none;
+  stroke: var(--console-accent);
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hero-circuit 420ms ease-in forwards;
+}
+@keyframes hero-circuit {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.hero-circuit-seg {
+  stroke: var(--console-corner);
+  stroke-width: 2;
+}
+.hero-circuit-node {
+  fill: var(--console-accent);
+}
+.hero-circuit-tag {
+  position: absolute;
+  bottom: calc(100% + 18px);
+  left: calc(50% + 30px);
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ui-text-muted);
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+@media (width < 48rem) {
+  .hero-instrument:not(.hero-instrument-keep) {
+    display: none;
+  }
+  .hero-instrument-keep > .hero-circuit,
+  .hero-instrument-keep > .hero-circuit-tag {
+    display: none;
+  }
+}
+@media (width < 640px) {
+  .hero-page {
+    padding-block: 64px 56px;
+  }
+  .hero-zone {
+    padding: 24px 20px 28px;
+  }
+  .hero-cross {
+    display: none;
+  }
+  .hero-zone {
+    padding-inline: 16px;
+  }
+  .hero-metrics > div {
+    padding-inline: 10px;
+  }
+  .hero-metrics dd {
+    font-size: 20px;
+  }
+  .hero-metrics dd > span {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+  }
+  .hero-share,
+  .hero-share-read {
+    padding-inline: 10px;
+  }
+}
+@media (width < 400px) {
+  .hero-metrics dd.hero-metric-sub {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-share-closed,
+  .hero-share-open {
+    animation: none;
+  }
+  .hero-circuit-live {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Pages built on .hashes-landing (the landing and the playground) use wide gutters; the header and the
+   footer take the same ones there, so the package name lines up with the content. Docs keep the Nuxt UI container. */
+html:has(.hashes-landing) .hashes-site-header [data-slot="container"],
+html:has(.hashes-landing) footer [data-slot="container"] {
+  padding-inline: 2rem;
+}
+@media (width >= 40rem) {
+  html:has(.hashes-landing) .hashes-site-header [data-slot="container"],
+  html:has(.hashes-landing) footer [data-slot="container"] {
+    padding-inline: 3rem;
+  }
+}
+@media (width >= 64rem) {
+  html:has(.hashes-landing) .hashes-site-header [data-slot="container"],
+  html:has(.hashes-landing) footer [data-slot="container"] {
+    padding-inline: 4rem;
+  }
+}
+
+/* UTooltip in the instrument grammar: one quiet 1px edge with a short amber segment, the top right corner cut, mono text. */
+.hashes-tooltip {
+  --tooltip-edge: color-mix(in srgb, var(--ui-text-muted) 35%, var(--ui-bg));
+  --tooltip-accent: color-mix(in srgb, var(--ui-primary) 65%, var(--ui-text-highlighted));
+  position: relative;
+  isolation: isolate;
+  gap: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  color: var(--ui-text-muted);
+}
+.hashes-tooltip::before,
+.hashes-tooltip::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+}
+.hashes-tooltip::before {
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(var(--tooltip-accent), var(--tooltip-accent)) 0 0 / 14px 1px no-repeat,
+    var(--tooltip-edge);
+}
+.hashes-tooltip::after {
+  inset: 1px;
+  z-index: -1;
+  background: color-mix(in srgb, var(--ui-text-muted) 5%, var(--ui-bg));
+}
+.hashes-tooltip-value {
+  color: var(--ui-text-highlighted);
+}
+.hashes-tooltip-open {
+  color: var(--tooltip-accent);
+}
+.hashes-tooltip-sep {
+  color: var(--ui-text-dimmed);
+}
+
+/* The instrument palette, on the root so a strip or a button outside a panel shares it. */
+:root {
+  --console-line: color-mix(in srgb, var(--ui-border) 75%, transparent);
+  --console-corner: color-mix(in srgb, var(--ui-text-muted) 55%, var(--ui-bg));
+  --console-accent: color-mix(in srgb, var(--ui-primary) 65%, var(--ui-text-highlighted));
+}
+
+/* Operational panel: the instrument grammar shared by the landing, the chain pages and the playground. */
+.tool-console {
+  position: relative;
+  width: 100%;
+  max-width: 35rem;
+  margin-inline: auto;
+  padding: 1px;
+  isolation: isolate;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.tool-console::before,
+.tool-console::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 16px) 0,
+    100% 16px,
+    100% 100%,
+    16px 100%,
+    0 calc(100% - 16px)
+  );
+}
+.tool-console::before {
+  inset: 0;
+  z-index: -2;
+  background: var(--console-line);
+}
+.tool-console::after {
+  inset: 1px;
+  z-index: -1;
+  background: var(--ui-bg);
+}
+.console-bar,
+.console-footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 9px 20px;
+  color: var(--ui-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+.console-bar {
+  align-items: center;
+  padding: 12px 28px 12px 20px;
+  border-bottom: 1px solid var(--console-line);
+  background: color-mix(in srgb, var(--ui-text-muted) 5%, var(--ui-bg));
+  clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%);
+}
+.console-title {
+  color: var(--ui-text-highlighted);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.console-hosts {
+  color: var(--ui-text-dimmed);
+  text-transform: none;
+  white-space: nowrap;
+}
+.console-request {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--console-line);
+}
+.console-request code {
+  flex: 1;
+  overflow-wrap: anywhere;
+  color: var(--ui-text-highlighted);
+}
+.console-request > span:last-child {
+  color: var(--ui-text-dimmed);
+  font-size: 18px;
+}
+.console-label {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.console-result {
+  position: relative;
+  padding: 14px 20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3Cpath d='M16 18h4m-2-2v4' fill='none' stroke='%23818a94' stroke-opacity='.1'/%3E%3C/svg%3E");
+  background-size: 36px 36px;
+  background-position: 24px 20px;
+}
+.console-result > :not(.console-scan) {
+  position: relative;
+}
+.console-scan {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.console-scan::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-bottom: 1px solid var(--console-corner);
+  animation: console-scan 700ms ease-out both;
+}
+@keyframes console-scan {
+  from {
+    transform: translateY(-100%);
+    opacity: 0.7;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 0;
+  }
+}
+.console-result-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.console-index {
+  display: inline-block;
+  margin-right: 10px;
+  color: var(--ui-text-dimmed);
+  font-size: 11px;
+}
+.console-subject {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  margin: 14px 0;
+}
+.console-identity {
+  min-width: 0;
+}
+.console-identity h3 {
+  font-family: var(--font-mono);
+  color: var(--ui-text-highlighted);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+}
+.console-identity > span {
+  color: var(--ui-text-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.console-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  margin: 0;
+  border-block: 1px solid var(--console-line);
+}
+.console-metrics > div {
+  padding: 9px 0;
+  background: var(--ui-bg);
+}
+.console-metrics > div + div {
+  border-left: 1px solid var(--console-line);
+  padding-left: 20px;
+}
+.console-metrics dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ui-text-muted);
+}
+.console-metrics dd {
+  margin: 7px 0 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+  color: var(--ui-text-highlighted);
+}
+.console-metrics > div:first-child dd {
+  color: var(--console-accent);
+}
+.console-address {
+  position: relative;
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border-inline: 1px solid var(--console-line);
+  background: var(--ui-bg);
+}
+.console-address::before,
+.console-address::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 6px;
+  border-color: var(--ui-primary);
+  pointer-events: none;
+}
+.console-address::before {
+  top: 0;
+  left: -1px;
+  border-top: 1px solid var(--console-corner);
+  border-left: 1px solid var(--console-corner);
+}
+.console-address::after {
+  bottom: 0;
+  right: -1px;
+  border-bottom: 1px solid var(--console-corner);
+  border-right: 1px solid var(--console-corner);
+}
+.console-address dt {
+  display: flex;
+  justify-content: space-between;
+}
+.console-address dt > span {
+  color: var(--ui-text-dimmed);
+}
+.console-address dd {
+  margin: 7px 0 0;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  color: var(--ui-text-highlighted);
+}
+.console-key {
+  display: grid;
+  gap: 6px;
+  color: var(--ui-text-muted);
+  margin: 10px 0 0;
+}
+.console-key > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.console-key dd {
+  margin: 0;
+  text-align: right;
+  font-size: 11px;
+}
+.console-footer {
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding-left: 20px;
+  background: transparent;
+}
+.console-reticle {
+  position: relative;
+  aspect-ratio: 1;
+  color: var(--ui-text-muted);
+}
+.console-reticle svg {
+  display: block;
+  width: 100%;
+  stroke: currentColor;
+  stroke-width: 1;
+}
+.reticle-frame {
+  opacity: 0.5;
+}
+.reticle-sectors {
+  stroke-width: 1;
+  opacity: 0.45;
+}
+.reticle-ticks {
+  stroke-dasharray: 1 7.55;
+  stroke-width: 2;
+  opacity: 0.3;
+}
+.reticle-lock {
+  stroke: var(--console-accent);
+  stroke-width: 1;
+  opacity: 0.65;
+  transform-origin: 60px 60px;
+  animation: console-lock 800ms ease-out;
+}
+.reticle-axis {
+  opacity: 0.7;
+}
+.reticle-diamond {
+  stroke: var(--console-line);
+}
+.console-chain-icon {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+@keyframes console-lock {
+  from {
+    transform: rotate(-85deg);
+  }
+  to {
+    transform: rotate(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reticle-lock {
+    animation: none;
+  }
+  .console-scan {
+    display: none;
+  }
+}
+@media (width < 640px) {
+  .console-subject {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 14px;
+  }
+  .console-chain-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+@media (width < 400px) {
+  .console-subject {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .console-result {
+    padding: 12px 14px;
+  }
+  .console-request,
+  .console-output {
+    padding-inline: 14px;
+  }
+  .console-bar,
+  .console-footer {
+    padding-inline: 14px;
+  }
+  .console-metrics > div + div {
+    padding-left: 12px;
+  }
+}
+
+/* Instrument parts the dossiers, the roster and the playground share on top of the console shell. */
+.console-wide {
+  max-width: none;
+  container-type: inline-size;
+}
+.console-cross {
+  position: absolute;
+  z-index: 1;
+  width: 12px;
+  line-height: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--console-corner);
+  pointer-events: none;
+}
+.console-cross-tl {
+  top: -7px;
+  left: -7px;
+}
+.console-cross-br {
+  right: -7px;
+  bottom: -7px;
+}
+.console-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 5px;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+.console-file {
+  margin-left: 14px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ui-text-dimmed);
+}
+.console-meta {
+  color: var(--ui-text-dimmed);
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+/* The hatched block: 36 by 7 px, one per bar or rule title. */
+.console-mark {
+  display: inline-block;
+  flex: none;
+  width: 36px;
+  height: 7px;
+  background: repeating-linear-gradient(135deg, var(--console-corner) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+.console-bar:has(> .console-mark) {
+  position: relative;
+  padding-right: 76px;
+}
+.console-bar > .console-mark {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.console-ruler {
+  position: relative;
+  height: 5px;
+  overflow: hidden;
+  border-top: 1px solid var(--console-line);
+  background-image:
+    repeating-linear-gradient(90deg, var(--console-corner) 0 1px, transparent 1px 12px),
+    repeating-linear-gradient(90deg, var(--console-corner) 0 6px, transparent 6px 132px);
+  background-size:
+    12px 3px,
+    132px 2px;
+  background-repeat: repeat-x;
+  background-position:
+    20px 0,
+    44px 0;
+}
+.console-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 48px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--console-accent));
+  animation: console-sweep 1600ms ease-in-out 200ms both;
+}
+@keyframes console-sweep {
+  from {
+    transform: translateX(-48px);
+    opacity: 0.9;
+  }
+  to {
+    transform: translateX(100vw);
+    opacity: 0;
+  }
+}
+.console-band {
+  padding: 16px 20px;
+  border-top: 1px solid var(--console-line);
+}
+/* The subject band: crosses behind it and nothing else, identity left, readout right. */
+.console-subject-band {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 20px 32px;
+  border-top: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3Cpath d='M16 18h4m-2-2v4' fill='none' stroke='%23818a94' stroke-opacity='.1'/%3E%3C/svg%3E");
+  background-size: 36px 36px;
+  background-position: 24px 20px;
+}
+.console-subject-band > :not(.console-scan) {
+  position: relative;
+}
+.console-subject-band-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* Beside both docs sidebars a dossier is about 570px wide, so the band stacks on its own width, not the window's. */
+@container (width < 46rem) {
+  .console-subject-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.console-identity-block {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  min-width: 0;
+}
+.console-name {
+  min-width: 0;
+}
+.console-name h3 {
+  margin: 4px 0 6px;
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ui-text-highlighted);
+  overflow-wrap: anywhere;
+}
+.console-name h3.console-name-mono {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.console-aliases {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 0 0 10px;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.console-aliases .console-chain {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ui-text-dimmed);
+}
+.console-about {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ui-text-muted);
+}
+/* The readout: a dashed frame with corner brackets, joined to the subject by a small circuit. */
+.console-readout {
+  position: relative;
+  z-index: 2;
+  align-self: start;
+  min-width: 0;
+  background: var(--ui-bg);
+  outline: 1px dashed var(--console-line);
+  outline-offset: -1px;
+}
+.console-readout::before,
+.console-readout::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+.console-readout::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--console-corner);
+  border-left: 1px solid var(--console-corner);
+}
+.console-readout::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid var(--console-corner);
+  border-bottom: 1px solid var(--console-corner);
+}
+.console-link {
+  position: absolute;
+  top: 10px;
+  left: -32px;
+  width: 32px;
+  height: 40px;
+  stroke: var(--console-corner);
+  stroke-width: 1;
+  pointer-events: none;
+}
+.console-readout-rows {
+  display: grid;
+  margin: 0;
+}
+.console-readout-rows > div {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 14px;
+}
+.console-readout-rows > div + div {
+  border-top: 1px solid var(--console-line);
+}
+.console-readout-rows dt {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+.console-readout-rows dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color: var(--ui-text-highlighted);
+}
+.console-readout-rows dd.console-accent {
+  color: var(--console-accent);
+}
+.console-readout-rows input,
+.console-readout-rows select {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ui-text-highlighted);
+  font: inherit;
+  line-height: 1.5;
+}
+.console-readout-rows input::placeholder {
+  color: var(--ui-text-dimmed);
+}
+.console-readout-rows select {
+  appearance: none;
+  padding-right: 18px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ui-text-dimmed) 50%),
+    linear-gradient(135deg, var(--ui-text-dimmed) 50%, transparent 50%);
+  background-position:
+    calc(100% - 8px) 55%,
+    calc(100% - 4px) 55%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+.console-readout-rows select option {
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+}
+.console-readout-rows input,
+.console-readout-rows select {
+  caret-color: var(--console-accent);
+}
+.console-readout-rows input:focus-visible,
+.console-readout-rows select:focus-visible {
+  outline: none;
+}
+/* A focused row is marked the way the panel marks anything live: an accent edge, no box. */
+.console-readout-rows > div:focus-within {
+  background: color-mix(in srgb, var(--ui-primary) 5%, var(--ui-bg));
+  box-shadow: inset 2px 0 0 var(--console-accent);
+}
+.console-readout-rows > div:focus-within dt {
+  color: var(--ui-text-highlighted);
+}
+.console-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.console-check input {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  appearance: none;
+  box-shadow: inset 0 0 0 1px var(--console-corner);
+}
+.console-check input:checked {
+  background: var(--console-accent);
+  box-shadow: inset 0 0 0 1px var(--console-accent);
+}
+/* The gauge under a readout: one tick per element, closed hatched, open in the accent. */
+.console-gauge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--console-line);
+}
+.console-ticks {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: flex-end;
+  min-width: 0;
+}
+.console-ticks > span {
+  width: 3px;
+  height: 10px;
+  box-shadow: inset 0 0 0 1px var(--console-corner);
+  transform-origin: bottom;
+  animation: console-tick 320ms ease-out both;
+}
+.console-ticks > .console-tick-closed {
+  background: repeating-linear-gradient(180deg, var(--console-corner) 0 2px, transparent 2px 3px);
+}
+.console-ticks > .console-tick-open {
+  height: 6px;
+  box-shadow: inset 0 0 0 1px var(--console-accent);
+}
+.console-ticks-dense {
+  gap: 1px;
+}
+.console-ticks-dense > span {
+  width: 2px;
+}
+@keyframes console-tick {
+  from {
+    transform: scaleY(0.2);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.console-gauge-read {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-dimmed);
+  white-space: nowrap;
+}
+/* A lead: tag, text and a dotted leader that ends in a thick segment and a square node. */
+.console-lead {
+  display: flex;
+  align-items: baseline;
+  gap: 0 10px;
+  margin: 8px 0 0;
+}
+.console-lead > .console-tag {
+  flex: none;
+  min-width: 5.5rem;
+  text-align: center;
+}
+.console-lead > a,
+.console-lead > span:not(.console-tag, .console-leader) {
+  overflow-wrap: anywhere;
+  color: var(--ui-text-highlighted);
+}
+.console-lead > a:hover {
+  color: var(--console-accent);
+}
+.console-leader {
+  flex: 1;
+  align-self: center;
+  min-width: 24px;
+  height: 5px;
+  border-bottom: 1px dotted var(--console-line);
+  position: relative;
+  transform: translateY(-2px);
+}
+.console-leader::before {
+  content: "";
+  position: absolute;
+  right: 9px;
+  bottom: -1px;
+  width: 10px;
+  height: 2px;
+  background: var(--console-corner);
+}
+.console-leader::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -3px;
+  width: 5px;
+  height: 5px;
+  box-shadow: inset 0 0 0 1px var(--console-corner);
+}
+.console-lead:hover .console-leader::after,
+.console-lead[aria-pressed="true"] .console-leader::after {
+  background: var(--console-accent);
+  box-shadow: none;
+}
+button.console-lead {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+button.console-lead[aria-pressed="true"] > .console-tag {
+  color: var(--ui-text-highlighted);
+  box-shadow: inset 0 0 0 1px var(--console-accent);
+}
+button.console-lead:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: 3px;
+}
+.console-empty {
+  margin: 8px 0 0;
+  color: var(--ui-text-dimmed);
+}
+/* A concentric node before an address or any other item the panel points at. */
+.console-node {
+  position: relative;
+  padding-left: 16px;
+}
+.console-node::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px var(--console-corner),
+    inset 0 0 0 3px var(--ui-bg),
+    inset 0 0 0 4px var(--console-corner);
+}
+/* A section title: label, a rule that starts at a dot, and a hatched block at the end. */
+.console-rule-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+.console-rule-title::before {
+  content: "";
+  flex: 1;
+  order: 1;
+  height: 7px;
+  background:
+    radial-gradient(circle at 3px 3.5px, var(--console-corner) 0 1.5px, transparent 2px) no-repeat,
+    linear-gradient(var(--console-line), var(--console-line)) 6px 3px / calc(100% - 6px) 1px
+      no-repeat;
+}
+.console-rule-title > .console-mark {
+  order: 2;
+  width: 28px;
+}
+.console-rule-title > span:first-child {
+  order: 0;
+}
+.console-rule-title > span:first-child > span {
+  color: var(--ui-text-dimmed);
+}
+.console-rule-title > .console-button {
+  order: 3;
+}
+.console-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 7px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+.console-button:hover {
+  color: var(--console-accent);
+  box-shadow: inset 0 0 0 1px var(--console-corner);
+}
+.console-button[data-copied="true"] {
+  color: var(--console-accent);
+}
+.console-button:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+.console-snippet {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--ui-text-highlighted);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+  background: var(--ui-bg);
+  outline: 1px dashed var(--console-line);
+  outline-offset: -1px;
+}
+.console-snippet {
+  position: relative;
+}
+.console-snippet::before,
+.console-snippet::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+.console-snippet::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--console-corner);
+  border-left: 1px solid var(--console-corner);
+}
+.console-snippet::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid var(--console-corner);
+  border-bottom: 1px solid var(--console-corner);
+}
+.console-snippet > span {
+  color: var(--ui-text-dimmed);
+}
+.console-snippet + .console-rule-title {
+  margin-top: 16px;
+}
+/* Line numbers in a gutter; a wrapped line continues four columns in, never under the number. */
+.console-lines {
+  padding-left: 0;
+  font-size: 11.5px;
+  counter-reset: line;
+}
+.console-lines > code > span {
+  display: block;
+  min-height: 1.7em;
+  padding-left: calc(3.25em + 4ch);
+  text-indent: calc(-3.25em - 4ch);
+}
+.console-lines > code > span::before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  width: 2.25em;
+  margin-right: 1em;
+  text-align: right;
+  text-indent: 0;
+  color: var(--ui-text-dimmed);
+  user-select: none;
+}
+.console-lines > code > span * {
+  text-indent: 0;
+}
+@media (width < 400px) {
+  .console-lines {
+    font-size: 11px;
+  }
+  .console-lines > code > span {
+    padding-left: calc(2.5em + 2ch);
+    text-indent: calc(-2.5em - 2ch);
+  }
+  .console-lines > code > span::before {
+    width: 1.75em;
+    margin-right: 0.75em;
+  }
+}
+.console-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.console-chips button {
+  padding: 2px 7px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+.console-chips button:hover {
+  color: var(--ui-text-highlighted);
+  box-shadow: inset 0 0 0 1px var(--console-corner);
+}
+.console-chips button[aria-pressed="true"] {
+  color: var(--ui-text-highlighted);
+  box-shadow: inset 0 0 0 1px var(--console-accent);
+}
+.console-chips button:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+.console-note {
+  margin: 10px 0 0;
+  color: var(--ui-text-dimmed);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.console-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.console-rows li {
+  display: grid;
+  gap: 4px 16px;
+  align-items: baseline;
+  padding: 9px 20px;
+  border-top: 1px solid var(--console-line);
+}
+.console-rows li:hover {
+  background: color-mix(in srgb, var(--ui-text-muted) 4%, var(--ui-bg));
+}
+.console-rows a {
+  color: var(--ui-text-highlighted);
+}
+.console-rows a:hover {
+  color: var(--console-accent);
+}
+.console-rows button {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.console-rows button:hover {
+  color: var(--console-accent);
+}
+.console-rows .console-leader {
+  min-width: 16px;
+  height: 4px;
+  transform: none;
+}
+.console-rows .console-leader::before,
+.console-rows .console-leader::after {
+  content: none;
+}
+.console-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.console-links a,
+.console-links button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--ui-text-highlighted);
+}
+.console-links a > span,
+.console-links button > span {
+  color: var(--ui-text-dimmed);
+}
+.console-links a:hover,
+.console-links button:hover {
+  color: var(--console-accent);
+}
+/* Previous and next under a landing instrument that walks the sample records. */
+.console-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.console-controls > span {
+  color: var(--ui-text-dimmed);
+  font-size: 10px;
+}
+.console-controls button:not([data-slot]),
+.console-controls a:not([data-slot]) {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--ui-text-muted);
+  border: 1px solid var(--console-line);
+  cursor: pointer;
+}
+.console-controls button:not([data-slot]):hover,
+.console-controls a:not([data-slot]):hover {
+  color: var(--console-accent);
+  border-color: var(--console-corner);
+  background: color-mix(in srgb, var(--ui-text-muted) 8%, var(--ui-bg));
+}
+.console-controls button:not([data-slot]):focus-visible,
+.console-controls a:not([data-slot]):focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: 3px;
+}
+.console-footer-plain {
+  border-top: 1px solid var(--console-line);
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* The response row already draws the edge the footer would; two neighbours share one line. */
+.console-output + .console-footer-plain {
+  border-top: 0;
+}
+.console-footer-plain > .console-meta {
+  margin-left: auto;
+}
+/* While a call is in flight the cursor keeps sweeping; it stops with the answer. */
+.console-cursor-busy {
+  animation: console-busy 1400ms linear infinite;
+}
+@keyframes console-busy {
+  from {
+    transform: translateX(-48px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(100vw);
+    opacity: 0.6;
+  }
+}
+/* One-shot motion on a data change: leaders draw from the left, rows slide in. Transform only. */
+.console-draw .console-leader {
+  animation: console-draw 480ms ease-out both;
+}
+@keyframes console-draw {
+  from {
+    transform: translateY(-2px) scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: translateY(-2px) scaleX(1);
+    transform-origin: left;
+  }
+}
+.console-animate > * {
+  animation: console-entry 360ms ease-out both;
+}
+@keyframes console-entry {
+  from {
+    transform: translateX(-8px);
+  }
+  to {
+    transform: none;
+  }
+}
+/* A short row of ticks inside a bar: one per row of the answer, the open ones in the accent. */
+.console-ticks-bar {
+  display: inline-flex;
+  gap: 2px;
+  align-items: flex-end;
+  margin-right: 14px;
+  vertical-align: -1px;
+}
+.console-ticks-bar > span {
+  width: 2px;
+  height: 8px;
+  box-shadow: inset 0 0 0 1px var(--console-corner);
+}
+.console-ticks-bar > .console-tick-closed {
+  background: repeating-linear-gradient(180deg, var(--console-corner) 0 2px, transparent 2px 3px);
+}
+.console-ticks-bar > .console-tick-open {
+  height: 5px;
+  box-shadow: inset 0 0 0 1px var(--console-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .console-cursor {
+    display: none;
+  }
+  .console-ticks > span,
+  .console-draw .console-leader,
+  .console-animate > * {
+    animation: none;
+  }
+}
+@media (width < 900px) {
+  .console-subject-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .console-link {
+    display: none;
+  }
+}
+@media (width < 640px) {
+  .console-identity-block {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 14px;
+  }
+  .console-readout-rows > div {
+    grid-template-columns: 7rem minmax(0, 1fr);
+  }
+  .console-bar:has(> .console-mark) {
+    padding-right: 28px;
+  }
+  .console-bar > .console-mark {
+    display: none;
+  }
+}
+@media (width < 400px) {
+  .console-band,
+  .console-rows li {
+    padding-inline: 14px;
+  }
+  .console-identity-block {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .console-lead {
+    flex-wrap: wrap;
+    gap: 2px 0;
+  }
+}
+
+/*
+ * The roster: an index of pages, one row each. `AlgorithmRoster` prints it on /algorithms. Only
+ * the clipped shell and the ruler's ticks live here; every other part is Tailwind utilities from
+ * `app/utils/roster.ts`.
+ */
+.roster {
+  --console-line: color-mix(in srgb, var(--ui-border) 75%, transparent);
+  --console-corner: color-mix(in srgb, var(--ui-text-muted) 55%, var(--ui-bg));
+  --console-accent: color-mix(in srgb, var(--ui-primary) 65%, var(--ui-text-highlighted));
+  position: relative;
+  padding: 1px;
+  isolation: isolate;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.roster::before,
+.roster::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 16px) 0,
+    100% 16px,
+    100% 100%,
+    16px 100%,
+    0 calc(100% - 16px)
+  );
+}
+.roster::before {
+  inset: 0;
+  z-index: -2;
+  background: var(--console-line);
+}
+.roster::after {
+  inset: 1px;
+  z-index: -1;
+  background: var(--ui-bg);
+}
+.roster-ruler {
+  height: 5px;
+  border-top: 1px solid var(--console-line);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--console-corner) 0 1px,
+    transparent 1px 12px
+  );
+  background-size: 12px 3px;
+  background-repeat: repeat-x;
+  background-position: 20px 0;
+}
+
+/* Shared by the landing hero, the closing section and the footer: the ID strip, boxed actions, the install line. */
+/* The ID strip: a boxed tag, the package and its version, the data version in blocks of four. */
+.console-id {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0;
+  padding: 4px 10px 4px 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ui-text-muted);
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+.console-id-tag {
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ui-bg);
+  background: var(--console-corner);
+}
+.console-id-sep {
+  color: var(--ui-text-dimmed);
+}
+.console-id-data {
+  color: var(--ui-text-dimmed);
+  white-space: nowrap;
+}
+.console-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 32px;
+}
+/* Actions as boxed segments: the label and a square cell for the glyph, split by a rule, the top right corner cut. */
+.console-action {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: stretch;
+  height: 34px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-highlighted);
+}
+.console-action::before,
+.console-action::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+.console-action::before {
+  inset: 0;
+  background: var(--console-line);
+  transition: background 0.15s ease;
+}
+.console-action::after {
+  inset: 1px;
+  background: var(--ui-bg);
+}
+.console-action-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+}
+.console-action-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  color: var(--ui-text-muted);
+  box-shadow: inset -1px 0 0 var(--console-line);
+  transition: color 0.15s ease;
+}
+.console-action-label + .console-action-cell {
+  box-shadow: inset 1px 0 0 var(--console-line);
+}
+.console-action:hover::before {
+  background: color-mix(in srgb, var(--console-accent) 45%, var(--console-line));
+}
+.console-action:hover .console-action-cell {
+  color: var(--console-accent);
+}
+.console-action-primary {
+  color: var(--ui-bg);
+  font-weight: 500;
+}
+.console-action-primary::before,
+.console-action-primary::after {
+  background: var(--ui-primary);
+}
+.console-action-primary .console-action-cell {
+  color: var(--ui-bg);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--ui-bg) 18%, transparent) !important;
+}
+.console-action-primary .console-action-cell > * {
+  transition: transform 0.15s ease;
+}
+.console-action-primary:hover::before,
+.console-action-primary:hover::after {
+  background: color-mix(in srgb, var(--ui-primary) 88%, var(--ui-text-highlighted));
+}
+.console-action-primary:hover .console-action-cell {
+  color: var(--ui-bg);
+}
+.console-action-primary:hover .console-action-cell > * {
+  transform: translateX(2px);
+}
+.console-action:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: 3px;
+}
+/* The install line: boxed tag, the command, the copy button, corner brackets like the readout. */
+.console-install {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  margin-top: 16px;
+  padding: 5px 5px 5px 6px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: 1px dashed var(--console-line);
+  outline-offset: -1px;
+}
+.console-install::before,
+.console-install::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+.console-install::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid var(--console-corner);
+  border-left: 1px solid var(--console-corner);
+}
+.console-install::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid var(--console-corner);
+  border-bottom: 1px solid var(--console-corner);
+}
+.console-install-tag {
+  padding: 1px 5px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+  box-shadow: inset 0 0 0 1px var(--console-line);
+}
+.console-install code {
+  min-width: 0;
+  color: var(--ui-text-highlighted);
+  overflow-wrap: anywhere;
+}
+.console-install-prompt {
+  color: var(--ui-text-dimmed);
+}
+@media (width < 640px) {
+  .console-install {
+    font-size: 12px;
+    gap: 8px;
+  }
+  .console-install code {
+    white-space: nowrap;
+  }
+  .console-id-data {
+    display: none;
+  }
+}
+@media (width < 400px) {
+  .console-install-tag {
+    display: none;
+  }
+}
+
+/*
+ * Nuxt UI in the instrument grammar. app.config.ts hands these classes to the variants the site
+ * owns (Docus keeps neutral ghost and link for its own buttons), so a page writes <UButton>,
+ * <UBadge>, <UTabs>, <UInput>, <USelectMenu> or <UAlert> and gets the family look. Unlayered,
+ * so they win over the Tailwind utilities in the default theme.
+ */
+
+/* UButton primary solid and neutral outline: a boxed segment, mono label, the glyph in its own cell, the corner cut. */
+.hashes-action {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 34px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-highlighted);
+}
+.hashes-action::before,
+.hashes-action::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+.hashes-action::before {
+  inset: 0;
+  background: var(--console-line);
+  transition: background 0.15s ease;
+}
+.hashes-action::after {
+  inset: 1px;
+  background: var(--ui-bg);
+}
+/* The rule between the label and the glyph cell, on whichever side the glyph sits. */
+.hashes-action:has(> [data-slot="trailingIcon"])::after {
+  background:
+    linear-gradient(90deg, transparent calc(100% - 37px), var(--console-line) 0 calc(100% - 36px), transparent 0),
+    var(--ui-bg);
+}
+.hashes-action:has(> [data-slot="leadingIcon"])::after {
+  background:
+    linear-gradient(90deg, transparent 35px, var(--console-line) 0 36px, transparent 0),
+    var(--ui-bg);
+}
+.hashes-action > [data-slot="label"] {
+  padding: 0 14px;
+}
+.hashes-action > [data-slot="leadingIcon"],
+.hashes-action > [data-slot="trailingIcon"] {
+  width: 16px;
+  height: 16px;
+  margin: 0 10px;
+  color: var(--ui-text-muted);
+  transition:
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+.hashes-action:hover {
+  background: transparent;
+}
+.hashes-action:hover::before {
+  background: color-mix(in srgb, var(--console-accent) 45%, var(--console-line));
+}
+.hashes-action:hover > [data-slot$="Icon"] {
+  color: var(--console-accent);
+}
+.hashes-action-primary {
+  color: var(--ui-bg);
+  font-weight: 500;
+}
+.hashes-action-primary::before,
+.hashes-action-primary::after,
+.hashes-action-primary:has(> [data-slot="trailingIcon"])::after {
+  background:
+    linear-gradient(
+      90deg,
+      transparent calc(100% - 37px),
+      color-mix(in srgb, var(--ui-bg) 18%, transparent) 0 calc(100% - 36px),
+      transparent 0
+    ),
+    var(--ui-primary);
+}
+.hashes-action-primary > [data-slot$="Icon"],
+.hashes-action-primary:hover > [data-slot$="Icon"] {
+  color: var(--ui-bg);
+}
+.hashes-action-primary:hover {
+  color: var(--ui-bg);
+}
+.hashes-action-primary:hover::before,
+.hashes-action-primary:hover::after {
+  background: color-mix(in srgb, var(--ui-primary) 88%, var(--ui-text-highlighted));
+}
+.hashes-action-primary:hover > [data-slot="trailingIcon"] {
+  transform: translateX(2px);
+}
+.hashes-action:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: 3px;
+}
+
+/* UButton neutral subtle: the small boxed control of an instrument (copy, refresh, previous, next). */
+.hashes-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hashes-control > [data-slot$="Icon"] {
+  width: 12px;
+  height: 12px;
+  color: inherit;
+}
+.hashes-control:hover:not(:disabled, [aria-disabled="true"]) {
+  background: color-mix(in srgb, var(--ui-text-muted) 8%, var(--ui-bg));
+  box-shadow: inset 0 0 0 1px var(--console-corner);
+  color: var(--console-accent);
+}
+.hashes-control:disabled,
+.hashes-control[aria-disabled="true"] {
+  opacity: 0.4;
+}
+.hashes-control:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+/* Square, it is a step button: 28 px like the controls under a walking instrument. */
+.hashes-control-square {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+.hashes-control-square > [data-slot$="Icon"] {
+  width: 14px;
+  height: 14px;
+}
+
+/* UButton variant chip: a chip; primary is the chip that is picked. */
+.hashes-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: auto;
+  padding: 2px 7px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.hashes-chip > [data-slot$="Icon"] {
+  width: 12px;
+  height: 12px;
+  color: inherit;
+}
+.hashes-chip:hover {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--console-corner);
+  color: var(--ui-text-highlighted);
+}
+.hashes-chip-on,
+.hashes-chip-on:hover {
+  box-shadow: inset 0 0 0 1px var(--console-accent);
+  color: var(--ui-text-highlighted);
+}
+.hashes-chip:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+/* UBadge: a boxed word in mono capitals; neutral quiet, error red, primary the accent, subtle bright. */
+.hashes-badge {
+  padding: 0 6px;
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px var(--console-line);
+  color: var(--ui-text-muted);
+}
+.hashes-badge-bright {
+  color: var(--ui-text-highlighted);
+}
+.hashes-badge-accent {
+  color: var(--console-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--console-accent) 55%, transparent);
+}
+.hashes-badge-error {
+  color: var(--hashes-del);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hashes-del) 55%, transparent);
+}
+
+/* UTabs link: mono capitals on a quiet rule, the active one bright over an accent segment. */
+.hashes-tabs-list {
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  box-shadow: inset 0 -1px 0 var(--console-line);
+}
+.hashes-tabs-trigger {
+  flex: none;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hashes-tabs-trigger[data-state="active"] {
+  color: var(--ui-text-highlighted);
+}
+.hashes-tabs-trigger > [data-slot="label"] {
+  overflow: visible;
+}
+.hashes-tabs-trigger > [data-slot="leadingIcon"] {
+  width: 13px;
+  height: 13px;
+}
+.hashes-tabs-trigger[data-state="active"] > [data-slot="leadingIcon"] {
+  color: var(--console-accent);
+}
+.hashes-tabs-trigger:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+.hashes-tabs-indicator {
+  height: 2px;
+  border-radius: 0;
+  background: var(--console-accent);
+}
+
+/* UInput and USelectMenu with variant none: the field is a readout value, mono and bright, no box of its own. */
+.hashes-field {
+  width: 100%;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ui-text-highlighted);
+}
+.hashes-field::placeholder,
+.hashes-field [data-slot="placeholder"] {
+  color: var(--ui-text-dimmed);
+}
+.hashes-field-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--ui-text-muted);
+}
+
+/* UAlert error outline: the failure line of a read, a red boxed tag and the message in mono. */
+.hashes-alert {
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 2px 0 0 var(--hashes-del);
+  color: var(--hashes-del);
+}
+.hashes-alert-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.hashes-alert-icon {
+  width: 14px;
+  height: 14px;
+}
+.hashes-menu-input {
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--console-line);
+}
+.console-rule-title > .hashes-control {
+  order: 3;
+}
+/* The field's glyphs sit on the row's edge; the value starts after the leading one. */
+.hashes-field > [data-slot="leading"],
+.hashes-field ~ [data-slot="leading"] {
+  padding-inline-start: 0;
+}
+.hashes-field > [data-slot="trailing"],
+.hashes-field ~ [data-slot="trailing"] {
+  padding-inline-end: 0;
+}
+.hashes-field:has(> [data-slot="leading"]),
+.hashes-field:has(~ [data-slot="leading"]) {
+  padding-inline-start: 22px;
+}
+.hashes-field:has(> [data-slot="trailing"]) {
+  padding-inline-end: 22px;
+}

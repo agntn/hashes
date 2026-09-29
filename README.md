@@ -7,6 +7,8 @@
 
 #️⃣ Twenty-four hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
 
+Docs, and a playground where the library runs in your browser: [hashes.agntn.dev](https://hashes.agntn.dev).
+
 ## Why?
 
 Ask a model for the SHA-256 of a string. It will give you 64 hex characters, very confidently. They will be wrong. Hashing is the one thing a language model can't fake, so it should call something that actually hashes. This is that something.
