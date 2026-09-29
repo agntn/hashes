@@ -9,6 +9,9 @@
 
 Docs, and a playground where the library runs in your browser: [hashes.agntn.dev](https://hashes.agntn.dev).
 
+> [!CAUTION]
+> **Not audited.** This code has never had a security audit. Do not use it in production, with real funds or with sensitive data. It is meant for agents, puzzles and local experiments only. It comes as is, without warranty of any kind, and the authors are not liable for any loss, as the MIT license states. Anything that matters wants an audited library.
+
 ## Why?
 
 Ask a model for the SHA-256 of a string. It will give you 64 hex characters, very confidently. They will be wrong. Hashing is the one thing a language model can't fake, so it should call something that actually hashes. This is that something.
