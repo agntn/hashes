@@ -71,7 +71,8 @@ export class Scrypt extends Hash {
       name: this.key,
       label: "scrypt",
       description: "scrypt password-based KDF, memory-hard, resistant to hardware attacks",
-      family: "password",
+      family: "scrypt",
+      category: "password",
       hmac: false,
       options: [
         ENCODING_OPTION,

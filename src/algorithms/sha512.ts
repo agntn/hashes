@@ -8,7 +8,8 @@ export class Sha512 extends BlockHash {
     label: "SHA-512",
     description:
       "SHA-2 family 512-bit hash, the strongest SHA-2 variant, used for high-security applications",
-    family: "cryptographic",
+    family: "SHA",
+    category: "cryptographic",
     digestLength: 64,
     securityNote: "256-bit collision resistance, 512-bit preimage resistance",
   } as const;

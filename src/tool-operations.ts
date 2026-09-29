@@ -27,6 +27,7 @@ import {
   INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
+  MAX_FAMILY_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
   MAX_PARAMETER_LENGTH,
@@ -410,11 +411,11 @@ export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> 
  * Formats one algorithm for the listing.
  *
  * @param info - The algorithm's metadata.
- * @returns {string} Name, family, digest size, HMAC support and label.
+ * @returns {string} Name, family, category, digest size, HMAC support and label.
  */
 function listingLine(info: AlgorithmInfo): string {
   const digest = info.digestLength === undefined ? "variable" : `${info.digestLength * 8}-bit`;
-  return `${info.name} [${info.family}] ${digest}, HMAC ${info.hmac ? "yes" : "no"}: ${info.label}`;
+  return `${info.name} [${info.family}, ${info.category}] ${digest}, HMAC ${info.hmac ? "yes" : "no"}: ${info.label}`;
 }
 
 /**
@@ -437,9 +438,9 @@ function infoText(info: AlgorithmInfo): string {
 }
 
 /**
- * Lists the registered algorithms, optionally one family, or describes one algorithm.
+ * Lists the registered algorithms, optionally one category or family, or describes one algorithm.
  *
- * @param params - Family to keep, or an algorithm to describe.
+ * @param params - Category and family to keep, or an algorithm to describe.
  * @returns {ToolResult<AlgorithmsDetails>} The listing or the description.
  */
 export function hashAlgorithms(
@@ -450,7 +451,11 @@ export function hashAlgorithms(
     const info = algorithmArgument(params.algorithm).info();
     return { content: [{ type: "text", text: infoText(info) }], details: { algorithms: [info] } };
   }
-  const infos = algorithmInfos(params.family);
+  const family =
+    params.family === undefined
+      ? undefined
+      : textArgument("family", params.family, MAX_FAMILY_LENGTH);
+  const infos = algorithmInfos({ category: params.category, family });
   const lines = [
     `${infos.length} algorithms, listing order:`,
     ...infos.map(listingLine),

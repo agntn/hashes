@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { hashFamilies, version } from "@agntn/hashes";
-import { ALGORITHMS, HMAC_COUNT } from "../utils/algorithms";
+import { version } from "@agntn/hashes";
+import { ALGORITHMS, FAMILIES, HMAC_COUNT } from "../utils/algorithms";
 import { spellOut } from "../utils/format";
 import { TOOLS } from "../utils/tools";
 
@@ -59,7 +59,7 @@ defineOgImage(
           <div>
             <dt>Algorithms</dt>
             <dd>{{ ALGORITHMS.length }}</dd>
-            <dd class="hero-metric-sub">{{ hashFamilies.length }} families, {{ HMAC_COUNT }} with HMAC</dd>
+            <dd class="hero-metric-sub">{{ FAMILIES.length }} families, {{ HMAC_COUNT }} with HMAC</dd>
           </div>
           <div>
             <dt>Network</dt>

@@ -5,8 +5,7 @@
  * so the palette from app.css is repeated as literals.
  */
 import { version } from "../../../../package.json";
-import { hashFamilies } from "@agntn/hashes";
-import { ALGORITHMS, HMAC_COUNT } from "../../utils/algorithms";
+import { ALGORITHMS, FAMILIES, HMAC_COUNT } from "../../utils/algorithms";
 import { TOOLS } from "../../utils/tools";
 
 defineProps<{ title?: string; description?: string }>();
@@ -16,7 +15,7 @@ const TAGLINE =
 
 /** The same three readouts as the hero, counted from the same registry. */
 const METRICS = [
-  { label: "Algorithms", value: String(ALGORITHMS.length), unit: "", note: `in ${hashFamilies.length} families`, accent: false },
+  { label: "Algorithms", value: String(ALGORITHMS.length), unit: "", note: `in ${FAMILIES.length} families`, accent: false },
   { label: "With HMAC", value: String(HMAC_COUNT), unit: "", note: `${TOOLS.length} agent tools on top`, accent: false },
   { label: "Network", value: "0", unit: "calls", note: "computed in place", accent: true },
 ];

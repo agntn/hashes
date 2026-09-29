@@ -1,4 +1,4 @@
-import { hashFamilies } from "./algorithms.ts";
+import { hashCategories } from "./algorithms.ts";
 import { InvalidOptionError, UnknownAlgorithmError } from "./errors.ts";
 import { algorithms, create, has } from "./registry.ts";
 import type { Hash } from "./hash.ts";
@@ -32,17 +32,56 @@ export function resolveAlgorithm(preferred?: string): Hash {
   throw new UnknownAlgorithmError(preferred ?? "(none)", algorithms());
 }
 
+/** Which algorithms `algorithmInfos` keeps; each field left out keeps them all. */
+export interface AlgorithmFilter {
+  /** Category to keep, one of `hashCategories`. */
+  category?: string;
+  /** Family to keep, such as `SHA` or `blake`; case does not matter. */
+  family?: string;
+}
+
 /**
- * Reads the metadata of every registered algorithm, optionally of one family.
+ * Reads the metadata of every registered algorithm, optionally of one category or family.
  *
- * @param family - Family to keep; omit for all.
+ * @param filter - Category and family to keep; omit for all.
  * @returns {AlgorithmInfo[]} The metadata in listing order.
  */
-export function algorithmInfos(family?: string): AlgorithmInfo[] {
-  if (family !== undefined && !(hashFamilies as readonly string[]).includes(family)) {
-    throw new InvalidOptionError("family", family, `use one of ${hashFamilies.join(", ")}`);
+export function algorithmInfos(filter: Readonly<AlgorithmFilter> = {}): AlgorithmInfo[] {
+  const { category, family } = filter;
+  if (category !== undefined && !(hashCategories as readonly string[]).includes(category)) {
+    throw new InvalidOptionError("category", category, `use one of ${hashCategories.join(", ")}`);
   }
-  return algorithms()
-    .map((name) => create(name).info())
-    .filter((info) => family === undefined || info.family === family);
+  const infos = algorithms().map((name) => create(name).info());
+  const wanted = family === undefined ? undefined : knownFamily(infos, family);
+  return infos.filter(
+    (info) =>
+      (wanted === undefined || familyKey(info.family) === wanted) &&
+      (category === undefined || info.category === category),
+  );
+}
+
+/**
+ * Spells a family the way the filter compares it, so `SHA`, `sha` and ` Sha ` are one family.
+ *
+ * @param family - Family as typed or declared.
+ * @returns {string} Trimmed and lowercased.
+ */
+function familyKey(family: string): string {
+  return family.trim().toLowerCase();
+}
+
+/**
+ * Checks that some registered algorithm declares the family, ignoring case.
+ *
+ * @param infos - Metadata of every registered algorithm.
+ * @param family - Family as typed.
+ * @returns {string} The family's comparison key.
+ */
+function knownFamily(infos: readonly AlgorithmInfo[], family: string): string {
+  const wanted = familyKey(family);
+  if (!infos.some((info) => familyKey(info.family) === wanted)) {
+    const families = [...new Set(infos.map((info) => info.family))];
+    throw new InvalidOptionError("family", family, `use one of ${families.join(", ")}`);
+  }
+  return wanted;
 }

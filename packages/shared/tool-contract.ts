@@ -10,6 +10,7 @@
 export const MAX_INPUT_LENGTH = 1_000_000;
 export const MAX_KEY_LENGTH = 10_000;
 export const MAX_ALGORITHM_LENGTH = 32;
+export const MAX_FAMILY_LENGTH = 32;
 export const MAX_EXPECTED_LENGTH = 1_024;
 export const SALT_PATTERN = "^(?:[0-9A-Fa-f]{2}){1,256}$";
 /** Most parameters a call may pass, and the pattern of their names. */
@@ -33,7 +34,13 @@ export const MAX_SCRYPT_MEMORY = 256 * 1024 * 1024;
 
 export const TEXT_ENCODINGS = ["hex", "base64", "base64url"] as const;
 export const INPUT_ENCODINGS = ["utf8", "hex", "base64"] as const;
-export const HASH_FAMILIES = ["cryptographic", "legacy", "non-cryptographic", "password"] as const;
+export const HASH_CATEGORIES = [
+  "cryptographic",
+  "legacy",
+  "non-cryptographic",
+  "password",
+] as const;
+export const BUILTIN_FAMILIES = "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF";
 export const BUILTIN_ALGORITHMS =
   "sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256, md5, sha1, sha0, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2";
 export const HMAC_ALGORITHMS =
@@ -48,7 +55,7 @@ export const TOOL_DESCRIPTIONS = {
   hash_verify:
     "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt and pbkdf2 need the salt the expected digest was made with.",
   hash_algorithms:
-    "List the registered algorithms with family, digest size and HMAC support, or describe one algorithm with its options.",
+    "List the registered algorithms with family, category, digest size and HMAC support, or describe one algorithm with its options.",
 } as const;
 
 /** What each tool is called in a status line or a tool list. */
@@ -77,6 +84,7 @@ export const PARAMETER_DESCRIPTIONS = {
     "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
   parameters:
     "Options the algorithm takes besides encoding, key and salt, as hash_algorithms lists them: seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
-  family: "Family to list. Omit to list every family",
+  category: "Category to list. Omit to list every category",
+  family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
   describe: "Registered algorithm to describe with its options. Omit to list",
 } as const;

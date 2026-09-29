@@ -8,7 +8,8 @@ export class Sha0 extends BlockHash {
     label: "SHA-0",
     description:
       "SHA-0 160-bit hash, the 1993 original withdrawn for SHA-1, BROKEN (full collision 2004)",
-    family: "legacy",
+    family: "SHA",
+    category: "legacy",
     digestLength: 20,
     securityNote:
       "BROKEN: full collision found in 2004. Use only to reproduce old data, puzzles and papers.",

@@ -131,7 +131,8 @@ export class Xxhash extends FixedHash<XxhashOptions> {
     label: "xxHash (XXH64)",
     description:
       "xxHash 64-bit, an extremely fast non-cryptographic hash used in databases and compression",
-    family: "non-cryptographic",
+    family: "xxHash",
+    category: "non-cryptographic",
     digestLength: 8,
     securityNote: "NOT for security: fast hash for hash tables, bloom filters, checksums",
   } as const;

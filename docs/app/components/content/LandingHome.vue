@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { hashFamilies } from "@agntn/hashes";
 import { SAMPLE_INPUT } from "../../composables/useLandingHash";
-import { ALGORITHMS, HMAC_COUNT, familySize } from "../../utils/algorithms";
+import { ALGORITHMS, FAMILIES, HMAC_COUNT, categorySize } from "../../utils/algorithms";
 import { spellOut, spellOutCapital } from "../../utils/format";
 import { TOOLS } from "../../utils/tools";
 
@@ -57,16 +56,16 @@ const { samples, paused, current, step } = useLandingHash();
       <div class="mx-auto w-full max-w-[var(--ui-container)] px-8 py-20 sm:px-12 lg:px-16">
         <div class="max-w-2xl">
           <h2 class="text-2xl font-medium tracking-tight text-highlighted sm:text-[1.75rem]">
-            {{ spellOutCapital(ALGORITHMS.length) }} algorithms, {{ spellOut(hashFamilies.length) }}
+            {{ spellOutCapital(ALGORITHMS.length) }} algorithms, {{ spellOut(FAMILIES.length) }}
             families
           </h2>
           <p class="mt-4 text-sm leading-6 text-muted">
-            {{ spellOutCapital(familySize("cryptographic")) }} cryptographic ones, from SHA-256 to
+            {{ spellOutCapital(categorySize("cryptographic")) }} cryptographic ones, from SHA-256 to
             BLAKE3, with the compositions chains actually use: Keccak-256 with its old padding,
             HASH160, double SHA-256, BLAKE2b cut to 32 and 28 bytes. MD5 and SHA-1 sit under legacy,
             broken and still everywhere, next to SHA-0, which never got that far.
-            {{ spellOutCapital(familySize("non-cryptographic")) }}
-            checksums for tables and files, and {{ spellOut(familySize("password")) }} KDFs that
+            {{ spellOutCapital(categorySize("non-cryptographic")) }}
+            checksums for tables and files, and {{ spellOut(categorySize("password")) }} KDFs that
             print the salt they drew. {{ spellOutCapital(HMAC_COUNT) }} of them take a key. The
             rest say no instead of pretending.
           </p>

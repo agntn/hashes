@@ -50,7 +50,7 @@ export function verifyAnswer(params: HashVerifyParams): {
 }
 
 /**
- * The text `hash_algorithms` hands a model: the listing, one family, or one algorithm.
+ * The text `hash_algorithms` hands a model: the listing, one family or category, or one algorithm.
  *
  * @param {HashAlgorithmsParams} params - The tool arguments.
  * @returns {string} `content[0].text`.

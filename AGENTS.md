@@ -56,13 +56,13 @@ docs/                    - the hashes.agntn.dev site, its own pnpm project, outs
 
 ## Adding an algorithm
 
-1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `BlockHash` for a digest with an HMAC mode (its `Hasher` goes in `src/core/`), `FixedHash` for a fixed-length digest without one, `Hash` for anything else. Nothing under the library entry imports `node:*`. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
+1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `BlockHash` for a digest with an HMAC mode (its `Hasher` goes in `src/core/`), `FixedHash` for a fixed-length digest without one, `Hash` for anything else. Its `about` names the `family`, the lineage it comes from (`SHA`, `BLAKE`, `CRC`), and the `category`, what it is fit for (`cryptographic`, `legacy`, `non-cryptographic`, `password`). Nothing under the library entry imports `node:*`. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
 2. Add the class to `builtins` in `src/algorithms/index.ts` and its key to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
-3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
+3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC, `BUILTIN_FAMILIES` when it starts a new family) in `packages/shared/tool-contract.ts`.
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.
 5. Add its page as `docs/content/2.algorithms/<position>.<name>.md` with `::algorithm-facts{name="<name>"}`, and its icon and blurb to `PRESENTATION` in `docs/app/utils/algorithms.ts`.
 
-`test/index.test.ts` fails when the files, `builtins` and `builtinAlgorithms` disagree; `test/mcp.test.ts` fails when the tool contract lists differ from the registry; `test/docs.test.ts` fails when an algorithm has no page.
+`test/index.test.ts` fails when the files, `builtins` and `builtinAlgorithms` disagree; `test/mcp.test.ts` fails when the tool contract lists, families included, differ from the registry; `test/docs.test.ts` fails when an algorithm has no page.
 
 ## Conventions
 

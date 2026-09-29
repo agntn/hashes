@@ -20,7 +20,8 @@ export class Crc32 extends FixedHash {
   protected readonly about = {
     label: "CRC-32",
     description: "CRC-32 cyclic redundancy check, used in ZIP, PNG, gzip and network protocols",
-    family: "non-cryptographic",
+    family: "CRC",
+    category: "non-cryptographic",
     digestLength: 4,
     securityNote: "NOT for security: error-detection checksum only",
   } as const;

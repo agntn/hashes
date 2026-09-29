@@ -7,7 +7,8 @@ export class Sha3_512 extends BlockHash {
   protected readonly about = {
     label: "SHA3-512",
     description: "SHA-3 (Keccak) 512-bit hash, the strongest SHA-3 variant of the NIST standard",
-    family: "cryptographic",
+    family: "SHA",
+    category: "cryptographic",
     digestLength: 64,
     securityNote: "256-bit collision resistance, 512-bit preimage resistance, sponge construction",
   } as const;

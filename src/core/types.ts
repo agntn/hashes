@@ -28,8 +28,8 @@ export interface HashOptions {
   key?: HashInput;
 }
 
-/** Algorithm family classification. */
-export type HashFamily =
+/** What an algorithm is fit for, whatever family it comes from. */
+export type HashCategory =
   /** sha256, sha512, blake2b, blake3, sha3-* */
   | "cryptographic"
   /** md5, sha1, sha0: not collision-resistant but still useful for checksums */
@@ -56,8 +56,10 @@ export interface AlgorithmInfo {
   label: string;
   /** One-line description. */
   description: string;
-  /** Algorithm family. */
-  family: HashFamily;
+  /** Design lineage the algorithm belongs to, such as `SHA`, `BLAKE` or `CRC`. */
+  family: string;
+  /** What the algorithm is fit for: a digest that resists attack, a broken one, a checksum or a KDF. */
+  category: HashCategory;
   /** Raw digest byte length; absent when the caller picks it, as for the KDFs. */
   digestLength?: number;
   /** Whether HMAC mode is supported. */

@@ -3,8 +3,10 @@ import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
-import { Md5, builtins } from "../src/algorithms/index.ts";
+import { Md5, Sha1, builtins } from "../src/algorithms/index.ts";
+import { algorithmInfos } from "../src/core/resolve.ts";
 import {
+  type AlgorithmInfo,
   DependencyError,
   Hash,
   HashError,
@@ -17,7 +19,7 @@ import {
   create,
   digestMatches,
   has,
-  hashFamilies,
+  hashCategories,
   normalizeError,
   register,
   resolveAlgorithm,
@@ -71,7 +73,45 @@ describe("registry", () => {
       const algorithm = create(name);
       expect(algorithm.name()).toBe(name);
       expect(algorithm.info().name).toBe(name);
-      expect(hashFamilies).toContain(algorithm.info().family);
+      expect(hashCategories).toContain(algorithm.info().category);
+    }
+  });
+
+  it("files each algorithm under its lineage, apart from what it is fit for", () => {
+    const family = (name: string): string => create(name).info().family;
+    const sha = builtinAlgorithms.filter((name) => family(name) === "SHA");
+
+    expect(sha).toEqual([
+      "sha256",
+      "sha384",
+      "sha512",
+      "sha512-half",
+      "sha3-256",
+      "sha3-512",
+      "hash256",
+      "sha1",
+      "sha0",
+    ]);
+    expect(new Set(sha.map((name) => create(name).info().category))).toEqual(
+      new Set(["cryptographic", "legacy"]),
+    );
+    expect(family("keccak256")).toBe("Keccak");
+    expect(family("hash160")).toBe("RIPEMD");
+    expect(builtinAlgorithms.filter((name) => family(name) === "BLAKE")).toHaveLength(6);
+  });
+
+  it("keeps an algorithm in its family whatever case it spells the family in", () => {
+    class LowerSha1 extends Sha1 {
+      override info(): AlgorithmInfo {
+        return { ...super.info(), family: "sha" };
+      }
+    }
+    register(LowerSha1);
+    try {
+      expect(algorithmInfos({ family: "SHA" }).map((info) => info.name)).toContain("sha1");
+      expect(algorithmInfos({ family: "Sha" }).map((info) => info.name)).toContain("sha256");
+    } finally {
+      register(Sha1);
     }
   });
 
@@ -94,7 +134,8 @@ describe("registry", () => {
       protected readonly about = {
         label: "SHA-224",
         description: "SHA-2 family 224-bit hash",
-        family: "cryptographic",
+        family: "SHA",
+        category: "cryptographic",
         digestLength: 28,
       } as const;
 

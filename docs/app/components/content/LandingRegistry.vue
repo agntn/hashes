@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { hashFamilies } from "@agntn/hashes";
+import { hashCategories } from "@agntn/hashes";
 import type { LandingSample } from "../../composables/useLandingHash";
 import { ALGORITHMS, digestBits, ownOptions, type AlgorithmEntry } from "../../utils/algorithms";
 
@@ -8,11 +8,11 @@ const emit = defineEmits<{ pause: [paused: boolean] }>();
 
 type State = "current" | "kin" | "other";
 
-/** One band per family, a cell per algorithm in listing order; the node says how it relates to the sample. */
+/** One band per category, a cell per algorithm in listing order; the node says how it relates to the sample. */
 const bands = computed(() =>
-  hashFamilies.map((family) => ({
-    family,
-    cells: ALGORITHMS.filter((entry) => entry.info.family === family).map((entry) => ({
+  hashCategories.map((category) => ({
+    category,
+    cells: ALGORITHMS.filter((entry) => entry.info.category === category).map((entry) => ({
       entry,
       state: (entry.slug === props.sample.entry.slug
         ? "current"
@@ -53,7 +53,7 @@ function about(entry: AlgorithmEntry): string {
       <span class="console-title"><span class="console-tag">Call</span>algorithms()</span>
       <span class="console-meta"
         >{{ ALGORITHMS.length }} names ·
-        {{ bands.map((band) => `${band.cells.length} ${band.family}`).join(" · ") }}</span
+        {{ bands.map((band) => `${band.cells.length} ${band.category}`).join(" · ") }}</span
       >
       <span class="console-mark" aria-hidden="true" />
     </header>
@@ -61,10 +61,10 @@ function about(entry: AlgorithmEntry): string {
       <span :key="sample.entry.slug" class="console-cursor" />
     </div>
 
-    <div v-for="band in bands" :key="band.family" class="registry-band">
+    <div v-for="band in bands" :key="band.category" class="registry-band">
       <p class="console-label console-rule-title">
         <span
-          ><span class="console-label-key">{{ band.family }}</span>&#32;<span aria-hidden="true"
+          ><span class="console-label-key">{{ band.category }}</span>&#32;<span aria-hidden="true"
             >[ {{ band.cells.length }} ]</span
           ></span
         >

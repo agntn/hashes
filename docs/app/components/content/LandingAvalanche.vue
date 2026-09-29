@@ -4,7 +4,7 @@ import {
   SAMPLE_INPUT,
   type LandingSample,
 } from "../../composables/useLandingHash";
-import { ALGORITHMS, digestBits, familyLabel, registryPosition } from "../../utils/algorithms";
+import { ALGORITHMS, categoryLabel, digestBits, registryPosition } from "../../utils/algorithms";
 
 const props = defineProps<{ sample: LandingSample; samples: readonly LandingSample[] }>();
 const emit = defineEmits<{ step: [delta: number]; pause: [paused: boolean] }>();
@@ -69,7 +69,7 @@ const kin = computed(() => ticks.value.filter((tick) => tick.open).length);
         >
       </UTooltip>
       <span class="console-meta"
-        >{{ familyLabel(entry.info.family).toLowerCase() }} ·
+        >{{ categoryLabel(entry.info.category).toLowerCase() }} ·
         {{ String(registryPosition(entry.slug)).padStart(2, "0") }} / {{ ALGORITHMS.length }}</span
       >
       <span class="console-mark" aria-hidden="true" />
@@ -93,7 +93,7 @@ const kin = computed(() => ticks.value.filter((tick) => tick.open).length);
               :aria-hidden="other.entry.slug !== entry.slug ? 'true' : undefined"
             >
               <span class="console-label"
-                >Hash / <span class="console-label-key">{{ other.entry.info.family }}</span></span
+                >Hash / <span class="console-label-key">{{ other.entry.info.category }}</span></span
               >
               <h3>{{ other.entry.info.label }}</h3>
               <p class="console-about">{{ other.entry.blurb }}.</p>

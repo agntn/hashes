@@ -8,7 +8,8 @@ export class Md5 extends BlockHash {
     label: "MD5",
     description:
       "MD5 128-bit hash, BROKEN for security, still used for checksums and fingerprinting",
-    family: "legacy",
+    family: "MD",
+    category: "legacy",
     digestLength: 16,
     securityNote:
       "BROKEN: collision attacks known since 2004. Use only for non-security checksums.",

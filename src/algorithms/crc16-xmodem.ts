@@ -16,7 +16,8 @@ export class Crc16Xmodem extends FixedHash {
     label: "CRC-16/XMODEM",
     description:
       "CRC-16/XMODEM (polynomial 0x1021, init 0), the checksum closing Stellar StrKeys and TON addresses",
-    family: "non-cryptographic",
+    family: "CRC",
+    category: "non-cryptographic",
     digestLength: 2,
     securityNote:
       "NOT for security. Printed big-endian as TON writes it; Stellar stores the two bytes the other way round",

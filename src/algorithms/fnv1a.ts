@@ -30,7 +30,8 @@ export class Fnv1a extends FixedHash {
   protected readonly about = {
     label: "FNV-1a (64-bit)",
     description: "FNV-1a 64-bit, a simple, fast non-cryptographic hash for hash tables and dedup",
-    family: "non-cryptographic",
+    family: "FNV",
+    category: "non-cryptographic",
     digestLength: 8,
     securityNote: "NOT for security: simple hash for hash tables, fingerprints, dedup",
   } as const;

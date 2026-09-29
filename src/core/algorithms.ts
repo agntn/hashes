@@ -1,4 +1,4 @@
-import { HASH_FAMILIES } from "../../packages/shared/tool-contract.ts";
+import { HASH_CATEGORIES } from "../../packages/shared/tool-contract.ts";
 
 /** Built-in algorithm names, in listing order. Not in this list, not in the registry. */
 export const builtinAlgorithms = [
@@ -38,5 +38,5 @@ export const builtinAlgorithms = [
 
 export type BuiltinAlgorithm = (typeof builtinAlgorithms)[number];
 
-/** Algorithm families, in listing order. The tool contract owns the list, since the extensions read it without the library. */
-export const hashFamilies = HASH_FAMILIES;
+/** Algorithm categories, in listing order. The tool contract owns the list, since the extensions read it without the library. */
+export const hashCategories = HASH_CATEGORIES;

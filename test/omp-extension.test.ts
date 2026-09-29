@@ -102,8 +102,11 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
   ],
   hash_algorithms: [
     {},
-    { family: "password" },
-    { family: "toString" },
+    { category: "password" },
+    { category: "toString" },
+    { family: "SHA" },
+    { family: "" },
+    { family: "S".repeat(33) },
     { algorithm: "" },
     { limit: 1 },
   ],
@@ -195,7 +198,7 @@ describe("omp hashes extension", () => {
     (isPartial, spinnerFrame, icon) => {
       const text = renderedText(
         registerTool("hash_algorithms").renderCall?.(
-          { family: "password" },
+          { category: "password" },
           { expanded: false, isPartial, spinnerFrame },
           theme,
         ),

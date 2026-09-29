@@ -8,7 +8,8 @@ export class Hash160 extends FixedHash {
     label: "HASH160",
     description:
       "RIPEMD-160 of SHA-256, the public key and script hash behind Bitcoin, Litecoin, Dogecoin, Dash, Bitcoin Cash, Zcash and XRP Ledger addresses",
-    family: "cryptographic",
+    family: "RIPEMD",
+    category: "cryptographic",
     digestLength: 20,
     securityNote: "80-bit collision resistance, 160-bit preimage resistance, bounded by RIPEMD-160",
   } as const;

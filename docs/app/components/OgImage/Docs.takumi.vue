@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ALGORITHMS, digestBits, familyLabel, ownOptions } from "../../utils/algorithms";
+import { ALGORITHMS, categoryLabel, digestBits, ownOptions } from "../../utils/algorithms";
 import { TOOLS } from "../../utils/tools";
 
 /**
@@ -21,7 +21,7 @@ const entry = ALGORITHMS.find((row) => row.info.label === title || row.slug === 
 const subtitle = entry
   ? [
       `${entry.blurb}.`,
-      `${familyLabel(entry.info.family)}, ${digestBits(entry.info)}${entry.info.hmac ? ", with HMAC" : ""}.`,
+      `${categoryLabel(entry.info.category)}, ${digestBits(entry.info)}${entry.info.hmac ? ", with HMAC" : ""}.`,
       entry.usedBy ? `Used by ${entry.usedBy}.` : "",
     ]
       .filter(Boolean)

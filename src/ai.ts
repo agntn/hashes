@@ -3,10 +3,11 @@
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 import {
-  HASH_FAMILIES,
+  HASH_CATEGORIES,
   INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
+  MAX_FAMILY_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
   MAX_PARAMETER_LENGTH,
@@ -100,7 +101,8 @@ export const hashVerifyTool: Tool<z.infer<typeof hashVerifyInput>, Output<Verify
 });
 
 const hashAlgorithmsInput = z.strictObject({
-  family: z.enum(HASH_FAMILIES).optional().describe(d.family),
+  category: z.enum(HASH_CATEGORIES).optional().describe(d.category),
+  family: z.string().min(1).max(MAX_FAMILY_LENGTH).optional().describe(d.family),
   algorithm: algorithm.optional().describe(d.describe),
 });
 

@@ -37,5 +37,5 @@ export abstract class Hash {
 /** What an algorithm tells about itself besides its name, options and HMAC support. */
 export type HashAbout = Pick<
   AlgorithmInfo,
-  "label" | "description" | "family" | "digestLength" | "securityNote"
+  "label" | "description" | "family" | "category" | "digestLength" | "securityNote"
 >;

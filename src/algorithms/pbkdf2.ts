@@ -69,7 +69,8 @@ export class Pbkdf2 extends Hash {
       name: this.key,
       label: "PBKDF2",
       description: "PBKDF2 password-based KDF, the NIST standard with configurable iterations",
-      family: "password",
+      family: "PBKDF",
+      category: "password",
       hmac: false,
       options: [
         ENCODING_OPTION,

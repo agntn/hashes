@@ -1,6 +1,6 @@
 export type {
   AlgorithmInfo,
-  HashFamily,
+  HashCategory,
   HashInput,
   HashOption,
   HashOptions,
@@ -24,6 +24,6 @@ export { BlockHash } from "./block-hash.ts";
 export { Hasher } from "./hasher.ts";
 export { algorithms, create, has, register } from "./registry.ts";
 export { normalizeAlgorithmName, resolveAlgorithm } from "./resolve.ts";
-export { builtinAlgorithms, hashFamilies, type BuiltinAlgorithm } from "./algorithms.ts";
+export { builtinAlgorithms, hashCategories, type BuiltinAlgorithm } from "./algorithms.ts";
 export { digestMatches } from "./verify.ts";
 export { checkedParameters, parameterOptions, type ParameterValue } from "./options.ts";
