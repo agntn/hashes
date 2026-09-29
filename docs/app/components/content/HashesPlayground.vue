@@ -375,8 +375,9 @@ function readQuery(query: Record<string, unknown>) {
     }
   }
   if (op === "algorithms" && known) describe.value = name;
-  if (typeof query.family === "string" && FAMILIES.includes(query.family)) {
-    family.value = query.family;
+  if (typeof query.family === "string") {
+    const typed = query.family.toLowerCase();
+    family.value = FAMILIES.find((name) => name.toLowerCase() === typed) ?? "";
   }
   if (typeof query.category === "string" && (hashCategories as readonly string[]).includes(query.category)) {
     category.value = query.category as HashCategory;

@@ -3,8 +3,10 @@ import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
-import { Md5, builtins } from "../src/algorithms/index.ts";
+import { Md5, Sha1, builtins } from "../src/algorithms/index.ts";
+import { algorithmInfos } from "../src/core/resolve.ts";
 import {
+  type AlgorithmInfo,
   DependencyError,
   Hash,
   HashError,
@@ -96,6 +98,21 @@ describe("registry", () => {
     expect(family("keccak256")).toBe("Keccak");
     expect(family("hash160")).toBe("RIPEMD");
     expect(builtinAlgorithms.filter((name) => family(name) === "BLAKE")).toHaveLength(6);
+  });
+
+  it("keeps an algorithm in its family whatever case it spells the family in", () => {
+    class LowerSha1 extends Sha1 {
+      override info(): AlgorithmInfo {
+        return { ...super.info(), family: "sha" };
+      }
+    }
+    register(LowerSha1);
+    try {
+      expect(algorithmInfos({ family: "SHA" }).map((info) => info.name)).toContain("sha1");
+      expect(algorithmInfos({ family: "Sha" }).map((info) => info.name)).toContain("sha256");
+    } finally {
+      register(Sha1);
+    }
   });
 
   it("answers has() for registered names only", () => {

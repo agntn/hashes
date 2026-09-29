@@ -55,24 +55,33 @@ export function algorithmInfos(filter: Readonly<AlgorithmFilter> = {}): Algorith
   const wanted = family === undefined ? undefined : knownFamily(infos, family);
   return infos.filter(
     (info) =>
-      (wanted === undefined || info.family === wanted) &&
+      (wanted === undefined || familyKey(info.family) === wanted) &&
       (category === undefined || info.category === category),
   );
 }
 
 /**
- * Finds a family among the registered algorithms, ignoring case.
+ * Spells a family the way the filter compares it, so `SHA`, `sha` and ` Sha ` are one family.
+ *
+ * @param family - Family as typed or declared.
+ * @returns {string} Trimmed and lowercased.
+ */
+function familyKey(family: string): string {
+  return family.trim().toLowerCase();
+}
+
+/**
+ * Checks that some registered algorithm declares the family, ignoring case.
  *
  * @param infos - Metadata of every registered algorithm.
  * @param family - Family as typed.
- * @returns {string} The family as the algorithms spell it.
+ * @returns {string} The family's comparison key.
  */
 function knownFamily(infos: readonly AlgorithmInfo[], family: string): string {
-  const families = [...new Set(infos.map((info) => info.family))];
-  const typed = family.trim().toLowerCase();
-  const known = families.find((name) => name.toLowerCase() === typed);
-  if (known === undefined) {
+  const wanted = familyKey(family);
+  if (!infos.some((info) => familyKey(info.family) === wanted)) {
+    const families = [...new Set(infos.map((info) => info.family))];
     throw new InvalidOptionError("family", family, `use one of ${families.join(", ")}`);
   }
-  return known;
+  return wanted;
 }
