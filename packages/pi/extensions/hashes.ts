@@ -4,7 +4,12 @@ import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import type * as HashTools from "../../../dist/tool-operations.d.mts";
-import { HASH_FAMILIES, TOOL_DESCRIPTIONS, TOOL_TITLES } from "../../shared/tool-contract.ts";
+import {
+  BUILTIN_FAMILIES,
+  HASH_CATEGORIES,
+  TOOL_DESCRIPTIONS,
+  TOOL_TITLES,
+} from "../../shared/tool-contract.ts";
 import {
   hashAlgorithmsSchema,
   hashComputeSchema,
@@ -76,7 +81,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     description: TOOL_DESCRIPTIONS.hash_algorithms,
     promptSnippet: "Use hash_algorithms to see which hash algorithms exist and their options.",
     promptGuidelines: [
-      `Filter by family: ${HASH_FAMILIES.join(", ")}.`,
+      `Filter by family (${BUILTIN_FAMILIES}) or category (${HASH_CATEGORIES.join(", ")}).`,
       "Pass an algorithm name to see its options.",
     ],
     parameters: hashAlgorithmsSchema,

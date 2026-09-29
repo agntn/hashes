@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import {
   HashError,
-  hashFamilies,
+  hashCategories,
   type AlgorithmInfo,
-  type HashFamily,
+  type HashCategory,
 } from "@agntn/hashes";
 import {
   INPUT_ENCODINGS,
@@ -17,10 +17,11 @@ import {
 } from "#tool-operations";
 import {
   ALGORITHMS,
+  FAMILIES,
   SAMPLE_OPTIONS,
   algorithmEntry,
+  categoryLabel,
   digestBits,
-  familyLabel,
   ownOptions,
 } from "../../utils/algorithms";
 import { optionFlags, shellArg } from "../../utils/format";
@@ -51,7 +52,7 @@ const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: string; a
     key: "algorithms",
     label: "List",
     tool: "hash_algorithms",
-    about: "Every algorithm with family, size and HMAC, one family, or one algorithm's options.",
+    about: "Every algorithm with family, category, size and HMAC, one family or category, or one algorithm's options.",
   },
 ];
 
@@ -68,8 +69,9 @@ const keyEncoding = ref<(typeof INPUT_ENCODINGS)[number]>("utf8");
 const expected = ref("");
 const salt = ref("");
 const values = reactive<Record<string, string>>({});
-/** `hash_algorithms` lists every family when empty, and describes one algorithm when one is picked. */
-const family = ref<HashFamily | "">("");
+/** `hash_algorithms` lists everything when both are empty, and describes one algorithm when one is picked. */
+const family = ref("");
+const category = ref<HashCategory | "">("");
 const describe = ref("");
 
 const entry = computed(() => algorithmEntry(algorithmName.value) ?? ALGORITHMS[0]!);
@@ -91,7 +93,11 @@ const algorithmItems = computed(() =>
 );
 const familyItems = [
   { label: "every family", value: "" },
-  ...hashFamilies.map((key) => ({ label: `${familyLabel(key).toLowerCase()} · ${key}`, value: key })),
+  ...FAMILIES.map((name) => ({ label: name, value: name })),
+];
+const categoryItems = [
+  { label: "every category", value: "" },
+  ...hashCategories.map((key) => ({ label: key, value: key })),
 ];
 const describeItems = [
   { label: "list, no algorithm", value: "" },
@@ -123,7 +129,10 @@ const parameters = computed<Record<string, string | number>>(() => {
 const toolArgs = computed((): Record<string, unknown> => {
   if (operation.value === "algorithms") {
     if (describe.value) return { algorithm: describe.value };
-    return family.value ? { family: family.value } : {};
+    return {
+      ...(family.value ? { family: family.value } : {}),
+      ...(category.value ? { category: category.value } : {}),
+    };
   }
   const args: Record<string, unknown> = { algorithm: entry.value.slug, input: input.value };
   if (inputEncoding.value !== "utf8") args.inputEncoding = inputEncoding.value;
@@ -233,7 +242,11 @@ const cliLine = computed(() => {
   const args = toolArgs.value;
   if (operation.value === "algorithms") {
     if (describe.value) return `hashes info ${describe.value}`;
-    return family.value ? `hashes algorithms -f ${family.value}` : "hashes algorithms";
+    const filters = [
+      family.value ? `-f ${family.value}` : "",
+      category.value ? `-c ${category.value}` : "",
+    ].filter(Boolean);
+    return ["hashes algorithms", ...filters].join(" ");
   }
   const flags = [
     inputEncoding.value !== "utf8" ? `--input-encoding ${inputEncoding.value}` : "",
@@ -264,7 +277,7 @@ const toolCall = computed(() =>
 const call = computed(() => {
   const args = request.value.args;
   if (request.value.op === "algorithms") {
-    const target = args.algorithm ?? args.family;
+    const target = args.algorithm ?? args.family ?? args.category;
     return `${answered.value.tool}(${target ? `"${String(target)}"` : ""})`;
   }
   return `${answered.value.tool}("${String(args.algorithm)}", "${String(args.input)}")`;
@@ -362,8 +375,11 @@ function readQuery(query: Record<string, unknown>) {
     }
   }
   if (op === "algorithms" && known) describe.value = name;
-  if (typeof query.family === "string" && (hashFamilies as readonly string[]).includes(query.family)) {
-    family.value = query.family as HashFamily;
+  if (typeof query.family === "string" && FAMILIES.includes(query.family)) {
+    family.value = query.family;
+  }
+  if (typeof query.category === "string" && (hashCategories as readonly string[]).includes(query.category)) {
+    category.value = query.category as HashCategory;
   }
   if (typeof query.input === "string") input.value = query.input;
   if (typeof query.key === "string") key.value = query.key;
@@ -498,6 +514,21 @@ const shareLink = computed(() => {
                     id="playground-family"
                     v-model="family"
                     :items="familyItems"
+                    value-key="value"
+                    variant="none"
+                    :search-input="false"
+                    :disabled="describe !== ''"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-category">category</label></dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-category"
+                    v-model="category"
+                    :items="categoryItems"
                     value-key="value"
                     variant="none"
                     :search-input="false"
@@ -937,7 +968,7 @@ const shareLink = computed(() => {
           <div class="console-identity-block">
             <ConsoleReticle :key="answeredEntry.slug" :icon="answeredEntry.icon" />
             <div class="console-name">
-              <span class="console-label">Hash / {{ familyLabel(answer.info.family) }}</span>
+              <span class="console-label">Hash / {{ categoryLabel(answer.info.category) }}</span>
               <h3>{{ answer.info.label }}</h3>
               <p class="console-about">{{ answer.info.description }}</p>
             </div>
@@ -1020,7 +1051,7 @@ const shareLink = computed(() => {
               :to="
                 answered.key === 'verify' || answered.key === 'hmac'
                   ? '/guide/verify'
-                  : answeredEntry.info.family === 'password'
+                  : answeredEntry.info.category === 'password'
                     ? '/guide/kdf'
                     : '/guide/hashing'
               "

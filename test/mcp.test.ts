@@ -6,6 +6,7 @@ import { createMcpServer } from "../src/mcp.ts";
 import { builtinAlgorithms, create } from "../src/index.ts";
 import {
   BUILTIN_ALGORITHMS,
+  BUILTIN_FAMILIES,
   HMAC_ALGORITHMS,
   MAX_INPUT_LENGTH,
   TOOL_ARGUMENTS,
@@ -46,8 +47,11 @@ afterEach(async () => {
 });
 
 describe("tool contract", () => {
-  it("lists the built-ins and the HMAC ones the way the registry does", () => {
+  it("lists the built-ins, their families and the HMAC ones the way the registry does", () => {
     expect(BUILTIN_ALGORITHMS).toBe(builtinAlgorithms.join(", "));
+    expect(BUILTIN_FAMILIES).toBe(
+      [...new Set(builtinAlgorithms.map((name) => create(name).info().family))].join(", "),
+    );
     expect(HMAC_ALGORITHMS).toBe(
       builtinAlgorithms.filter((name) => create(name).info().hmac).join(", "),
     );
@@ -283,12 +287,15 @@ describe("hashes MCP server", () => {
     expect(answer.text).toContain("Invalid option salt=00: sha256 takes no parameters");
   });
 
-  it("lists by family and describes one algorithm with its options", async () => {
-    const password = await call("hash_algorithms", { family: "password" });
+  it("lists by family or category and describes one algorithm with its options", async () => {
+    const password = await call("hash_algorithms", { category: "password" });
+    const blake = await call("hash_algorithms", { family: "blake" });
     const scrypt = await call("hash_algorithms", { algorithm: "scrypt" });
 
     expect(password.text).toContain("2 algorithms, listing order:");
-    expect(password.text).toContain("scrypt [password] variable, HMAC no: scrypt");
+    expect(password.text).toContain("scrypt [scrypt, password] variable, HMAC no: scrypt");
+    expect(blake.text).toContain("6 algorithms, listing order:");
+    expect(blake.text).toContain("blake3 [BLAKE, cryptographic] 256-bit, HMAC no: BLAKE3");
     expect(password.text).not.toContain("sha256");
     expect(scrypt.text).toContain("N (number, default 16384)");
   });
@@ -457,7 +464,8 @@ describe("executors without a schema in front", () => {
     ]) {
       expect(() => hashCompute(params as never)).toThrow(/^[^\n]*$/);
     }
-    expect(() => hashAlgorithms({ family: "x\nMATCH" } as never)).toThrow(/^[^\n]*$/);
+    expect(() => hashAlgorithms({ family: "x\nMATCH" })).toThrow(/^[^\n]*$/);
+    expect(() => hashAlgorithms({ category: "x\nMATCH" } as never)).toThrow(/^[^\n]*$/);
   });
 
   it("bound parameter names and values, and take the salt only through its own argument", () => {
@@ -516,9 +524,11 @@ describe("executors without a schema in front", () => {
     expect(() => hashCompute({ algorithm: "scrypt", input: "x", salt: "abc" })).toThrow(
       /1 to 256 bytes/,
     );
-    expect(() => hashAlgorithms({ family: "toString" } as never)).toThrow(
+    expect(() => hashAlgorithms({ category: "toString" } as never)).toThrow(
       /use one of cryptographic/,
     );
+    expect(() => hashAlgorithms({ family: "toString" })).toThrow(/use one of SHA, Keccak/);
+    expect(() => hashAlgorithms({ family: "S".repeat(33) })).toThrow(/at most 32/);
     expect(() => hashHmac({ algorithm: "sha256", input: "x" } as never)).toThrow(
       "Missing required option: key",
     );

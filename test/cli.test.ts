@@ -134,7 +134,10 @@ describe("hashes CLI", () => {
       code: 1,
       stderr: "Invalid option algorithm=blake3: has no HMAC mode\n",
     });
-    expect(run(["algorithms", "--family", "nope"]).code).toBe(1);
+    const family = run(["algorithms", "--family", "nope"]);
+    expect(family.code).toBe(1);
+    expect(family.stderr).toMatch(/^Invalid option family=nope: use one of SHA, Keccak, /);
+    expect(run(["algorithms", "--category", "SHA"]).code).toBe(1);
   });
 
   it("passes every advertised option as a flag and refuses one the algorithm lacks", () => {
@@ -176,9 +179,16 @@ describe("hashes CLI", () => {
     });
   });
 
-  it("lists one family and describes one algorithm", () => {
-    const listing = run(["algorithms", "-f", "password"]).stdout.trim().split("\n");
-    expect(listing.slice(1).map((line) => line.split(/\s+/)[0])).toEqual(["scrypt", "pbkdf2"]);
+  it("lists one family or category and describes one algorithm", () => {
+    const names = (args: readonly string[]): string[] =>
+      run(["algorithms", ...args])
+        .stdout.trim()
+        .split("\n")
+        .slice(1)
+        .map((line) => line.split(/\s+/)[0] ?? "");
+    expect(names(["-c", "password"])).toEqual(["scrypt", "pbkdf2"]);
+    expect(names(["-f", "crc"])).toEqual(["crc32", "crc16-xmodem"]);
+    expect(names(["-f", "SHA", "-c", "legacy"])).toEqual(["sha1", "sha0"]);
     expect(run(["info", "SHA3_256"]).stdout).toContain("SHA3-256 (sha3-256)");
   });
 

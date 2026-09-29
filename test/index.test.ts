@@ -17,7 +17,7 @@ import {
   create,
   digestMatches,
   has,
-  hashFamilies,
+  hashCategories,
   normalizeError,
   register,
   resolveAlgorithm,
@@ -71,8 +71,31 @@ describe("registry", () => {
       const algorithm = create(name);
       expect(algorithm.name()).toBe(name);
       expect(algorithm.info().name).toBe(name);
-      expect(hashFamilies).toContain(algorithm.info().family);
+      expect(hashCategories).toContain(algorithm.info().category);
     }
+  });
+
+  it("files each algorithm under its lineage, apart from what it is fit for", () => {
+    const family = (name: string): string => create(name).info().family;
+    const sha = builtinAlgorithms.filter((name) => family(name) === "SHA");
+
+    expect(sha).toEqual([
+      "sha256",
+      "sha384",
+      "sha512",
+      "sha512-half",
+      "sha3-256",
+      "sha3-512",
+      "hash256",
+      "sha1",
+      "sha0",
+    ]);
+    expect(new Set(sha.map((name) => create(name).info().category))).toEqual(
+      new Set(["cryptographic", "legacy"]),
+    );
+    expect(family("keccak256")).toBe("Keccak");
+    expect(family("hash160")).toBe("RIPEMD");
+    expect(builtinAlgorithms.filter((name) => family(name) === "BLAKE")).toHaveLength(6);
   });
 
   it("answers has() for registered names only", () => {
@@ -94,7 +117,8 @@ describe("registry", () => {
       protected readonly about = {
         label: "SHA-224",
         description: "SHA-2 family 224-bit hash",
-        family: "cryptographic",
+        family: "SHA",
+        category: "cryptographic",
         digestLength: 28,
       } as const;
 

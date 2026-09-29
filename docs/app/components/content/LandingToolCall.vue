@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { SAMPLE_INPUT, type LandingSample } from "../../composables/useLandingHash";
-import { familyLabel } from "../../utils/algorithms";
+import { categoryLabel } from "../../utils/algorithms";
 import { computeText } from "../../utils/tools";
 
 const props = defineProps<{ sample: LandingSample }>();
@@ -55,7 +55,7 @@ const rows = computed(() => {
       <div class="call-identity">
         <ConsoleReticle :key="sample.entry.slug" :icon="sample.entry.icon" />
         <div class="call-name">
-          <span class="console-label">Tool / {{ familyLabel(sample.entry.info.family) }}</span>
+          <span class="console-label">Tool / {{ categoryLabel(sample.entry.info.category) }}</span>
           <h3>{{ sample.entry.info.label }}</h3>
           <p class="call-note">
             The digest comes out of the executor, not out of the model. The second line says what

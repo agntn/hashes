@@ -1,22 +1,22 @@
 import {
   builtinAlgorithms,
   create,
-  hashFamilies,
+  hashCategories,
   type AlgorithmInfo,
   type BuiltinAlgorithm,
-  type HashFamily,
+  type HashCategory,
 } from "@agntn/hashes";
 
-const FAMILY_LABELS: Record<HashFamily, string> = {
+const CATEGORY_LABELS: Record<HashCategory, string> = {
   cryptographic: "Cryptographic",
   legacy: "Legacy",
   "non-cryptographic": "Non-cryptographic",
   password: "Password",
 };
 
-/** Families in listing order, with the label a page shows. The keys come from the library. */
-export const FAMILIES: ReadonlyArray<{ key: HashFamily; label: string }> = hashFamilies.map(
-  (key) => ({ key, label: FAMILY_LABELS[key] }),
+/** Categories in listing order, with the label a page shows. The keys come from the library. */
+export const CATEGORIES: ReadonlyArray<{ key: HashCategory; label: string }> = hashCategories.map(
+  (key) => ({ key, label: CATEGORY_LABELS[key] }),
 );
 
 /** An icon, a one-liner and who runs it, per algorithm. Everything else comes from `info()`. */
@@ -111,24 +111,27 @@ export function algorithmEntry(slug: string): AlgorithmEntry | undefined {
   return ALGORITHMS.find((algorithm) => algorithm.slug === slug);
 }
 
+/** The families of the built-ins in listing order, as `info().family` spells them. */
+export const FAMILIES: readonly string[] = [...new Set(ALGORITHMS.map((algorithm) => algorithm.info.family))];
+
 /**
- * The label a page shows for a family.
+ * The label a page shows for a category.
  *
- * @param {HashFamily} family - A family as `info().family` reports it.
+ * @param {HashCategory} category - A category as `info().category` reports it.
  * @returns {string} Its label.
  */
-export function familyLabel(family: HashFamily): string {
-  return FAMILY_LABELS[family];
+export function categoryLabel(category: HashCategory): string {
+  return CATEGORY_LABELS[category];
 }
 
 /**
- * How many built-ins the library files under one family.
+ * How many built-ins the library files under one category.
  *
- * @param {HashFamily} family - A family as `info().family` reports it.
+ * @param {HashCategory} category - A category as `info().category` reports it.
  * @returns {number} The count in the registry.
  */
-export function familySize(family: HashFamily): number {
-  return ALGORITHMS.filter((algorithm) => algorithm.info.family === family).length;
+export function categorySize(category: HashCategory): number {
+  return ALGORITHMS.filter((algorithm) => algorithm.info.category === category).length;
 }
 
 /** The built-ins that take a key, counted from `info().hmac`. */

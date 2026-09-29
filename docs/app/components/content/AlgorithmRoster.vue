@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { TableColumn } from "@nuxt/ui";
-import type { HashFamily } from "@agntn/hashes";
+import type { HashCategory } from "@agntn/hashes";
 import {
   ALGORITHMS,
+  categoryLabel,
   digestBits,
-  familyLabel,
   ownOptions,
   securityParts,
   type AlgorithmEntry,
@@ -15,7 +15,7 @@ interface Row {
   readonly entry: AlgorithmEntry;
   readonly slug: string;
   readonly label: string;
-  readonly family: string;
+  readonly category: string;
   /** Digest bits for sorting; a KDF, where the caller picks the length, sorts last. */
   readonly bits: number;
   readonly hmac: string;
@@ -24,17 +24,17 @@ interface Row {
   readonly security: { short: string; full: string } | undefined;
 }
 
-/** One family only, the way `hashes algorithms -f` lists it; every algorithm when left out. */
-const props = defineProps<{ family?: HashFamily }>();
+/** One category only, the way `hashes algorithms -c` lists it; every algorithm when left out. */
+const props = defineProps<{ category?: HashCategory }>();
 
 /** Every value comes from `info()`; the listing order is the default. */
 const rows = computed<Row[]>(() =>
-  ALGORITHMS.filter((entry) => props.family === undefined || entry.info.family === props.family).map(
+  ALGORITHMS.filter((entry) => props.category === undefined || entry.info.category === props.category).map(
     (entry) => ({
       entry,
       slug: entry.slug,
       label: entry.info.label,
-      family: familyLabel(entry.info.family),
+      category: categoryLabel(entry.info.category),
       bits: entry.info.digestLength === undefined ? Number.MAX_SAFE_INTEGER : entry.info.digestLength * 8,
       hmac: entry.info.hmac ? "yes" : "no",
       required: ownOptions(entry.info).filter((option) => option.required).map((option) => option.name),
@@ -55,8 +55,8 @@ useRosterFlip(
 const allColumns: TableColumn<Row>[] = [
   { accessorKey: "label", header: "Algorithm", sortingFn: "text", meta: { class: { th: "w-[15rem]" } } },
   {
-    accessorKey: "family",
-    header: "Family",
+    accessorKey: "category",
+    header: "Category",
     sortingFn: "text",
     meta: { class: { th: "w-[8.5rem]", td: "@max-[52rem]/roster:justify-self-end" } },
   },
@@ -86,10 +86,10 @@ const allColumns: TableColumn<Row>[] = [
   },
 ];
 
-/** A roster of one family drops the column that would say the same word on every row. */
+/** A roster of one category drops the column that would say the same word on every row. */
 const columns = computed(() =>
   allColumns.filter(
-    (column) => !(props.family && "accessorKey" in column && column.accessorKey === "family"),
+    (column) => !(props.category && "accessorKey" in column && column.accessorKey === "category"),
   ),
 );
 
@@ -109,7 +109,7 @@ const order = computed(() => {
     <span class="console-cross console-cross-br" aria-hidden="true">+</span>
     <header :class="ROSTER_CLASS.bar">
       <span :class="ROSTER_CLASS.title">{{
-        family ? `hashes algorithms -f ${family}` : "algorithms()"
+        category ? `hashes algorithms -c ${category}` : "algorithms()"
       }}</span>
       <span :class="ROSTER_CLASS.meta">{{ rows.length }} {{ rows.length === 1 ? "algorithm" : "algorithms" }} · {{ order }}</span>
     </header>
@@ -122,7 +122,7 @@ const order = computed(() => {
       :ui="ROSTER_TABLE_UI"
     >
       <template #label-header="{ column }"><RosterSort :column="column" label="Algorithm" /></template>
-      <template #family-header="{ column }"><RosterSort :column="column" label="Family" /></template>
+      <template #category-header="{ column }"><RosterSort :column="column" label="Category" /></template>
       <template #bits-header="{ column }"><RosterSort :column="column" label="Digest" /></template>
       <template #hmac-header="{ column }"><RosterSort :column="column" label="HMAC" /></template>
       <template #label-cell="{ row }">
@@ -136,8 +136,8 @@ const order = computed(() => {
           <span :class="[ROSTER_CLASS.id, 'flex-none']">{{ row.original.slug }}</span>
         </NuxtLink>
       </template>
-      <template #family-cell="{ row }">
-        <span class="whitespace-nowrap text-muted">{{ row.original.family }}</span>
+      <template #category-cell="{ row }">
+        <span class="whitespace-nowrap text-muted">{{ row.original.category }}</span>
       </template>
       <template #bits-cell="{ row }">
         <span class="whitespace-nowrap text-highlighted">{{ digestBits(row.original.entry.info) }}</span>

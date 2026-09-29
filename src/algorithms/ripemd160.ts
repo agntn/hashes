@@ -8,7 +8,8 @@ export class Ripemd160 extends BlockHash {
     label: "RIPEMD-160",
     description:
       "RIPEMD-160 160-bit hash, used in Bitcoin address derivation (Hash160 = RIPEMD160(SHA256(x)))",
-    family: "cryptographic",
+    family: "RIPEMD",
+    category: "cryptographic",
     digestLength: 20,
     securityNote: "80-bit collision resistance, 160-bit preimage resistance",
   } as const;

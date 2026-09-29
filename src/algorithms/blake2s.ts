@@ -8,7 +8,8 @@ export class Blake2s extends BlockHash {
     label: "BLAKE2s",
     description:
       "BLAKE2s 256-bit hash, optimized for 32-bit platforms, smaller state than BLAKE2b, used by WireGuard",
-    family: "cryptographic",
+    family: "BLAKE",
+    category: "cryptographic",
     digestLength: 32,
     securityNote: "128-bit collision resistance, 256-bit preimage resistance",
   } as const;

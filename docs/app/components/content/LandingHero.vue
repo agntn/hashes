@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { hashFamilies } from "@agntn/hashes";
 import { version } from "../../../../package.json";
 import type { LandingSample } from "../../composables/useLandingHash";
-import { ALGORITHMS, HMAC_COUNT } from "../../utils/algorithms";
+import { ALGORITHMS, FAMILIES, HMAC_COUNT } from "../../utils/algorithms";
 import { TOOLS } from "../../utils/tools";
 
 defineProps<{ sample: LandingSample; samples: readonly LandingSample[] }>();
@@ -39,7 +38,7 @@ const { copied, copy } = useCopied();
         <div>
           <dt>Algorithms</dt>
           <dd>{{ ALGORITHMS.length }}</dd>
-          <dd class="hero-metric-sub">in {{ hashFamilies.length }} families</dd>
+          <dd class="hero-metric-sub">in {{ FAMILIES.length }} families</dd>
         </div>
         <div>
           <dt>With HMAC</dt>

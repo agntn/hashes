@@ -12,7 +12,8 @@ const FILE = [
   "  protected readonly about = {",
   '    label: "FNV-1a (32-bit)",',
   '    description: "FNV-1a 32-bit, for hash tables",',
-  '    family: "non-cryptographic",',
+  '    family: "FNV",',
+  '    category: "non-cryptographic",',
   "    digestLength: 4,",
   "  } as const;",
   "",
@@ -35,8 +36,8 @@ const FILE = [
  */
 const LINES = [
   ...FILE.slice(0, 4),
-  "  protected readonly about = { /* label, family, digestLength */ };",
-  ...FILE.slice(10),
+  "  protected readonly about = { /* label, family, category, digestLength */ };",
+  ...FILE.slice(11),
 ] as const;
 </script>
 

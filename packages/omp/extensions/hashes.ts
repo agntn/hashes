@@ -7,9 +7,10 @@ import { Text } from "@oh-my-pi/pi-coding-agent";
 
 import type * as HashTools from "../../../dist/tool-operations.d.mts";
 import {
-  HASH_FAMILIES,
+  HASH_CATEGORIES,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
+  MAX_FAMILY_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
   MAX_PARAMETER_LENGTH,
@@ -278,7 +279,10 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     description: TOOL_DESCRIPTIONS.hash_algorithms,
     parameters: Type.Object(
       {
-        family: Type.Optional(Type.Enum(HASH_FAMILIES, { description: d.family })),
+        category: Type.Optional(Type.Enum(HASH_CATEGORIES, { description: d.category })),
+        family: Type.Optional(
+          Type.String({ minLength: 1, maxLength: MAX_FAMILY_LENGTH, description: d.family }),
+        ),
         algorithm: Type.Optional(
           Type.String({
             minLength: 1,
@@ -296,7 +300,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     renderCall: (args, options, theme) =>
       callLine(
         TOOL_TITLES.hash_algorithms,
-        sanitizeTerminalText(args.algorithm ?? args.family ?? ""),
+        sanitizeTerminalText(args.algorithm ?? args.family ?? args.category ?? ""),
         options,
         theme,
       ),

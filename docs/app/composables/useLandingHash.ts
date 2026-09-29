@@ -37,7 +37,7 @@ const ORDER: readonly AlgorithmEntry["slug"][] = [
  */
 const WALK: readonly AlgorithmEntry[] = [
   ...ORDER.map((slug) => ALGORITHMS.find((row) => row.slug === slug)!),
-  ...ALGORITHMS.filter((row) => !ORDER.includes(row.slug) && row.info.family !== "password"),
+  ...ALGORITHMS.filter((row) => !ORDER.includes(row.slug) && row.info.category !== "password"),
 ];
 
 export interface LandingSample {

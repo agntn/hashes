@@ -19,7 +19,7 @@ const lines = computed(() => {
   return [
     'import { create, digestMatches } from "@agntn/hashes";',
     "",
-    `// ${entry.info.label}, ${entry.info.family}, ${digestBits(entry.info)}`,
+    `// ${entry.info.label}, ${entry.info.category}, ${digestBits(entry.info)}`,
     `const hash = create("${entry.slug}");`,
     "",
     `const result = hash.hash("${SAMPLE_INPUT}");`,
@@ -56,7 +56,7 @@ const lines = computed(() => {
           ></Transition
         ></span
       >
-      <span class="console-meta">{{ sample.entry.info.family }} · computed here</span>
+      <span class="console-meta">{{ sample.entry.info.category }} · computed here</span>
       <span class="console-mark" aria-hidden="true" />
     </header>
     <div class="console-ruler" aria-hidden="true">

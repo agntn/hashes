@@ -7,7 +7,8 @@ export class Hash256 extends FixedHash {
     label: "HASH256 (double SHA-256)",
     description:
       "SHA-256 of SHA-256, Bitcoin's transaction and block hash and the Base58Check checksum (its first 4 bytes)",
-    family: "cryptographic",
+    family: "SHA",
+    category: "cryptographic",
     digestLength: 32,
     securityNote:
       "128-bit collision resistance, 256-bit preimage resistance. Printed in hash order; block explorers show txids and block hashes byte-reversed",

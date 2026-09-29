@@ -7,7 +7,8 @@ export class Blake2b extends BlockHash {
   protected readonly about = {
     label: "BLAKE2b",
     description: "BLAKE2b 512-bit hash, fast and secure, the hash inside Argon2",
-    family: "cryptographic",
+    family: "BLAKE",
+    category: "cryptographic",
     digestLength: 64,
     securityNote: "256-bit collision resistance, 512-bit preimage resistance",
   } as const;

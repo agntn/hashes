@@ -77,14 +77,14 @@ Same letters, other bytes. The second one exits with 1.
 
 ### Commands
 
-| Command      | What it does                                   | Example                                                    |
-| ------------ | ---------------------------------------------- | ---------------------------------------------------------- |
-| `hash`       | Digest of text, or of stdin with `-`           | `hashes hash blake3 - < file.bin`                          |
-| `hmac`       | Keyed digest                                   | `hashes hmac sha256 "message" "secret"`                    |
-| `verify`     | Compare with an expected digest, exit 1 if not | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592` |
-| `algorithms` | The list, `-f` keeps one family                | `hashes algorithms -f password`                            |
-| `info`       | One algorithm with its options                 | `hashes info pbkdf2`                                       |
-| `mcp`        | The MCP server on stdio                        | `hashes mcp`                                               |
+| Command      | What it does                                       | Example                                                    |
+| ------------ | -------------------------------------------------- | ---------------------------------------------------------- |
+| `hash`       | Digest of text, or of stdin with `-`               | `hashes hash blake3 - < file.bin`                          |
+| `hmac`       | Keyed digest                                       | `hashes hmac sha256 "message" "secret"`                    |
+| `verify`     | Compare with an expected digest, exit 1 if not     | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592` |
+| `algorithms` | The list, `-f` keeps one family, `-c` one category | `hashes algorithms -f sha`                                 |
+| `info`       | One algorithm with its options                     | `hashes info pbkdf2`                                       |
+| `mcp`        | The MCP server on stdio                            | `hashes mcp`                                               |
 
 `hash` is the default, so `hashes md5 hello` works. Flags per command: `hashes <command> --help`.
 
@@ -107,12 +107,14 @@ That's most of it. `create()` wants the exact name. `resolveAlgorithm()` forgive
 
 ## 🗂️ Algorithms
 
-| Family            | Algorithms                                                                                                                                                    | HMAC                                               |
+| Category          | Algorithms                                                                                                                                                    | HMAC                                               |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | cryptographic     | sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256 | sha2, sha3, keccak256, blake2b, blake2s, ripemd160 |
 | legacy            | md5, sha1, sha0                                                                                                                                               | yes                                                |
 | non-cryptographic | crc32, crc16-xmodem, xxhash, fnv1a                                                                                                                            | no                                                 |
 | password          | scrypt, pbkdf2                                                                                                                                                | no, they take a salt                               |
+
+That's the category, what an algorithm is fit for. Each one also has a family, where it comes from: SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF. So SHA-0 and SHA3-256 share a family and nothing else, and `hashes algorithms -f sha` shows both.
 
 MD5, SHA-1 and SHA-0 are broken for security. They're here for checksums, old systems and old papers. `hashes info <name>` has the security note for each.
 
@@ -150,7 +152,8 @@ class Sha224 extends FixedHash {
   protected readonly about = {
     label: "SHA-224",
     description: "SHA-2 family 224-bit hash",
-    family: "cryptographic",
+    family: "SHA",
+    category: "cryptographic",
     digestLength: 28,
   } as const;
 

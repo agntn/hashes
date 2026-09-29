@@ -6,10 +6,11 @@
 
 import { Type, type TObject, type TProperties } from "typebox";
 import {
-  HASH_FAMILIES,
+  HASH_CATEGORIES,
   INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
+  MAX_FAMILY_LENGTH,
   MAX_INPUT_LENGTH,
   MAX_KEY_LENGTH,
   MAX_PARAMETER_LENGTH,
@@ -86,7 +87,10 @@ export const hashVerifySchema = closed({
 });
 
 export const hashAlgorithmsSchema = closed({
-  family: Type.Optional(Type.Enum(HASH_FAMILIES, { description: d.family })),
+  category: Type.Optional(Type.Enum(HASH_CATEGORIES, { description: d.category })),
+  family: Type.Optional(
+    Type.String({ minLength: 1, maxLength: MAX_FAMILY_LENGTH, description: d.family }),
+  ),
   algorithm: Type.Optional(
     Type.String({ minLength: 1, maxLength: MAX_ALGORITHM_LENGTH, description: d.describe }),
   ),

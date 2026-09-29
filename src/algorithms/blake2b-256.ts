@@ -7,7 +7,8 @@ export class Blake2b256 extends FixedHash {
     label: "BLAKE2b-256",
     description:
       "BLAKE2b with a 32-byte output, the address hash of Sui and the transaction id of Cardano",
-    family: "cryptographic",
+    family: "BLAKE",
+    category: "cryptographic",
     digestLength: 32,
     securityNote:
       "128-bit collision resistance, 256-bit preimage resistance. Not the first half of the 64-byte blake2b, the length is hashed in",

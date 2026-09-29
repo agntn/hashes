@@ -13,6 +13,7 @@ export default defineCommand({
       info.description,
       "",
       `Family:    ${info.family}`,
+      `Category:  ${info.category}`,
     ];
     if (info.digestLength !== undefined) {
       lines.push(`Digest:    ${info.digestLength * 8}-bit (${info.digestLength} bytes)`);

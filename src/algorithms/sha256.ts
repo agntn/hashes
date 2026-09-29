@@ -8,7 +8,8 @@ export class Sha256 extends BlockHash {
     label: "SHA-256",
     description:
       "SHA-2 family 256-bit hash, widely used for digital signatures, certificates, and integrity checks",
-    family: "cryptographic",
+    family: "SHA",
+    category: "cryptographic",
     digestLength: 32,
     securityNote: "128-bit collision resistance, 256-bit preimage resistance",
   } as const;

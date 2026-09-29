@@ -5,8 +5,8 @@ import {
   ALGORITHMS,
   SAMPLE_OPTIONS,
   algorithmEntry,
+  categoryLabel,
   digestBits,
-  familyLabel,
   registryPosition,
   securityParts,
 } from "../../utils/algorithms";
@@ -93,7 +93,7 @@ const title = computed(() => `hash_algorithms("${props.name}")`);
       <div class="console-identity-block">
         <ConsoleReticle :key="entry.slug" :icon="entry.icon" />
         <div class="console-name">
-          <span class="console-label">Hash / {{ familyLabel(entry.info.family) }}</span>
+          <span class="console-label">Hash / {{ categoryLabel(entry.info.category) }}</span>
           <h3>{{ entry.info.label }}</h3>
           <p class="console-about">{{ entry.blurb }}.</p>
         </div>
@@ -139,7 +139,7 @@ const title = computed(() => `hash_algorithms("${props.name}")`);
                 <span class="alg-line" tabindex="0">{{ entry.usedBy }}</span>
               </UTooltip>
               <span v-else class="alg-line"
-                >{{ kin.length + 1 }} in {{ familyLabel(entry.info.family).toLowerCase() }}</span
+                >{{ kin.length + 1 }} in {{ entry.info.family }}</span
               >
             </dd>
           </div>

@@ -7,7 +7,8 @@ export class Blake2b224 extends FixedHash {
     label: "BLAKE2b-224",
     description:
       "BLAKE2b with a 28-byte output, Cardano's hash of payment and stake keys and scripts in its addresses",
-    family: "cryptographic",
+    family: "BLAKE",
+    category: "cryptographic",
     digestLength: 28,
     securityNote:
       "112-bit collision resistance, 224-bit preimage resistance. Not a truncation of the longer blake2b forms",
