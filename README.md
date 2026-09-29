@@ -10,7 +10,7 @@
 Docs, and a playground where the library runs in your browser: [hashes.agntn.dev](https://hashes.agntn.dev).
 
 > [!CAUTION]
-> **Not audited.** No security audit has touched this code, so I don't recommend it for production, real funds or sensitive data. It's made for agents, puzzles and local experiments, and that's where it should stay. Anything that matters wants an audited library, like [@noble/hashes](https://github.com/paulmillr/noble-hashes).
+> **Not audited.** This code has never had a security audit. Do not use it in production, with real funds or with sensitive data. It is meant for agents, puzzles and local experiments only. It comes as is, without warranty of any kind, and the authors are not liable for any loss, as the MIT license states. Anything that matters wants an audited library, like [@noble/hashes](https://github.com/paulmillr/noble-hashes).
 
 ## Why?
 
