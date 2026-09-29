@@ -1,8 +1,9 @@
-import { NodeHash } from "../core/node-hash.ts";
+import { BlockHash } from "../core/block-hash.ts";
+import type { Hasher } from "../core/hasher.ts";
+import { KECCAK_PADDING, KeccakHasher } from "../core/keccak.ts";
 
-export class Keccak256 extends NodeHash {
+export class Keccak256 extends BlockHash {
   static readonly key = "keccak256";
-  protected readonly algorithm = "keccak-256";
   protected readonly about = {
     label: "Keccak-256",
     description:
@@ -12,4 +13,13 @@ export class Keccak256 extends NodeHash {
     securityNote:
       "128-bit collision resistance, 256-bit preimage resistance. Differs from sha3-256 only in the padding byte, so the digests differ",
   } as const;
+
+  /**
+   * Creates the hasher.
+   *
+   * @returns {Hasher} A fresh one.
+   */
+  hasher(): Hasher {
+    return new KeccakHasher(32, KECCAK_PADDING);
+  }
 }

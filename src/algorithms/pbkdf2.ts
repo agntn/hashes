@@ -1,4 +1,3 @@
-import { pbkdf2Sync } from "node:crypto";
 import {
   ENCODING_OPTION,
   assertPositiveIntegers,
@@ -11,10 +10,25 @@ import {
 } from "../core/digest.ts";
 import { InvalidOptionError } from "../core/errors.ts";
 import { Hash } from "../core/hash.ts";
+import type { BlockHash } from "../core/block-hash.ts";
+import { pbkdf2 } from "../core/hmac.ts";
 import type { AlgorithmInfo, HashInput, HashOptions, HashResult } from "../core/types.ts";
+import { Sha256 } from "./sha256.ts";
+import { Sha3_256 } from "./sha3-256.ts";
+import { Sha3_512 } from "./sha3-512.ts";
+import { Sha384 } from "./sha384.ts";
+import { Sha512 } from "./sha512.ts";
 
-/** Hashes PBKDF2 runs HMAC over, by their OpenSSL names. */
-const DIGESTS: readonly string[] = ["sha256", "sha384", "sha512", "sha3-256", "sha3-512"];
+/** Hashes PBKDF2 runs HMAC over, by their registry names. */
+const HASHES: Readonly<Record<string, new () => BlockHash>> = {
+  sha256: Sha256,
+  sha384: Sha384,
+  sha512: Sha512,
+  "sha3-256": Sha3_256,
+  "sha3-512": Sha3_512,
+};
+
+const DIGESTS = Object.keys(HASHES);
 
 /** Options PBKDF2 takes besides the encoding. */
 export interface Pbkdf2Options extends HashOptions, SaltOptions {
@@ -27,8 +41,8 @@ export interface Pbkdf2Options extends HashOptions, SaltOptions {
 }
 
 /**
- * Reads the PBKDF2 options with their defaults. Only the listed digests reach OpenSSL, which
- * would take weaker ones such as `md5` too.
+ * Reads the PBKDF2 options with their defaults. Only the listed digests are taken, not weaker
+ * ones such as `md5`.
  *
  * @param options - The PBKDF2 options.
  * @returns {{ iterations: number, digest: string, keyLength: number }} The parameters.
@@ -36,7 +50,7 @@ export interface Pbkdf2Options extends HashOptions, SaltOptions {
 function parameters(options?: Readonly<Pbkdf2Options>) {
   const { iterations = 600_000, digest = "sha512", keyLength = 64 } = options ?? {};
   assertPositiveIntegers({ iterations, keyLength });
-  if (!DIGESTS.includes(digest)) {
+  if (!Object.hasOwn(HASHES, digest)) {
     throw new InvalidOptionError("digest", digest, `use one of ${DIGESTS.join(", ")}`);
   }
   return { iterations, digest, keyLength };
@@ -99,7 +113,8 @@ export class Pbkdf2 extends Hash {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
       const { iterations, digest, keyLength } = parameters(options);
       const salt = resolveSalt(options);
-      const raw = pbkdf2Sync(toBytes(input), salt, iterations, keyLength, digest);
+      const hash = new HASHES[digest]!();
+      const raw = pbkdf2(() => hash.hasher(), toBytes(input), salt, iterations, keyLength);
       return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
         iterations,
         digest,

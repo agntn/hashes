@@ -1,9 +1,9 @@
 /**
- * BLAKE2b (RFC 7693) with any output length from 1 to 64 bytes, in plain TypeScript. OpenSSL in
- * Node computes only the 64-byte form, while chains take shorter ones: 32 bytes on Sui, 28 for
- * Cardano key hashes. No key, salt or personalization. Words are 64-bit, held as low and high
- * 32-bit halves.
+ * BLAKE2b (RFC 7693) with any output length from 1 to 64 bytes: 64 for plain `blake2b`, 32 on
+ * Sui, 28 for Cardano key hashes. No key, salt or personalization. Words are 64-bit, held as low
+ * and high 32-bit halves.
  */
+import { Blake2 } from "./hasher.ts";
 
 /** SHA-512's initial values, which BLAKE2b shares, as low and high halves. */
 const IV = new Uint32Array([
@@ -36,7 +36,7 @@ const SCHEDULE = new Uint8Array([
  * @param counter - Bytes hashed through this block.
  * @param last - Whether this is the final block.
  */
-function compress(h: Uint32Array, m: Int32Array, counter: number, last: boolean): void {
+function compress(h: Int32Array, m: Int32Array, counter: number, last: boolean): void {
   let l0 = h[0]! | 0;
   let h0 = h[1]! | 0;
   let l1 = h[2]! | 0;
@@ -394,6 +394,27 @@ if (new Uint8Array(new Uint32Array([1]).buffer)[0] !== 1) {
   throw new Error("BLAKE2b here reads blocks and the state as little-endian bytes");
 }
 
+/** BLAKE2b with an output of 1 to 64 bytes and no key, salt or personalization. */
+export class Blake2bHasher extends Blake2 {
+  protected readonly state = new Int32Array(16);
+  /** The block buffer as thirty-two little-endian halves. */
+  private readonly words = new Int32Array(this.block.buffer);
+
+  /**
+   * @param outputLength - Digest bytes, 1 to 64.
+   */
+  constructor(outputLength: number) {
+    super(128, outputLength);
+    this.state.set(IV);
+    // Parameter block: digest length, no key, fanout 1, depth 1.
+    this.state[0] = this.state[0]! ^ (0x01010000 | outputLength);
+  }
+
+  protected compress(counter: number, last: boolean): void {
+    compress(this.state, this.words, counter, last);
+  }
+}
+
 /**
  * Computes BLAKE2b with the given output length.
  *
@@ -402,19 +423,5 @@ if (new Uint8Array(new Uint32Array([1]).buffer)[0] !== 1) {
  * @returns {Uint8Array} The digest.
  */
 export function blake2b(data: Uint8Array, length: number): Uint8Array {
-  const h = IV.slice(0, 16);
-  // Parameter block: digest length, no key, fanout 1, depth 1.
-  h[0] = h[0]! ^ (0x01010000 | length);
-  const block = new Uint8Array(128);
-  const words = new Int32Array(block.buffer);
-  let offset = 0;
-  while (data.length - offset > 128) {
-    block.set(data.subarray(offset, offset + 128));
-    offset += 128;
-    compress(h, words, offset, false);
-  }
-  block.fill(0);
-  block.set(data.subarray(offset));
-  compress(h, words, data.length, true);
-  return new Uint8Array(h.buffer).slice(0, length);
+  return new Blake2bHasher(length).update(data).digest();
 }

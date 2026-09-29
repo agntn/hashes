@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import { InvalidOptionError } from "./errors.ts";
 import type { HashResult } from "./types.ts";
 
@@ -46,10 +45,9 @@ export function digestMatches(result: HashResult, expected: string): boolean {
   }
   const want = decodeExpected(expected, result.encoding);
   const have = decodeExpected(result.digest, result.encoding);
-  return (
-    want !== undefined &&
-    have !== undefined &&
-    want.length === have.length &&
-    timingSafeEqual(want, have)
-  );
+  if (want === undefined || have === undefined || want.length !== have.length) return false;
+  // Or every byte's difference together, so the time does not tell where the first one is.
+  let difference = 0;
+  for (let i = 0; i < want.length; i++) difference |= want[i]! ^ have[i]!;
+  return difference === 0;
 }

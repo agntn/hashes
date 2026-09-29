@@ -1,4 +1,3 @@
-import { scryptSync } from "node:crypto";
 import {
   ENCODING_OPTION,
   assertPositiveIntegers,
@@ -11,6 +10,7 @@ import {
 } from "../core/digest.ts";
 import { InvalidOptionError } from "../core/errors.ts";
 import { Hash } from "../core/hash.ts";
+import { scrypt } from "../core/scrypt.ts";
 import type { AlgorithmInfo, HashInput, HashOptions, HashResult } from "../core/types.ts";
 
 /** Options scrypt takes besides the encoding. */
@@ -36,9 +36,26 @@ function costParameters(options?: Readonly<ScryptOptions>) {
   if (!Number.isInteger(N) || N < 2 || (N & (N - 1)) !== 0) {
     throw new InvalidOptionError("N", N, "must be a power of 2 and >= 2");
   }
-  // Node reads 0 as "the default" for r and p, so a zero would derive with 8 or 1 and report 0.
   assertPositiveIntegers({ r, p, keyLength });
+  assertWithinRfc(N, r, p);
   return { N, r, p, keyLength };
+}
+
+/**
+ * Checks the bounds of RFC 7914 as OpenSSL enforces them: N below 2^(16 r), and p * 128 * r
+ * bytes of blocks that fit in an int.
+ *
+ * @param N - CPU and memory cost.
+ * @param r - Block size.
+ * @param p - Parallelization.
+ */
+function assertWithinRfc(N: number, r: number, p: number): void {
+  if (r < 4 && N >= 2 ** (16 * r)) {
+    throw new InvalidOptionError("N", N, `must be below 2^${16 * r} with r ${r}`);
+  }
+  if (p * 128 * r > 0x7fff_ffff) {
+    throw new InvalidOptionError("p", p, "p * r * 128 must stay below 2^31");
+  }
 }
 
 export class Scrypt extends Hash {
@@ -93,10 +110,7 @@ export class Scrypt extends Hash {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
       const { N, r, p, keyLength } = costParameters(options);
       const salt = resolveSalt(options);
-      // Node refuses above 32 MiB by default. The cost the caller chose is the limit that counts,
-      // so the ceiling is exactly what OpenSSL allocates: 128 * r * (N + p + 2) bytes.
-      const maxmem = 128 * r * (N + p + 2);
-      const raw = scryptSync(toBytes(input), salt, keyLength, { N, r, p, maxmem });
+      const raw = scrypt(toBytes(input), salt, N, r, p, keyLength);
       return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
         N,
         r,

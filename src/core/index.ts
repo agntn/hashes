@@ -19,8 +19,9 @@ export {
   normalizeError,
 } from "./errors.ts";
 export { Hash, type HashAbout, type HashConstructor } from "./hash.ts";
-export { NodeHash } from "./node-hash.ts";
 export { FixedHash } from "./fixed-hash.ts";
+export { BlockHash } from "./block-hash.ts";
+export { Hasher } from "./hasher.ts";
 export { algorithms, create, has, register } from "./registry.ts";
 export { normalizeAlgorithmName, resolveAlgorithm } from "./resolve.ts";
 export { builtinAlgorithms, hashFamilies, type BuiltinAlgorithm } from "./algorithms.ts";

@@ -1,8 +1,9 @@
-import { NodeHash } from "../core/node-hash.ts";
+import { BlockHash } from "../core/block-hash.ts";
+import type { Hasher } from "../core/hasher.ts";
+import { Blake2bHasher } from "../core/blake2b.ts";
 
-export class Blake2b extends NodeHash {
+export class Blake2b extends BlockHash {
   static readonly key = "blake2b";
-  protected readonly algorithm = "blake2b512";
   protected readonly about = {
     label: "BLAKE2b",
     description:
@@ -11,4 +12,13 @@ export class Blake2b extends NodeHash {
     digestLength: 64,
     securityNote: "256-bit collision resistance, 512-bit preimage resistance",
   } as const;
+
+  /**
+   * Creates the hasher.
+   *
+   * @returns {Hasher} A fresh one.
+   */
+  hasher(): Hasher {
+    return new Blake2bHasher(64);
+  }
 }
