@@ -1,6 +1,7 @@
 import { defineCommand } from "citty";
 import { shown } from "../core/errors.ts";
 import { takesSalt } from "../core/digest.ts";
+import { assertExpected } from "../core/verify.ts";
 import { MissingOptionError, digestMatches, resolveAlgorithm, type HashOptions } from "../index.ts";
 import {
   inputEncodingArg,
@@ -28,6 +29,7 @@ export default defineCommand({
   run({ args }) {
     const algorithm = resolveAlgorithm(args.algorithm);
     const encoding = parseEncoding(args.encoding);
+    assertExpected(args.expected, encoding);
     const parameters = readParameters(algorithm, args);
     if (parameters["salt"] === undefined && takesSalt(algorithm.info())) {
       throw new MissingOptionError("salt (the one the expected digest was made with)");

@@ -12,6 +12,7 @@ import { decodeInput, parameterText, takesSalt } from "./core/digest.ts";
 import { shown } from "./core/errors.ts";
 import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";
 import { algorithmInfos } from "./core/resolve.ts";
+import { assertExpected } from "./core/verify.ts";
 import {
   InvalidOptionError,
   MissingOptionError,
@@ -381,7 +382,8 @@ export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDet
 
 /**
  * Hashes the input and compares the digest with an expected one, in constant time. Hex ignores
- * case; base64 and base64url do not. A KDF needs the salt the expected digest was made with.
+ * case; base64 and base64url do not. An expected digest that is not valid in its encoding is an
+ * error, not a mismatch. A KDF needs the salt the expected digest was made with.
  *
  * @param params - Algorithm, input and its encoding, expected digest and its encoding and, for
  *   a KDF, the salt.
@@ -394,6 +396,7 @@ export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> 
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
   if (expected === "") throw new InvalidOptionError("expected", "", "must not be empty");
   const encoding = encodingArgument(params.encoding);
+  assertExpected(expected, encoding);
   const options = algorithmOptions(algorithm, params.salt, params.parameters);
   if (options["salt"] === undefined && takesSalt(algorithm.info())) {
     throw new MissingOptionError("salt (the one the expected digest was made with)");

@@ -84,7 +84,8 @@ function parameterDescriptions() {
       "How to read key (default utf8). hex and base64 give a binary key, such as a BIP32 chain code. hex takes no 0x prefix",
     encoding: "Digest encoding (default hex)",
     salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hash_verify needs it",
-    expected: "Expected digest. Hex ignores case, base64 and base64url do not",
+    expected:
+      "Expected digest. Hex ignores case and takes no 0x prefix, base64 and base64url keep case",
     expectedEncoding: "Encoding of the expected digest (default hex)",
     verifySalt:
       "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",

@@ -126,6 +126,18 @@ describe("hashes CLI", () => {
     expect(lowered.stdout).toMatch(/^MISMATCH/);
   });
 
+  it("refuses an expected digest that is not valid in its encoding instead of a mismatch", () => {
+    const prefixed = run(["verify", "sha256", "abc", `0x${sha256("abc")}`]);
+    expect(prefixed.code).toBe(1);
+    expect(prefixed.stdout).toBe("");
+    expect(prefixed.stderr).toContain(
+      "Invalid option expected=66 characters: must be hex digit pairs, without a 0x prefix",
+    );
+    const base64url = run(["verify", "sha256", "abc", "+/", "-e", "base64url"]);
+    expect(base64url.stdout).toBe("");
+    expect(base64url.stderr).toContain("Invalid option expected=2 characters: must be base64url");
+  });
+
   it("reports the library's errors in one line with exit code 1", () => {
     const unknown = run(["sha999", "x"]);
     expect(unknown).toMatchObject({ code: 1, stdout: "" });
