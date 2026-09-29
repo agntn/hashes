@@ -9,20 +9,21 @@ Keep AGENTS.md updated with project status.
 ## Status
 
 - Aligned with `_template` and moved to Vite+ in the shape of `@agntn/explorers` (#143): `vp pack` builds, `vp lint` and `vp fmt` run the shared `@agntn/ox` policy from `vite.config.ts`, `vp test` runs Vitest 5.
-- Algorithms are classes, like ciphers and chains: `Hash` is the base, `NodeHash` wraps a digest `node:crypto` computes through OpenSSL, `FixedHash` a digest computed here, and each class carries a static `key`. The registry is seeded from the class list in `src/algorithms/index.ts` on first use; importing the package mutates nothing, so `sideEffects` is `false`.
+- Algorithms are classes, like ciphers and chains: `Hash` is the base, `FixedHash` a fixed-length digest, `BlockHash` a `FixedHash` built on an incremental `Hasher` with HMAC over its blocks, and each class carries a static `key`. The registry is seeded from the class list in `src/algorithms/index.ts` on first use; importing the package mutates nothing, so `sideEffects` is `false`.
 - MCP, AI SDK, Pi and OMP share the executors in `src/tool-operations.ts`. MCP and Pi share the TypeBox schemas in `packages/shared/tool-schemas.ts`; OMP restates them with `pi.typebox`, and `test/omp-extension.test.ts` holds both to the same accept/reject answers.
 - A local MCP server runs `src/` from the built bin inside a checkout, like `_template`; `HASHES_DIST=1` keeps the bundle. `test/cli.test.ts` proves both modes and each guard.
+- No `node:*` import under the library entry (#36): every digest, HMAC, PBKDF2 and scrypt is TypeScript in `src/core/`, the KDF salt comes from `crypto.getRandomValues` and `verify` compares without `timingSafeEqual`. `NodeHash` is gone. A test in `test/index.test.ts` imports `src/index.ts` with `node:*` blocked and runs every algorithm. The CLI and the MCP server keep their Node imports.
 - Fixed during the refactor, each with a regression test: XXH64 used a wrong `PRIME64_2` and skipped `round()` in the merge and tail steps, so it never produced XXH64 (now identical to the reference `xxhash` on 603 inputs); BLAKE3 moved off `@noble/hashes` to its own implementation, identical to the reference `blake3` on 285 lengths up to 1 MiB; verify lowercased base64 before comparing; the tools drew a KDF salt and never returned it; pbkdf2 looked `digest` up through `Object.prototype`; a malformed hex salt shrank silently; `--version` hashed the flag; `-` for stdin was documented but not implemented.
 
 ## Stack
 
-- **Runtime**: Node.js 26 and newer only (`engines >=26`, CI on 26). OpenSSL 3.6 brings `keccak-256`, and `Uint8Array` has native hex and base64.
+- **Runtime**: Node.js 26 and newer only (`engines >=26`, CI on 26), where `Uint8Array` has native hex and base64. The library itself needs no Node API.
 - **Language**: TypeScript (strict), relative imports end in `.ts`
 - **Build**: `vp pack` (tsdown), chunks under `dist/_chunks/` with stable names
 - **Test**: `vp test` (Vitest 5 bundled with vite-plus 1.0.0), APIs from `vite-plus/test`
 - **Lint and format**: `vp lint` and `vp fmt` with `@agntn/ox`, type-aware through `oxlint-tsgolint`
 - **Typecheck**: `tsc` (TypeScript 7) for the library, then the extensions and the tests after a build
-- **Hashing**: `node:crypto` (OpenSSL) for SHA-2, SHA-3, BLAKE2, RIPEMD-160, MD5, SHA-1, HMAC, scrypt and PBKDF2, `node:zlib` for CRC-32. Keccak-256 comes from OpenSSL too. BLAKE2b with a short output (`src/core/blake2b.ts`), BLAKE-256, BLAKE3, XXH64, FNV-1a and CRC-16/XMODEM are plain TypeScript: OpenSSL computes BLAKE2b only at 64 bytes. Hot loops keep every value an int32 (local variables, `Int32Array` views, branchless carries); a double or a heap number in the loop cost BLAKE2b 2-4x. No hashing dependency.
+- **Hashing**: plain TypeScript for all of it. MD5, SHA-1, SHA-2 and RIPEMD-160 share the Merkle-Damgard buffering in `src/core/hasher.ts`, SHA-3 and Keccak-256 the sponge in `src/core/keccak.ts`; HMAC and PBKDF2 are in `src/core/hmac.ts`, scrypt in `src/core/scrypt.ts`. Hot loops keep values in locals and typed arrays; a heap number in the loop cost BLAKE2b 2-4x. BLAKE2b adds 64-bit halves with a branchless int32 carry, while SHA-512 sums five low halves as one double and was 40% faster that way. Measure before choosing. `node:crypto` and `node:zlib` stay in the tests as the outside reference. No hashing dependency.
 - **Release**: changelogen
 - **Package manager**: pnpm 11
 
@@ -39,7 +40,7 @@ Keep AGENTS.md updated with project status.
 ## Structure
 
 ```
-src/core/                - Hash, NodeHash, FixedHash, types, errors, registry, name resolution, digest helpers, verify
+src/core/                - Hash, FixedHash, BlockHash, the hashers, HMAC and the KDFs, types, errors, registry, name resolution, digest helpers, verify
 src/algorithms/          - one file per built-in algorithm, plus the builtins list in index.ts
 src/commands/            - citty subcommands
 src/tool-operations.ts   - executors shared by every agent surface
@@ -52,7 +53,7 @@ test/fixtures/           - typed Pi and OMP extension test hosts from _template
 
 ## Adding an algorithm
 
-1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `NodeHash` for a digest `getHashes()` lists on Node 26, `FixedHash` for a fixed-length digest computed here, `Hash` for anything else. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
+1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `BlockHash` for a digest with an HMAC mode (its `Hasher` goes in `src/core/`), `FixedHash` for a fixed-length digest without one, `Hash` for anything else. Nothing under the library entry imports `node:*`. A KDF declares `SALT_OPTION` in `info()`, which is what makes the tools take and require a salt.
 2. Add the class to `builtins` in `src/algorithms/index.ts` and its key to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
 3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC) in `packages/shared/tool-contract.ts`.
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.

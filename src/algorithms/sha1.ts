@@ -1,8 +1,9 @@
-import { NodeHash } from "../core/node-hash.ts";
+import { BlockHash } from "../core/block-hash.ts";
+import type { Hasher } from "../core/hasher.ts";
+import { Sha1Hasher } from "../core/sha1.ts";
 
-export class Sha1 extends NodeHash {
+export class Sha1 extends BlockHash {
   static readonly key = "sha1";
-  protected readonly algorithm = "sha1";
   protected readonly about = {
     label: "SHA-1",
     description:
@@ -12,4 +13,13 @@ export class Sha1 extends NodeHash {
     securityNote:
       "BROKEN: practical collision attack (SHAttered). Use only for legacy compatibility.",
   } as const;
+
+  /**
+   * Creates the hasher.
+   *
+   * @returns {Hasher} A fresh one.
+   */
+  protected hasher(): Hasher {
+    return new Sha1Hasher();
+  }
 }

@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
 import { FixedHash } from "../core/fixed-hash.ts";
+import { sha512 } from "../core/sha2.ts";
 
 export class Sha512Half extends FixedHash {
   static readonly key = "sha512-half";
@@ -20,6 +20,6 @@ export class Sha512Half extends FixedHash {
    * @returns {Uint8Array} The 32-byte hash.
    */
   protected digest(bytes: Uint8Array): Uint8Array {
-    return createHash("sha512").update(bytes).digest().subarray(0, 32);
+    return sha512(bytes).subarray(0, 32);
   }
 }

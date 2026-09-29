@@ -1,9 +1,9 @@
 /**
- * BLAKE2b (RFC 7693) with any output length from 1 to 64 bytes, in plain TypeScript. OpenSSL in
- * Node computes only the 64-byte form, while chains take shorter ones: 32 bytes on Sui, 28 for
- * Cardano key hashes. No key, salt or personalization. Words are 64-bit, held as low and high
- * 32-bit halves.
+ * BLAKE2b (RFC 7693) with any output length from 1 to 64 bytes: 64 for plain `blake2b`, 32 on
+ * Sui, 28 for Cardano key hashes. No key, salt or personalization. Words are 64-bit, held as low
+ * and high 32-bit halves.
  */
+import { Hasher } from "./hasher.ts";
 
 /** SHA-512's initial values, which BLAKE2b shares, as low and high halves. */
 const IV = new Uint32Array([
@@ -394,6 +394,63 @@ if (new Uint8Array(new Uint32Array([1]).buffer)[0] !== 1) {
   throw new Error("BLAKE2b here reads blocks and the state as little-endian bytes");
 }
 
+/** BLAKE2b with an output of 1 to 64 bytes and no key, salt or personalization. */
+export class Blake2bHasher extends Hasher {
+  readonly blockLength = 128;
+  readonly outputLength: number;
+  private readonly state = new Uint32Array(16);
+  private readonly block = new Uint8Array(128);
+  private readonly words = new Int32Array(this.block.buffer);
+  /** Bytes in the block buffer, which keeps the last block until the digest flags it. */
+  private position = 0;
+  /** Bytes compressed so far. */
+  private counter = 0;
+
+  /**
+   * @param outputLength - Digest bytes, 1 to 64.
+   */
+  constructor(outputLength: number) {
+    super();
+    this.outputLength = outputLength;
+    this.state.set(IV);
+    // Parameter block: digest length, no key, fanout 1, depth 1.
+    this.state[0] = this.state[0]! ^ (0x01010000 | outputLength);
+  }
+
+  fresh(): this {
+    return new Blake2bHasher(this.outputLength) as this;
+  }
+
+  update(data: Uint8Array): this {
+    for (let offset = 0; offset < data.length;) {
+      if (this.position === 128) {
+        this.counter += 128;
+        compress(this.state, this.words, this.counter, false);
+        this.position = 0;
+      }
+      const end = Math.min(data.length, offset + 128 - this.position);
+      this.block.set(data.subarray(offset, end), this.position);
+      this.position += end - offset;
+      offset = end;
+    }
+    return this;
+  }
+
+  digestInto(out: Uint8Array): void {
+    this.block.fill(0, this.position);
+    compress(this.state, this.words, this.counter + this.position, true);
+    out.set(new Uint8Array(this.state.buffer, 0, this.outputLength));
+  }
+
+  load(source: this): this {
+    this.state.set(source.state);
+    this.block.set(source.block);
+    this.position = source.position;
+    this.counter = source.counter;
+    return this;
+  }
+}
+
 /**
  * Computes BLAKE2b with the given output length.
  *
@@ -402,19 +459,5 @@ if (new Uint8Array(new Uint32Array([1]).buffer)[0] !== 1) {
  * @returns {Uint8Array} The digest.
  */
 export function blake2b(data: Uint8Array, length: number): Uint8Array {
-  const h = IV.slice(0, 16);
-  // Parameter block: digest length, no key, fanout 1, depth 1.
-  h[0] = h[0]! ^ (0x01010000 | length);
-  const block = new Uint8Array(128);
-  const words = new Int32Array(block.buffer);
-  let offset = 0;
-  while (data.length - offset > 128) {
-    block.set(data.subarray(offset, offset + 128));
-    offset += 128;
-    compress(h, words, offset, false);
-  }
-  block.fill(0);
-  block.set(data.subarray(offset));
-  compress(h, words, data.length, true);
-  return new Uint8Array(h.buffer).slice(0, length);
+  return new Blake2bHasher(length).update(data).digest();
 }

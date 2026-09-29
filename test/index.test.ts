@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
@@ -7,7 +8,7 @@ import {
   DependencyError,
   Hash,
   HashError,
-  NodeHash,
+  FixedHash,
   InvalidOptionError,
   MissingOptionError,
   UnknownAlgorithmError,
@@ -34,6 +35,7 @@ const OPENSSL_NAMES = {
   sha512: "sha512",
   "sha3-256": "sha3-256",
   "sha3-512": "sha3-512",
+  keccak256: "keccak-256",
   blake2b: "blake2b512",
   blake2s: "blake2s256",
   ripemd160: "ripemd160",
@@ -80,15 +82,18 @@ describe("registry", () => {
   });
 
   it("registers a class from outside the package", () => {
-    class Sha224 extends NodeHash {
+    class Sha224 extends FixedHash {
       static readonly key = "sha224";
-      protected readonly algorithm = "sha224";
       protected readonly about = {
         label: "SHA-224",
         description: "SHA-2 family 224-bit hash",
         family: "cryptographic",
         digestLength: 28,
       } as const;
+
+      protected digest(bytes: Uint8Array): Uint8Array {
+        return createHash("sha224").update(bytes).digest();
+      }
     }
     register(Sha224);
 
@@ -97,7 +102,7 @@ describe("registry", () => {
     const sha224 = resolveAlgorithm("SHA224");
     expect(sha224).toBeInstanceOf(Sha224);
     expect(sha224.name()).toBe("sha224");
-    expect(sha224.info()).toMatchObject({ name: "sha224", hmac: true, digestLength: 28 });
+    expect(sha224.info()).toMatchObject({ name: "sha224", hmac: false, digestLength: 28 });
     // FIPS 180-4, the "abc" example.
     expect(sha224.hash("abc").digest).toBe(
       "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7",
@@ -146,6 +151,25 @@ describe("digests", () => {
       const result = create(name).hash("message", { key: "secret" });
       expect(result.digest).toBe(createHmac(openssl, "secret").update("message").digest("hex"));
       expect(result.operation).toBe("hmac");
+    },
+  );
+
+  it.each(Object.entries(OPENSSL_NAMES))(
+    "%s matches OpenSSL on every length through three blocks, whole and as HMAC",
+    (name, openssl) => {
+      const hash = create(name);
+      for (let length = 0; length <= 3 * 136 + 1; length++) {
+        const input = new Uint8Array(length).map((_, index) => (index * 7 + length) & 0xff);
+        expect(hash.hash(input).digest).toBe(createHash(openssl).update(input).digest("hex"));
+      }
+      const message = new Uint8Array(200).map((_, index) => index);
+      // Keys around each block size: 64, 72 (sha3-512), 128 and 136 (sha3-256, keccak256).
+      for (const length of [0, 1, 63, 64, 65, 71, 72, 73, 127, 128, 129, 135, 136, 137, 300]) {
+        const key = new Uint8Array(length).map((_, index) => index * 13);
+        expect(hash.hash(message, { key }).digest).toBe(
+          createHmac(openssl, key).update(message).digest("hex"),
+        );
+      }
     },
   );
 
@@ -225,10 +249,16 @@ describe("digests", () => {
     expect(create("crc32").hash("").digest).toBe("00000000");
   });
 
-  it("matches zlib for CRC-32", () => {
+  it("matches zlib for CRC-32, eight bytes at a time and the tail", () => {
     for (const sample of SAMPLES) {
       expect(create("crc32").hash(sample).digest).toBe(
         zlibCrc32(sample).toString(16).padStart(8, "0"),
+      );
+    }
+    for (let length = 0; length <= 40; length++) {
+      const input = new Uint8Array(length).map((_, index) => (index * 37 + length) & 0xff);
+      expect(create("crc32").hash(input).digest).toBe(
+        zlibCrc32(input).toString(16).padStart(8, "0"),
       );
     }
   });
@@ -357,20 +387,26 @@ describe("key derivation", () => {
   });
 
   it("matches Node's PBKDF2 for every digest it offers", () => {
-    for (const [digest, openssl] of [
-      ["sha256", "sha256"],
-      ["sha512", "sha512"],
-      ["sha3-256", "sha3-256"],
-    ] as const) {
+    for (const digest of ["sha256", "sha384", "sha512", "sha3-256", "sha3-512"]) {
       const result = create("pbkdf2").hash("password", {
         salt,
         iterations: 1000,
         digest,
       } as Pbkdf2Options);
       expect(result.digest).toBe(
-        pbkdf2Sync("password", Buffer.from(salt, "hex"), 1000, 64, openssl).toString("hex"),
+        pbkdf2Sync("password", Buffer.from(salt, "hex"), 1000, 64, digest).toString("hex"),
       );
     }
+    // A key longer than one digest takes more than one block, and the last one is cut.
+    const long = create("pbkdf2").hash("password", {
+      salt,
+      iterations: 3,
+      digest: "sha256",
+      keyLength: 100,
+    } as Pbkdf2Options);
+    expect(long.digest).toBe(
+      pbkdf2Sync("password", Buffer.from(salt, "hex"), 3, 100, "sha256").toString("hex"),
+    );
   });
 
   it("draws a fresh 32-byte salt when none is given and names it", () => {
@@ -386,7 +422,7 @@ describe("key derivation", () => {
     ).toThrow(/Invalid option digest=constructor/);
   });
 
-  it("derives with a tiny N, sizing OpenSSL's memory limit from the costs", () => {
+  it("derives with a tiny N", () => {
     const result = create("scrypt").hash("pw", {
       salt,
       N: 2,
@@ -407,7 +443,34 @@ describe("key derivation", () => {
     }
   });
 
-  it("refuses zero r, p and keyLength, which Node would read as the defaults", () => {
+  it("matches the RFC 7914 vector with p above 1", () => {
+    const result = create("scrypt").hash("password", {
+      salt: "NaCl",
+      saltEncoding: "utf8",
+      N: 1024,
+      r: 8,
+      p: 16,
+    } as ScryptOptions);
+    expect(result.digest).toBe(
+      "fdbabe1c9d3472007856e7190d01e9fe7c6ad7cbc8237830e77376634b3731622eaf30d92e22a3886ff109279d9830dac727afb94a83ee6d8360cbdfa2cc0640",
+    );
+  });
+
+  it("refuses the costs RFC 7914 rules out, as OpenSSL did", () => {
+    expect(() => create("scrypt").hash("pw", { salt, N: 65536, r: 1 } as ScryptOptions)).toThrow(
+      /Invalid option N=65536/,
+    );
+    expect(
+      create("scrypt").hash("pw", { salt, N: 32768, r: 1, keyLength: 16 } as ScryptOptions).digest,
+    ).toBe(
+      scryptSync("pw", Buffer.from(salt, "hex"), 16, { N: 32768, r: 1, p: 1 }).toString("hex"),
+    );
+    expect(() =>
+      create("scrypt").hash("pw", { salt, N: 2, r: 1, p: 2 ** 24 } as ScryptOptions),
+    ).toThrow(/Invalid option p=16777216/);
+  });
+
+  it("refuses zero r, p and keyLength", () => {
     for (const cost of [{ r: 0 }, { p: 0 }, { keyLength: 0 }]) {
       expect(() =>
         create("scrypt").hash("pw", { salt, N: 1024, ...cost } as ScryptOptions),
@@ -495,5 +558,40 @@ describe("errors", () => {
     expect(normalizeError(new Error("disk full")).message).toBe("disk full");
     expect(normalizeError("oops")).toBeInstanceOf(HashError);
     expect(normalizeError(new Error("bad input"), "fnv1a").message).toBe("[fnv1a] bad input");
+  });
+});
+
+describe("runtime", () => {
+  it("imports the library and runs every algorithm with node:* blocked", () => {
+    const entry = new URL("../src/index.ts", import.meta.url).href;
+    const script = `
+      import { builtinModules, registerHooks } from "node:module";
+      const builtin = new Set(builtinModules);
+      registerHooks({
+        resolve(specifier, context, next) {
+          if (specifier.startsWith("node:") || builtin.has(specifier)) {
+            throw new Error("blocked " + specifier + " from " + context.parentURL);
+          }
+          return next(specifier, context);
+        },
+      });
+      await import("node:fs").then(
+        () => { throw new Error("the hook let node:fs through"); },
+        () => {},
+      );
+      const { algorithms, create, digestMatches } = await import(${JSON.stringify(entry)});
+      const costs = { scrypt: { N: 16 }, pbkdf2: { iterations: 1 } };
+      for (const name of algorithms()) {
+        const hash = create(name);
+        const result = hash.hash("abc", costs[name]);
+        if (!digestMatches(result, result.digest)) throw new Error(name + " does not match itself");
+        if (hash.info().hmac) hash.hash("abc", { key: "key" });
+      }
+      console.log(algorithms().join(","));
+    `;
+    const output = execFileSync(process.execPath, ["--input-type=module", "-e", script], {
+      encoding: "utf8",
+    });
+    expect(output.trim()).toBe(builtinAlgorithms.join(","));
   });
 });

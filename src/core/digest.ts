@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { InvalidOptionError, normalizeError } from "./errors.ts";
 import type { AlgorithmInfo, HashInput, HashOption, HashResult, OutputEncoding } from "./types.ts";
 
@@ -9,6 +8,14 @@ export const ENCODING_OPTION: HashOption = {
   required: false,
   default: "hex",
   description: "Output encoding: hex, base64, base64url, binary",
+};
+
+/** The `key` option of an algorithm with an HMAC mode. */
+export const KEY_OPTION: HashOption = {
+  name: "key",
+  type: "string",
+  required: false,
+  description: "HMAC key; enables HMAC mode",
 };
 
 /** The `salt` option of the key derivation functions. */
@@ -70,7 +77,7 @@ export function encodeDigest(
   encoding: OutputEncoding,
   extraOptions?: Readonly<Record<string, unknown>>,
 ): HashResult {
-  // A plain Uint8Array over the same bytes: node:crypto hands out Buffers, the contract says bytes.
+  // A plain Uint8Array over the same bytes, since a subclass may return a Buffer.
   const digest =
     encoding === "binary"
       ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength)
@@ -121,7 +128,7 @@ export interface SaltOptions {
  */
 export function resolveSalt(options?: Readonly<SaltOptions>): Uint8Array {
   const salt = options?.salt;
-  if (salt === undefined) return randomBytes(32);
+  if (salt === undefined) return crypto.getRandomValues(new Uint8Array(32));
   const encoding = options?.saltEncoding ?? "hex";
   // Empty bytes are refused like an empty string: the reported salt "" could not be passed back.
   const bytes = typeof salt === "string" ? decodeSalt(salt, encoding) : salt;

@@ -18,11 +18,11 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - 🔑 **HMAC where it exists.** Eleven of them take a key. The rest say no instead of pretending.
 - 🧂 **KDFs that tell you the salt.** No salt given, a random one is drawn and printed next to the digest. Without it that digest is useless.
 - ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
-- ⚡ **Native where Node has it.** OpenSSL in `node:crypto` does the heavy lifting. Short BLAKE2b, BLAKE-256, BLAKE3 and the checksums are plain TypeScript. No hashing dependency at all.
+- ⚡ **Plain TypeScript.** Every algorithm is computed right here. The library imports nothing from `node:*`, and there's no hashing dependency at all.
 - 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too.
 - 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share four tools and the code behind them.
-- 🧩 **Bring your own.** Extend `NodeHash` with any digest Node knows and `register()` the class.
+- 🧩 **Bring your own.** Extend `FixedHash`, or `BlockHash` if you want HMAC too, and `register()` the class.
 
 ## 📦 Install
 
@@ -137,27 +137,31 @@ Password storage for your app. scrypt and PBKDF2 are here so you can reproduce a
 
 ## 🧩 Adding an algorithm
 
-Missing one? Anything Node's OpenSSL knows is one small class:
+Missing one? A fixed-length digest is one small class. On Node you can still borrow it from `node:crypto`:
 
 ```ts
-import { NodeHash, register, create } from "@agntn/hashes";
+import { createHash } from "node:crypto";
+import { FixedHash, register, create } from "@agntn/hashes";
 
-class Sha224 extends NodeHash {
+class Sha224 extends FixedHash {
   static readonly key = "sha224";
-  protected readonly algorithm = "sha224";
   protected readonly about = {
     label: "SHA-224",
     description: "SHA-2 family 224-bit hash",
     family: "cryptographic",
     digestLength: 28,
   } as const;
+
+  protected digest(bytes: Uint8Array): Uint8Array {
+    return createHash("sha224").update(bytes).digest();
+  }
 }
 
 register(Sha224);
 create("sha224").hash("abc").digest; // "23097d223405d8228642..."
 ```
 
-Something OpenSSL doesn't have? Extend `Hash` and write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL, a spec or a reference implementation, never from this package.
+Want HMAC as well? Extend `BlockHash` and hand it a `Hasher`. Anything else extends `Hash`, and you write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL, a spec or a reference implementation, never from this package.
 
 ## 🛠️ Development
 
