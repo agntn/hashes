@@ -81,6 +81,13 @@ describe("registry", () => {
     expect(has("toString")).toBe(false);
   });
 
+  it("credits WireGuard to BLAKE2s, the variant it hashes with", () => {
+    const credited = builtinAlgorithms.filter((name) =>
+      create(name).info().description.includes("WireGuard"),
+    );
+    expect(credited).toEqual(["blake2s"]);
+  });
+
   it("registers a class from outside the package", () => {
     class Sha224 extends FixedHash {
       static readonly key = "sha224";
