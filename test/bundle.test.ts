@@ -58,6 +58,8 @@ describe("one byte function bundled with esbuild", () => {
   // Every one of these came out near 20 kB with all 18 constant tables before the fix. The count
   // catches one table coming back, which is too small to show in the size.
   it.each([
+    ["md5", 3, 4_000],
+    ["sha1", 1, 3_000],
     ["sha256", 2, 4_000],
     ["keccak256", 1, 6_000],
     ["ripemd160", 5, 5_000],
