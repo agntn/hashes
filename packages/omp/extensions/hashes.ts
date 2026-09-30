@@ -178,9 +178,9 @@ export default function hashesExtension(pi: ExtensionAPI): void {
   pi.setLabel("Hashes");
 
   pi.registerTool({
-    name: "hash_compute",
-    label: TOOL_TITLES.hash_compute,
-    description: TOOL_DESCRIPTIONS.hash_compute,
+    name: "hashes_compute",
+    label: TOOL_TITLES.hashes_compute,
+    description: TOOL_DESCRIPTIONS.hashes_compute,
     parameters: Type.Object(
       { algorithm, input, inputEncoding, encoding, salt, parameters },
       closed,
@@ -191,19 +191,19 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     },
     renderCall: (args, options, theme) =>
       callLine(
-        TOOL_TITLES.hash_compute,
+        TOOL_TITLES.hashes_compute,
         `${sanitizeTerminalText(args.algorithm)} ${preview(args.input)}`,
         options,
         theme,
       ),
     renderResult: (result, _options, theme) =>
-      resultLine(TOOL_TITLES.hash_compute, result, digestSummary(result.details), theme),
+      resultLine(TOOL_TITLES.hashes_compute, result, digestSummary(result.details), theme),
   });
 
   pi.registerTool({
-    name: "hash_hmac",
-    label: TOOL_TITLES.hash_hmac,
-    description: TOOL_DESCRIPTIONS.hash_hmac,
+    name: "hashes_hmac_compute",
+    label: TOOL_TITLES.hashes_hmac_compute,
+    description: TOOL_DESCRIPTIONS.hashes_hmac_compute,
     parameters: Type.Object(
       {
         algorithm: Type.String({
@@ -226,19 +226,19 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     // The key stays off the terminal.
     renderCall: (args, options, theme) =>
       callLine(
-        TOOL_TITLES.hash_hmac,
+        TOOL_TITLES.hashes_hmac_compute,
         `${sanitizeTerminalText(args.algorithm)} ${preview(args.input)}`,
         options,
         theme,
       ),
     renderResult: (result, _options, theme) =>
-      resultLine(TOOL_TITLES.hash_hmac, result, digestSummary(result.details), theme),
+      resultLine(TOOL_TITLES.hashes_hmac_compute, result, digestSummary(result.details), theme),
   });
 
   pi.registerTool({
-    name: "hash_verify",
-    label: TOOL_TITLES.hash_verify,
-    description: TOOL_DESCRIPTIONS.hash_verify,
+    name: "hashes_verify",
+    label: TOOL_TITLES.hashes_verify,
+    description: TOOL_DESCRIPTIONS.hashes_verify,
     parameters: Type.Object(
       {
         algorithm,
@@ -261,7 +261,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     },
     renderCall: (args, options, theme) =>
       callLine(
-        TOOL_TITLES.hash_verify,
+        TOOL_TITLES.hashes_verify,
         `${sanitizeTerminalText(args.algorithm)} ${preview(args.input)}`,
         options,
         theme,
@@ -269,14 +269,14 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     renderResult: (result, _options, theme) => {
       const details = result.details as { match?: unknown } | undefined;
       const summary = details && "match" in details ? (details.match ? "match" : "mismatch") : "";
-      return resultLine(TOOL_TITLES.hash_verify, result, summary, theme);
+      return resultLine(TOOL_TITLES.hashes_verify, result, summary, theme);
     },
   });
 
   pi.registerTool({
-    name: "hash_algorithms",
-    label: TOOL_TITLES.hash_algorithms,
-    description: TOOL_DESCRIPTIONS.hash_algorithms,
+    name: "hashes_algorithms",
+    label: TOOL_TITLES.hashes_algorithms,
+    description: TOOL_DESCRIPTIONS.hashes_algorithms,
     parameters: Type.Object(
       {
         category: Type.Optional(Type.Enum(HASH_CATEGORIES, { description: d.category })),
@@ -299,7 +299,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
     },
     renderCall: (args, options, theme) =>
       callLine(
-        TOOL_TITLES.hash_algorithms,
+        TOOL_TITLES.hashes_algorithms,
         sanitizeTerminalText(args.algorithm ?? args.family ?? args.category ?? ""),
         options,
         theme,
@@ -308,7 +308,7 @@ export default function hashesExtension(pi: ExtensionAPI): void {
       const details = result.details as { algorithms?: unknown } | undefined;
       const count = Array.isArray(details?.algorithms) ? details.algorithms.length : undefined;
       return resultLine(
-        TOOL_TITLES.hash_algorithms,
+        TOOL_TITLES.hashes_algorithms,
         result,
         count === undefined ? "" : `${count} algorithms`,
         theme,

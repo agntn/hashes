@@ -138,7 +138,7 @@ omp install @agntn/hashes
 }
 ```
 
-Four tools: `hash_compute`, `hash_hmac`, `hash_verify` and `hash_algorithms`. Same four in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding` and `keyEncoding`, same as the CLI flags. A model that isn't sure calls `hash_algorithms` first.
+Four tools: `hashes_compute`, `hashes_hmac_compute`, `hashes_verify` and `hashes_algorithms`. Same four in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding` and `keyEncoding`, same as the CLI flags. A model that isn't sure calls `hashes_algorithms` first.
 
 ## 🚫 What this does not do
 

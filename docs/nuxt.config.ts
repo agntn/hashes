@@ -42,7 +42,7 @@ export default defineNuxtConfig({
           {
             title: "Playground",
             href: "https://hashes.agntn.dev/playground",
-            description: "The library running in the page: hash_compute, hash_hmac, hash_verify and hash_algorithms.",
+            description: "The library running in the page: hashes_compute, hashes_hmac_compute, hashes_verify and hashes_algorithms.",
           },
         ],
       },

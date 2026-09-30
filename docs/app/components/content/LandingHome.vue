@@ -45,7 +45,7 @@ const { samples, paused, current, step } = useLandingHash();
       Lowercasing a digest before comparing is the classic shortcut, and it's fine for hex. For
       base64 it's a bug, <code class="hashes-code">A</code> and <code class="hashes-code">a</code>
       are different bytes. The panel takes the current digest, uppercases the hex, lowercases the
-      base64 and asks <code class="hashes-code">hash_verify</code> about both. One passes. The other
+      base64 and asks <code class="hashes-code">hashes_verify</code> about both. One passes. The other
       shouldn't, and doesn't.
       <template #visual>
         <LandingVerify :sample="current" @pause="paused = $event" />
@@ -90,7 +90,7 @@ const { samples, paused, current, step } = useLandingHash();
       reverse
     >
       Ask a model for a digest and it answers from memory. Give it
-      <code class="hashes-code">hash_compute</code> and it answers from code.
+      <code class="hashes-code">hashes_compute</code> and it answers from code.
       <code class="hashes-code">hashes mcp</code>, the Pi and OMP extensions and
       <code class="hashes-code">@agntn/hashes/ai</code> call the same executors, so they answer
       identically and a fix lands once. This page runs them too, so the dialog shows exactly what a

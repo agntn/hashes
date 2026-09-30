@@ -48,22 +48,22 @@ export const HMAC_ALGORITHMS =
 
 /** What each tool does, the same text on every surface. */
 export const TOOL_DESCRIPTIONS = {
-  hash_compute:
+  hashes_compute:
     "Hash text or bytes with any registered algorithm. The answer is the digest, then the algorithm, encoding, length and, for scrypt and pbkdf2, the salt and cost parameters needed to reproduce it.",
-  hash_hmac:
+  hashes_hmac_compute:
     "Compute an HMAC of text or bytes with a key, using an algorithm that has an HMAC mode.",
-  hash_verify:
+  hashes_verify:
     "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt and pbkdf2 need the salt the expected digest was made with.",
-  hash_algorithms:
+  hashes_algorithms:
     "List the registered algorithms with family, category, digest size and HMAC support, or describe one algorithm with its options.",
 } as const;
 
 /** What each tool is called in a status line or a tool list. */
 export const TOOL_TITLES = {
-  hash_compute: "Hash Compute",
-  hash_hmac: "Hash HMAC",
-  hash_verify: "Hash Verify",
-  hash_algorithms: "Hash Algorithms",
+  hashes_compute: "Hash Compute",
+  hashes_hmac_compute: "Hash HMAC",
+  hashes_verify: "Hash Verify",
+  hashes_algorithms: "Hash Algorithms",
 } as const;
 
 /**
@@ -83,14 +83,14 @@ function parameterDescriptions() {
     keyEncoding:
       "How to read key (default utf8). hex and base64 give a binary key, such as a BIP32 chain code. hex takes no 0x prefix",
     encoding: "Digest encoding (default hex)",
-    salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hash_verify needs it",
+    salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hashes_verify needs it",
     expected:
       "Expected digest. Hex ignores case and takes no 0x prefix, base64 and base64url keep case",
     expectedEncoding: "Encoding of the expected digest (default hex)",
     verifySalt:
       "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
     parameters:
-      "Options the algorithm takes besides encoding, key and salt, as hash_algorithms lists them: seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
+      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
     category: "Category to list. Omit to list every category",
     family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
     describe: "Registered algorithm to describe with its options. Omit to list",

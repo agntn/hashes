@@ -98,8 +98,8 @@ export const hashAlgorithmsSchema = closed({
 
 /** The four tool schemas, keyed by tool name, in listing order. */
 export const toolSchemas = {
-  hash_compute: hashComputeSchema,
-  hash_hmac: hashHmacSchema,
-  hash_verify: hashVerifySchema,
-  hash_algorithms: hashAlgorithmsSchema,
+  hashes_compute: hashComputeSchema,
+  hashes_hmac_compute: hashHmacSchema,
+  hashes_verify: hashVerifySchema,
+  hashes_algorithms: hashAlgorithmsSchema,
 };

@@ -33,25 +33,25 @@ const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: string; a
   {
     key: "hash",
     label: "Hash",
-    tool: "hash_compute",
+    tool: "hashes_compute",
     about: "The digest of the input with any algorithm. A KDF without a salt draws one and says which.",
   },
   {
     key: "hmac",
     label: "HMAC",
-    tool: "hash_hmac",
+    tool: "hashes_hmac_compute",
     about: "A keyed digest, for the algorithms that have an HMAC mode. The rest say no.",
   },
   {
     key: "verify",
     label: "Verify",
-    tool: "hash_verify",
+    tool: "hashes_verify",
     about: "Hash the input and compare every byte with an expected digest. Hex ignores case, base64 doesn't.",
   },
   {
     key: "algorithms",
     label: "List",
-    tool: "hash_algorithms",
+    tool: "hashes_algorithms",
     about: "Every algorithm with family, category, size and HMAC, one family or category, or one algorithm's options.",
   },
 ];
@@ -69,7 +69,7 @@ const keyEncoding = ref<(typeof INPUT_ENCODINGS)[number]>("utf8");
 const expected = ref("");
 const salt = ref("");
 const values = reactive<Record<string, string>>({});
-/** `hash_algorithms` lists everything when both are empty, and describes one algorithm when one is picked. */
+/** `hashes_algorithms` lists everything when both are empty, and describes one algorithm when one is picked. */
 const family = ref("");
 const category = ref<HashCategory | "">("");
 const describe = ref("");
@@ -1212,7 +1212,7 @@ const shareLink = computed(() => {
 .playground-list-name:hover {
   color: var(--console-accent);
 }
-/* One row per option of `hash_algorithms` with a name: the name, whether it is required, what it does. */
+/* One row per option of `hashes_algorithms` with a name: the name, whether it is required, what it does. */
 .playground-options li {
   grid-template-columns: 9rem 8rem minmax(0, 1fr);
 }

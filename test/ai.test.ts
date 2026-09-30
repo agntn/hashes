@@ -12,7 +12,7 @@ describe("AI SDK tools", () => {
   });
 
   it("runs the shared executor and returns its details with the text", async () => {
-    const output = await hashTools.hash_compute.execute?.(
+    const output = await hashTools.hashes_compute.execute?.(
       { algorithm: "sha256", input: "abc" },
       options,
     );
@@ -26,7 +26,7 @@ describe("AI SDK tools", () => {
   });
 
   it("keys an HMAC with the bytes a hex key spells", async () => {
-    const output = await hashTools.hash_hmac.execute?.(
+    const output = await hashTools.hashes_hmac_compute.execute?.(
       { algorithm: "sha256", input: "m", key: "aaff", keyEncoding: "hex" },
       options,
     );
@@ -39,7 +39,7 @@ describe("AI SDK tools", () => {
   });
 
   it("hashes the bytes a hex input spells", async () => {
-    const output = await hashTools.hash_compute.execute?.(
+    const output = await hashTools.hashes_compute.execute?.(
       { algorithm: "sha256", input: "00ff", inputEncoding: "hex" },
       options,
     );
@@ -52,7 +52,7 @@ describe("AI SDK tools", () => {
   });
 
   it("rejects an undeclared key before the executor runs", async () => {
-    const schema = asSchema(hashTools.hash_compute.inputSchema);
+    const schema = asSchema(hashTools.hashes_compute.inputSchema);
     const result = await schema.validate?.({ algorithm: "sha256", input: "x", saltHex: "00" });
 
     expect(result?.success).toBe(false);
