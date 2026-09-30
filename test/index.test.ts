@@ -47,6 +47,8 @@ import {
   type ScryptOptions,
   type XxhashOptions,
 } from "../src/index.ts";
+import * as root from "../src/index.ts";
+import buildConfig from "../build.config.ts";
 import pkg from "../package.json" with { type: "json" };
 
 /** Algorithms Node's OpenSSL computes too, under its own name. */
@@ -692,6 +694,41 @@ describe("byte functions", () => {
       expect(() => derive(1, bad)).toThrow(InvalidOptionError);
     }
   });
+});
+
+describe("byte function subpaths", () => {
+  const SUBPATHS = {
+    sha1: ["sha1"],
+    md5: ["md5"],
+    sha2: ["Sha256Hasher", "Sha512Hasher", "hash256", "sha256", "sha512"],
+    ripemd160: ["Ripemd160Hasher", "hash160", "ripemd160"],
+    keccak: ["keccak256", "sha3_256"],
+    blake2b: ["Blake2bHasher", "blake2b"],
+    blake256: ["blake256"],
+    crc: ["crc16Xmodem", "crc32"],
+    hmac: ["hmac", "pbkdf2"],
+  } as const;
+  const names = Object.keys(SUBPATHS);
+
+  it("match the exports map and the build entries", () => {
+    const exported = Object.keys(pkg.exports).filter((path) => !/^\.(?:\/ai|\/mcp)?$/u.test(path));
+    const inputs = buildConfig.entries?.flatMap((entry) =>
+      typeof entry === "object" && entry.type === "bundle" ? [entry.input].flat() : [],
+    );
+
+    expect(exported).toEqual(names.map((name) => `./${name}`));
+    expect(inputs).toEqual(expect.arrayContaining(names.map((name) => `./src/${name}.ts`)));
+  });
+
+  it.each(Object.entries(SUBPATHS))(
+    "%s exports the root's functions and nothing else",
+    async (name, expected) => {
+      const module = (await import(`../src/${name}.ts`)) as Record<string, unknown>;
+
+      expect(Object.keys(module).toSorted()).toEqual([...expected].toSorted());
+      for (const key of expected) expect(module[key]).toBe(root[key]);
+    },
+  );
 });
 
 describe("key derivation", () => {

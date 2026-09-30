@@ -39,6 +39,42 @@
     "./mcp": {
       "types": "./dist/mcp.d.mts",
       "import": "./dist/mcp.mjs"
+    },
+    "./sha1": {
+      "types": "./dist/sha1.d.mts",
+      "import": "./dist/sha1.mjs"
+    },
+    "./md5": {
+      "types": "./dist/md5.d.mts",
+      "import": "./dist/md5.mjs"
+    },
+    "./sha2": {
+      "types": "./dist/sha2.d.mts",
+      "import": "./dist/sha2.mjs"
+    },
+    "./ripemd160": {
+      "types": "./dist/ripemd160.d.mts",
+      "import": "./dist/ripemd160.mjs"
+    },
+    "./keccak": {
+      "types": "./dist/keccak.d.mts",
+      "import": "./dist/keccak.mjs"
+    },
+    "./blake2b": {
+      "types": "./dist/blake2b.d.mts",
+      "import": "./dist/blake2b.mjs"
+    },
+    "./blake256": {
+      "types": "./dist/blake256.d.mts",
+      "import": "./dist/blake256.mjs"
+    },
+    "./crc": {
+      "types": "./dist/crc.d.mts",
+      "import": "./dist/crc.mjs"
+    },
+    "./hmac": {
+      "types": "./dist/hmac.d.mts",
+      "import": "./dist/hmac.mjs"
     }
   },
   "publishConfig": {
