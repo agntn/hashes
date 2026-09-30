@@ -1,6 +1,37 @@
 # Changelog
 
 
+## v0.5.0
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.4.0...v0.5.0)
+
+### 🚀 Enhancements
+
+- Sha1 and md5 as byte functions ([#65](https://github.com/agntn/hashes/pull/65))
+- **tools:** ⚠️  Add hashes_ prefix ([#68](https://github.com/agntn/hashes/pull/68))
+
+### 🩹 Fixes
+
+- **omp:** Hash tools run under OMP's TypeBox ([#62](https://github.com/agntn/hashes/pull/62))
+- **pi:** Quiet Pi 0.99's typebox warning ([#67](https://github.com/agntn/hashes/pull/67))
+
+### 📖 Documentation
+
+- Say the package is not audited ([#60](https://github.com/agntn/hashes/pull/60))
+
+### 📦 Build
+
+- Switch the bundler to obuild ([#69](https://github.com/agntn/hashes/pull/69))
+
+#### ⚠️ Breaking Changes
+
+- **tools:** ⚠️  Add hashes_ prefix ([#68](https://github.com/agntn/hashes/pull/68))
+
+### ❤️ Contributors
+
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+- Ori ([@oritwoen](https://github.com/oritwoen))
+
 ## v0.4.0
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.3.0...v0.4.0)
