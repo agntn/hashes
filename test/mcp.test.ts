@@ -388,7 +388,25 @@ describe("hashes MCP server", () => {
 
     expect(seedOnSha.text).toContain("Invalid option seed=1: sha256 takes no parameters");
     expect(iterations.text).toContain("must be 1 to 10000000 in a tool call");
-    expect(memory.text).toContain("over 268435456 in a tool call");
+    expect(memory.text).toContain(
+      "needs 1073741824 bytes of blocks, over 268435456 in a tool call",
+    );
+  });
+
+  it("runs scrypt at brainwallet.io's cost, whose blocks fill the limit exactly", async () => {
+    const answer = await call("hashes_compute", {
+      algorithm: "scrypt",
+      input: "pw",
+      salt: "00",
+      parameters: { N: 262_144, r: 8, p: 1, keyLength: 32 },
+    });
+    const reference = scryptSync("pw", Buffer.from("00", "hex"), 32, {
+      N: 262_144,
+      maxmem: 2 ** 29,
+    });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toContain(reference.toString("hex"));
   });
 
   it("quotes an expected digest with a line break instead of printing a forged verdict", async () => {

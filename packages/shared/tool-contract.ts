@@ -29,7 +29,7 @@ export const PARAMETER_LIMITS: Readonly<Record<string, number>> = {
   iterations: 10_000_000,
   keyLength: 1_024,
 };
-/** Most working memory a scrypt call may take, 128 * r * (N + p + 2) bytes. */
+/** Largest block table a scrypt call may fill, 128 * r * N bytes. */
 export const MAX_SCRYPT_MEMORY = 256 * 1024 * 1024;
 
 export const TEXT_ENCODINGS = ["hex", "base64", "base64url"] as const;
