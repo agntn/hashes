@@ -177,11 +177,11 @@ Want HMAC as well? Extend `BlockHash` and hand it a `Hasher`. Anything else exte
 
 ```bash
 pnpm install
-pnpm dev          # vp pack --watch
+pnpm dev          # obuild --stub, dist runs straight from src
 pnpm lint         # build, then vp lint and vp fmt --check
 pnpm typecheck    # tsc over the library, the extensions and the tests
 pnpm test         # vp test run
-pnpm build        # vp pack
+pnpm build        # obuild
 ```
 
 ## 💛 Thanks

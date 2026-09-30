@@ -2,7 +2,6 @@ import { spawnSync } from "node:child_process";
 import { globSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
@@ -24,19 +23,26 @@ const hostProvidedPackages = [
 ];
 
 /**
- * Packs the current source with the project's own `vp pack` config, so the test never measures a
- * `dist` left over from an older checkout. Declarations are skipped; the runtime files come out
- * byte for byte as `pnpm build` writes them.
+ * Builds the current source with `build.config.ts` into a temporary directory, never an old `dist`.
+ * The child process keeps obuild's report out of the test output.
  */
 beforeAll(() => {
   packed = mkdtempSync(join(tmpdir(), "hashes-bundle-"));
-  const bin = fileURLToPath(import.meta.resolve("vite-plus/bin"));
-  const { status, stderr } = spawnSync(
-    process.execPath,
-    [bin, "pack", "--out-dir", packed, "--no-dts"],
-    { cwd: root, encoding: "utf8" },
-  );
-  if (status !== 0) throw new Error(`vp pack failed:\n${stderr}`);
+  const script = `
+    import { build } from "obuild";
+    import config from "./build.config.ts";
+    const outDir = ${JSON.stringify(packed)};
+    await build({
+      ...config,
+      cwd: ${JSON.stringify(root)},
+      entries: config.entries.map((entry) => ({ ...entry, outDir, dts: false })),
+    });
+  `;
+  const { status, stderr } = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (status !== 0) throw new Error(`obuild failed:\n${stderr}`);
 });
 
 afterAll(() => {
@@ -110,5 +116,11 @@ describe("typebox left to the host", () => {
     );
 
     expect(importers).toEqual([]);
+  });
+
+  it("ships the license of the typebox it bundles", () => {
+    expect(readFileSync(join(packed, "THIRD-PARTY-LICENSES.md"), "utf8")).toMatch(
+      /^## typebox$[\s\S]*?Copyright \(c\) .* Haydn Paterson/mu,
+    );
   });
 });
