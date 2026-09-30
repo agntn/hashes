@@ -39,7 +39,7 @@ import {
   SALT_PATTERN,
   TEXT_ENCODINGS,
 } from "../packages/shared/tool-contract.ts";
-import { toolSchemas } from "../packages/shared/tool-schemas.ts";
+import type { toolSchemas } from "../packages/shared/tool-schemas.ts";
 
 export * from "../packages/shared/tool-contract.ts";
 
@@ -57,12 +57,20 @@ export type InputEncoding = (typeof INPUT_ENCODINGS)[number];
 
 export type ToolName = keyof typeof toolSchemas;
 
-/** Every argument each tool takes, read from its schema; anything else is rejected, not ignored. */
+/** Every argument each tool takes, pinned to the schemas by a test; anything else is rejected. */
 export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
-  hash_compute: Object.keys(toolSchemas.hash_compute.properties),
-  hash_hmac: Object.keys(toolSchemas.hash_hmac.properties),
-  hash_verify: Object.keys(toolSchemas.hash_verify.properties),
-  hash_algorithms: Object.keys(toolSchemas.hash_algorithms.properties),
+  hash_compute: ["algorithm", "input", "inputEncoding", "encoding", "salt", "parameters"],
+  hash_hmac: ["algorithm", "input", "inputEncoding", "key", "keyEncoding", "encoding"],
+  hash_verify: [
+    "algorithm",
+    "input",
+    "inputEncoding",
+    "expected",
+    "encoding",
+    "salt",
+    "parameters",
+  ],
+  hash_algorithms: ["category", "family", "algorithm"],
 };
 
 /** A tool's arguments as its schema declares them, read-only down to nested objects. */
