@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { globSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,20 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 const root = join(import.meta.dirname, "..");
 let packed = "";
+
+/** Packages Pi supplies to extensions, per `HOST_PROVIDED_EXTENSION_PACKAGES` in Pi 0.99. */
+const hostProvidedPackages = [
+  "@earendil-works/pi-agent-core",
+  "@earendil-works/pi-ai",
+  "@earendil-works/pi-coding-agent",
+  "@earendil-works/pi-tui",
+  "@mariozechner/pi-agent-core",
+  "@mariozechner/pi-ai",
+  "@mariozechner/pi-coding-agent",
+  "@mariozechner/pi-tui",
+  "@sinclair/typebox",
+  "typebox",
+];
 
 /**
  * Packs the current source with the project's own `vp pack` config, so the test never measures a
@@ -71,5 +85,30 @@ describe("one byte function bundled with esbuild", () => {
     // PBKDF2's digest list and the tool contract's argument descriptions.
     expect(["sha3-512", "case-insensitive"].filter((text) => code.includes(text))).toEqual([]);
     expect(code.length).toBeLessThan(limit);
+  });
+});
+
+describe("typebox left to the host", () => {
+  it("keeps the packages Pi supplies out of dependencies", () => {
+    const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+      readonly dependencies: Readonly<Record<string, string>>;
+      readonly peerDependencies: Readonly<Record<string, string>>;
+    };
+
+    expect(
+      Object.keys(manifest.dependencies).filter((name) => hostProvidedPackages.includes(name)),
+    ).toEqual([]);
+    expect(manifest.peerDependencies["typebox"]).toBe("*");
+  });
+
+  /** A checkout's node_modules resolves a bare import anyway, so only the files prove the copy. */
+  it("bundles typebox into the CLI and the MCP server", () => {
+    const importers = globSync("**/*.mjs", { cwd: packed }).filter((file) =>
+      /(?:from|import)\s*\(?\s*["']typebox(?:\/[^"']*)?["']/u.test(
+        readFileSync(join(packed, file), "utf8"),
+      ),
+    );
+
+    expect(importers).toEqual([]);
   });
 });
