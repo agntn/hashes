@@ -300,12 +300,12 @@ function assertScryptMemory(
   );
   if (!("N" in defaults && "r" in defaults && "p" in defaults)) return;
   const cost = (name: string): number => Number(options[name] ?? defaults[name]);
-  const memory = 128 * cost("r") * (cost("N") + cost("p") + 2);
+  const memory = 128 * cost("r") * cost("N");
   if (memory > MAX_SCRYPT_MEMORY) {
     throw new InvalidOptionError(
       "N",
       cost("N"),
-      `with r and p needs ${memory} bytes, over ${MAX_SCRYPT_MEMORY} in a tool call`,
+      `with r=${cost("r")} needs ${memory} bytes of blocks, over ${MAX_SCRYPT_MEMORY} in a tool call`,
     );
   }
 }
