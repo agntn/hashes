@@ -74,5 +74,12 @@ export default defineConfig({
       /* JSDoc ships once, in the declarations; the runtime files keep only legal and annotation comments. */
       comments: { jsdoc: false },
     },
+    /** Pi supplies typebox as an optional peer; the CLI and MCP server carry their own copy. */
+    deps: {
+      onlyBundle: [/^typebox(?:\/|$)/u],
+      alwaysBundle: [/^typebox(?:\/|$)/u],
+    },
+    /** Inlined typebox has no license header of its own, so its MIT notice ships beside it. */
+    copy: [{ from: "node_modules/typebox/license", rename: "typebox.LICENSE" }],
   },
 });
