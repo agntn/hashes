@@ -9,14 +9,14 @@ import { ompToolContext, registerOmpExtension } from "./fixtures/omp-host.ts";
 
 describe("omp hashes extension under the host TypeBox shim", () => {
   it.each([
-    ["hash_compute", { algorithm: "sha256", input: "abc" }, /^ba7816bf/],
-    ["hash_hmac", { algorithm: "sha256", input: "abc", key: "k" }, /^[0-9a-f]{64}/],
+    ["hashes_compute", { algorithm: "sha256", input: "abc" }, /^ba7816bf/],
+    ["hashes_hmac_compute", { algorithm: "sha256", input: "abc", key: "k" }, /^[0-9a-f]{64}/],
     [
-      "hash_verify",
+      "hashes_verify",
       { algorithm: "md5", input: "hello", expected: "5d41402abc4b2a76b9719d911017c592" },
       /^MATCH/,
     ],
-    ["hash_algorithms", { family: "SHA" }, /sha256/],
+    ["hashes_algorithms", { family: "SHA" }, /sha256/],
   ] as const)("runs %s", async (name, params, answer) => {
     const tool = registerOmpExtension(hashesExtension).tool(name);
     const result = await tool.execute("call-1", params, undefined, undefined, ompToolContext);
@@ -26,7 +26,7 @@ describe("omp hashes extension under the host TypeBox shim", () => {
   });
 
   it("still rejects an argument the tool does not take", async () => {
-    const tool = registerOmpExtension(hashesExtension).tool("hash_compute");
+    const tool = registerOmpExtension(hashesExtension).tool("hashes_compute");
 
     await expect(
       tool.execute(

@@ -19,7 +19,7 @@ describe("pi hashes extension", () => {
   });
 
   it("validates with the shared closed schemas", async () => {
-    const tool = (await loadPiExtension(extensionPath)).tool("hash_compute");
+    const tool = (await loadPiExtension(extensionPath)).tool("hashes_compute");
     const accepts = (value: unknown): boolean => Value.Check(tool.parameters, value);
 
     expect(accepts({ algorithm: "sha256", input: "x" })).toBe(true);
@@ -32,7 +32,7 @@ describe("pi hashes extension", () => {
     const host = await loadPiExtension(extensionPath);
 
     const result = await host
-      .tool("hash_compute")
+      .tool("hashes_compute")
       .execute("call-1", { algorithm: "sha256", input: "abc" }, undefined, undefined, host.context);
 
     const digest = createHash("sha256").update("abc").digest("hex");
@@ -45,7 +45,7 @@ describe("pi hashes extension", () => {
 
     await expect(
       host
-        .tool("hash_hmac")
+        .tool("hashes_hmac_compute")
         .execute(
           "call-2",
           { algorithm: "blake3", input: "m", key: "k" },

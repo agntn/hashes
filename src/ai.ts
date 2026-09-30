@@ -55,7 +55,7 @@ const hashComputeInput = z.strictObject({
 });
 
 export const hashComputeTool: Tool<z.infer<typeof hashComputeInput>, Output<DigestDetails>> = tool({
-  description: TOOL_DESCRIPTIONS.hash_compute,
+  description: TOOL_DESCRIPTIONS.hashes_compute,
   inputSchema: hashComputeInput,
   execute: (params) => {
     const { content, details } = hashCompute(params);
@@ -73,7 +73,7 @@ const hashHmacInput = z.strictObject({
 });
 
 export const hashHmacTool: Tool<z.infer<typeof hashHmacInput>, Output<DigestDetails>> = tool({
-  description: TOOL_DESCRIPTIONS.hash_hmac,
+  description: TOOL_DESCRIPTIONS.hashes_hmac_compute,
   inputSchema: hashHmacInput,
   execute: (params) => {
     const { content, details } = hashHmac(params);
@@ -92,7 +92,7 @@ const hashVerifyInput = z.strictObject({
 });
 
 export const hashVerifyTool: Tool<z.infer<typeof hashVerifyInput>, Output<VerifyDetails>> = tool({
-  description: TOOL_DESCRIPTIONS.hash_verify,
+  description: TOOL_DESCRIPTIONS.hashes_verify,
   inputSchema: hashVerifyInput,
   execute: (params) => {
     const { content, details } = hashVerify(params);
@@ -110,7 +110,7 @@ export const hashAlgorithmsTool: Tool<
   z.infer<typeof hashAlgorithmsInput>,
   Output<AlgorithmsDetails>
 > = tool({
-  description: TOOL_DESCRIPTIONS.hash_algorithms,
+  description: TOOL_DESCRIPTIONS.hashes_algorithms,
   inputSchema: hashAlgorithmsInput,
   execute: (params) => {
     const { content, details } = hashAlgorithms(params);
@@ -120,8 +120,8 @@ export const hashAlgorithmsTool: Tool<
 
 /** Every hash tool, keyed by the name MCP, Pi and OMP use for it. */
 export const hashTools = {
-  hash_compute: hashComputeTool,
-  hash_hmac: hashHmacTool,
-  hash_verify: hashVerifyTool,
-  hash_algorithms: hashAlgorithmsTool,
+  hashes_compute: hashComputeTool,
+  hashes_hmac_compute: hashHmacTool,
+  hashes_verify: hashVerifyTool,
+  hashes_algorithms: hashAlgorithmsTool,
 };

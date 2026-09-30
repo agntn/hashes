@@ -68,7 +68,7 @@ const playground = computed(() => {
 });
 
 const text = computed(() => (entry.value ? algorithmsText({ algorithm: entry.value.slug }) : ""));
-const title = computed(() => `hash_algorithms("${props.name}")`);
+const title = computed(() => `hashes_algorithms("${props.name}")`);
 </script>
 
 <template>

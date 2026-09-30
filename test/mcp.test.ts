@@ -59,10 +59,10 @@ describe("tool contract", () => {
 
   it("declares in each schema exactly the arguments its executor takes", () => {
     const schemas = {
-      hash_compute: hashComputeSchema,
-      hash_hmac: hashHmacSchema,
-      hash_verify: hashVerifySchema,
-      hash_algorithms: hashAlgorithmsSchema,
+      hashes_compute: hashComputeSchema,
+      hashes_hmac_compute: hashHmacSchema,
+      hashes_verify: hashVerifySchema,
+      hashes_algorithms: hashAlgorithmsSchema,
     };
     for (const [tool, schema] of Object.entries(schemas)) {
       expect(Object.keys(schema.properties)).toEqual([
@@ -80,10 +80,10 @@ describe("hashes MCP server", () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name)).toEqual([
-      "hash_compute",
-      "hash_hmac",
-      "hash_verify",
-      "hash_algorithms",
+      "hashes_compute",
+      "hashes_hmac_compute",
+      "hashes_verify",
+      "hashes_algorithms",
     ]);
     for (const tool of tools) {
       expect(tool.inputSchema).toMatchObject({ type: "object", additionalProperties: false });
@@ -95,7 +95,7 @@ describe("hashes MCP server", () => {
   });
 
   it("hashes and names the algorithm, encoding and length", async () => {
-    const answer = await call("hash_compute", { algorithm: "SHA256", input: "abc" });
+    const answer = await call("hashes_compute", { algorithm: "SHA256", input: "abc" });
 
     expect(answer.isError).toBe(false);
     expect(answer.text).toBe(
@@ -104,7 +104,7 @@ describe("hashes MCP server", () => {
   });
 
   it("names the salt a KDF drew, so the digest can be reproduced", async () => {
-    const answer = await call("hash_compute", { algorithm: "scrypt", input: "password" });
+    const answer = await call("hashes_compute", { algorithm: "scrypt", input: "password" });
     const salt = /salt ([0-9a-f]{64})/.exec(answer.text)?.[1];
 
     expect(salt).toBeDefined();
@@ -115,8 +115,8 @@ describe("hashes MCP server", () => {
   });
 
   it("computes an HMAC and refuses an algorithm without one", async () => {
-    const hmac = await call("hash_hmac", { algorithm: "sha256", input: "m", key: "k" });
-    const blake3 = await call("hash_hmac", { algorithm: "blake3", input: "m", key: "k" });
+    const hmac = await call("hashes_hmac_compute", { algorithm: "sha256", input: "m", key: "k" });
+    const blake3 = await call("hashes_hmac_compute", { algorithm: "blake3", input: "m", key: "k" });
 
     expect(hmac.text.split("\n")[0]).toBe(createHmac("sha256", "k").update("m").digest("hex"));
     expect(hmac.text).toContain("HMAC-sha256");
@@ -130,17 +130,17 @@ describe("hashes MCP server", () => {
       .update(createHash("sha256").update(bytes).digest())
       .digest("hex");
 
-    const hex = await call("hash_compute", {
+    const hex = await call("hashes_compute", {
       algorithm: "hash160",
       input: PUBLIC_KEY,
       inputEncoding: "hex",
     });
-    const base64 = await call("hash_compute", {
+    const base64 = await call("hashes_compute", {
       algorithm: "hash160",
       input: bytes.toString("base64"),
       inputEncoding: "base64",
     });
-    const text = await call("hash_compute", { algorithm: "hash160", input: PUBLIC_KEY });
+    const text = await call("hashes_compute", { algorithm: "hash160", input: PUBLIC_KEY });
 
     expect(hash160).toBe("751e76e8199196d454941c45d1b3a323f1433bd6");
     expect(hex.text.split("\n")[0]).toBe(hash160);
@@ -150,13 +150,13 @@ describe("hashes MCP server", () => {
 
   it("reads a hex input for HMAC and verify too", async () => {
     const bytes = Buffer.from("00ff10", "hex");
-    const hmac = await call("hash_hmac", {
+    const hmac = await call("hashes_hmac_compute", {
       algorithm: "sha256",
       input: "00FF10",
       inputEncoding: "hex",
       key: "k",
     });
-    const verify = await call("hash_verify", {
+    const verify = await call("hashes_verify", {
       algorithm: "sha256",
       input: " 00ff10\n",
       inputEncoding: "hex",
@@ -171,21 +171,21 @@ describe("hashes MCP server", () => {
     const key = Buffer.alloc(20, 0xaa);
     const hmac = createHmac("sha256", key).update(Buffer.alloc(50, 0xdd)).digest("hex");
     const input = "dd".repeat(50);
-    const hex = await call("hash_hmac", {
+    const hex = await call("hashes_hmac_compute", {
       algorithm: "sha256",
       input,
       inputEncoding: "hex",
       key: key.toString("hex"),
       keyEncoding: "hex",
     });
-    const base64 = await call("hash_hmac", {
+    const base64 = await call("hashes_hmac_compute", {
       algorithm: "sha256",
       input,
       inputEncoding: "hex",
       key: key.toString("base64"),
       keyEncoding: "base64",
     });
-    const odd = await call("hash_hmac", {
+    const odd = await call("hashes_hmac_compute", {
       algorithm: "sha256",
       input: "m",
       key: "abc",
@@ -196,23 +196,23 @@ describe("hashes MCP server", () => {
     expect(hex.text.split("\n")[0]).toBe(hmac);
     expect(base64.text.split("\n")[0]).toBe(hmac);
     expect(odd.text).toBe(
-      "hash_hmac failed: Invalid option key=3 characters: must be hex digit pairs, without a 0x prefix",
+      "hashes_hmac_compute failed: Invalid option key=3 characters: must be hex digit pairs, without a 0x prefix",
     );
   });
 
   it("refuses an input that is not valid in its encoding instead of hashing fewer bytes", async () => {
-    const prefixed = await call("hash_compute", {
+    const prefixed = await call("hashes_compute", {
       algorithm: "sha256",
       input: `0x${PUBLIC_KEY}`,
       inputEncoding: "hex",
     });
-    const odd = await call("hash_hmac", {
+    const odd = await call("hashes_hmac_compute", {
       algorithm: "sha256",
       input: "abc",
       inputEncoding: "hex",
       key: "k",
     });
-    const base64 = await call("hash_verify", {
+    const base64 = await call("hashes_verify", {
       algorithm: "sha256",
       input: "a*b",
       inputEncoding: "base64",
@@ -221,13 +221,13 @@ describe("hashes MCP server", () => {
 
     expect(prefixed).toEqual({
       isError: true,
-      text: "hash_compute failed: Invalid option input=68 characters: must be hex digit pairs, without a 0x prefix",
+      text: "hashes_compute failed: Invalid option input=68 characters: must be hex digit pairs, without a 0x prefix",
     });
     expect(odd.text).toBe(
-      "hash_hmac failed: Invalid option input=3 characters: must be hex digit pairs, without a 0x prefix",
+      "hashes_hmac_compute failed: Invalid option input=3 characters: must be hex digit pairs, without a 0x prefix",
     );
     expect(base64.text).toBe(
-      "hash_verify failed: Invalid option input=3 characters: must be base64",
+      "hashes_verify failed: Invalid option input=3 characters: must be base64",
     );
   });
 
@@ -235,19 +235,19 @@ describe("hashes MCP server", () => {
     const base64 = createHash("sha256").update("abc").digest("base64");
     const hex = createHash("sha256").update("abc").digest("hex");
 
-    const exact = await call("hash_verify", {
+    const exact = await call("hashes_verify", {
       algorithm: "sha256",
       input: "abc",
       expected: base64,
       encoding: "base64",
     });
-    const lowered = await call("hash_verify", {
+    const lowered = await call("hashes_verify", {
       algorithm: "sha256",
       input: "abc",
       expected: base64.toLowerCase(),
       encoding: "base64",
     });
-    const upperHex = await call("hash_verify", {
+    const upperHex = await call("hashes_verify", {
       algorithm: "sha256",
       input: "abc",
       expected: hex.toUpperCase(),
@@ -263,13 +263,13 @@ describe("hashes MCP server", () => {
     const salt = "00112233445566778899aabbccddeeff";
     const digest = scryptSync("pw", Buffer.from(salt, "hex"), 64, { N: 16384 }).toString("hex");
 
-    const withSalt = await call("hash_verify", {
+    const withSalt = await call("hashes_verify", {
       algorithm: "scrypt",
       input: "pw",
       expected: digest,
       salt,
     });
-    const withoutSalt = await call("hash_verify", {
+    const withoutSalt = await call("hashes_verify", {
       algorithm: "scrypt",
       input: "pw",
       expected: digest,
@@ -281,16 +281,16 @@ describe("hashes MCP server", () => {
   });
 
   it("refuses a salt for an algorithm that takes none", async () => {
-    const answer = await call("hash_compute", { algorithm: "sha256", input: "x", salt: "00" });
+    const answer = await call("hashes_compute", { algorithm: "sha256", input: "x", salt: "00" });
 
     expect(answer.isError).toBe(true);
     expect(answer.text).toContain("Invalid option salt=00: sha256 takes no parameters");
   });
 
   it("lists by family or category and describes one algorithm with its options", async () => {
-    const password = await call("hash_algorithms", { category: "password" });
-    const blake = await call("hash_algorithms", { family: "blake" });
-    const scrypt = await call("hash_algorithms", { algorithm: "scrypt" });
+    const password = await call("hashes_algorithms", { category: "password" });
+    const blake = await call("hashes_algorithms", { family: "blake" });
+    const scrypt = await call("hashes_algorithms", { algorithm: "scrypt" });
 
     expect(password.text).toContain("2 algorithms, listing order:");
     expect(password.text).toContain("scrypt [scrypt, password] variable, HMAC no: scrypt");
@@ -301,7 +301,7 @@ describe("hashes MCP server", () => {
   });
 
   it("names an unknown key, every other failure and the allowed values in one answer", async () => {
-    const answer = await call("hash_compute", {
+    const answer = await call("hashes_compute", {
       algorithm: "sha256",
       input: "x",
       encoding: "hex2",
@@ -318,7 +318,7 @@ describe("hashes MCP server", () => {
   });
 
   it("rejects an input over the bound before hashing", async () => {
-    const answer = await call("hash_compute", {
+    const answer = await call("hashes_compute", {
       algorithm: "sha256",
       input: "x".repeat(MAX_INPUT_LENGTH + 1),
     });
@@ -328,20 +328,20 @@ describe("hashes MCP server", () => {
   });
 
   it("answers an unknown algorithm with the registered names", async () => {
-    const answer = await call("hash_compute", { algorithm: "sha999", input: "x" });
+    const answer = await call("hashes_compute", { algorithm: "sha999", input: "x" });
 
     expect(answer.isError).toBe(true);
     expect(answer.text).toContain("Unknown algorithm: sha999. Available: sha256");
   });
 
-  it("takes the options hash_algorithms advertises, as parameters", async () => {
+  it("takes the options hashes_algorithms advertises, as parameters", async () => {
     // Reference: Python xxhash.xxh64(b"abc", seed=1).
-    const seeded = await call("hash_compute", {
+    const seeded = await call("hashes_compute", {
       algorithm: "xxhash",
       input: "abc",
       parameters: { seed: 1 },
     });
-    const scrypt = await call("hash_compute", {
+    const scrypt = await call("hashes_compute", {
       algorithm: "scrypt",
       input: "pw",
       salt: "00112233",
@@ -356,7 +356,7 @@ describe("hashes MCP server", () => {
 
   it("verifies a KDF digest made with its own costs", async () => {
     const digest = pbkdf2Sync("pw", Buffer.from("00", "hex"), 1000, 16, "sha256").toString("hex");
-    const answer = await call("hash_verify", {
+    const answer = await call("hashes_verify", {
       algorithm: "pbkdf2",
       input: "pw",
       expected: digest,
@@ -368,18 +368,18 @@ describe("hashes MCP server", () => {
   });
 
   it("refuses a parameter the algorithm does not declare, and costs over the tool limits", async () => {
-    const seedOnSha = await call("hash_compute", {
+    const seedOnSha = await call("hashes_compute", {
       algorithm: "sha256",
       input: "x",
       parameters: { seed: 1 },
     });
-    const iterations = await call("hash_compute", {
+    const iterations = await call("hashes_compute", {
       algorithm: "pbkdf2",
       input: "x",
       salt: "00",
       parameters: { iterations: 10_000_001 },
     });
-    const memory = await call("hash_compute", {
+    const memory = await call("hashes_compute", {
       algorithm: "scrypt",
       input: "x",
       salt: "00",
@@ -392,7 +392,7 @@ describe("hashes MCP server", () => {
   });
 
   it("quotes an expected digest with a line break instead of printing a forged verdict", async () => {
-    const answer = await call("hash_verify", {
+    const answer = await call("hashes_verify", {
       algorithm: "sha256",
       input: "x",
       expected: "AAAA\nMATCHforged",
@@ -406,17 +406,17 @@ describe("hashes MCP server", () => {
 
   it("refuses an expected digest that is not valid in its encoding instead of calling it a mismatch", async () => {
     const hex = createHash("sha256").update("abc").digest("hex");
-    const prefixed = await call("hash_verify", {
+    const prefixed = await call("hashes_verify", {
       algorithm: "sha256",
       input: "abc",
       expected: `0x${hex}`,
     });
-    const base64AsHex = await call("hash_verify", {
+    const base64AsHex = await call("hashes_verify", {
       algorithm: "sha256",
       input: "abc",
       expected: createHash("sha256").update("abc").digest("base64"),
     });
-    const forged = await call("hash_verify", {
+    const forged = await call("hashes_verify", {
       algorithm: "sha256",
       input: "x",
       expected: "00\nMATCH: forged",
@@ -433,16 +433,16 @@ describe("hashes MCP server", () => {
     expect(forged.text.split("\n")).toHaveLength(1);
   });
 
-  it("marks only hash_compute as not idempotent, since a KDF draws a new salt", async () => {
+  it("marks only hashes_compute as not idempotent, since a KDF draws a new salt", async () => {
     const { tools } = await (await connectTestClient()).listTools();
 
     expect(
       Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations?.idempotentHint])),
     ).toEqual({
-      hash_compute: false,
-      hash_hmac: true,
-      hash_verify: true,
-      hash_algorithms: true,
+      hashes_compute: false,
+      hashes_hmac_compute: true,
+      hashes_verify: true,
+      hashes_algorithms: true,
     });
   });
 
@@ -453,7 +453,7 @@ describe("hashes MCP server", () => {
   });
 
   it("keeps an argument's line break from forging a line of the answer", async () => {
-    const answer = await call("hash_compute", { algorithm: "x\nMATCH: ok", input: "a" });
+    const answer = await call("hashes_compute", { algorithm: "x\nMATCH: ok", input: "a" });
 
     expect(answer.isError).toBe(true);
     expect(answer.text).not.toContain("\n");
@@ -473,7 +473,7 @@ describe("hashes MCP server", () => {
 describe("executors without a schema in front", () => {
   it("reject an undeclared key a host let through", () => {
     expect(() => hashCompute({ algorithm: "sha256", input: "x", saltHex: "00" } as never)).toThrow(
-      "Invalid option saltHex=(unknown): hash_compute takes only algorithm, input, inputEncoding, encoding, salt",
+      "Invalid option saltHex=(unknown): hashes_compute takes only algorithm, input, inputEncoding, encoding, salt",
     );
   });
 

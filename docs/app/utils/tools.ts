@@ -10,12 +10,12 @@ import {
 } from "#tool-operations";
 
 /** The four agent tools. Same names over MCP, Pi, OMP and the AI SDK. */
-export const TOOLS = ["hash_compute", "hash_hmac", "hash_verify", "hash_algorithms"] as const;
+export const TOOLS = ["hashes_compute", "hashes_hmac_compute", "hashes_verify", "hashes_algorithms"] as const;
 
 export type ToolName = (typeof TOOLS)[number];
 
 /**
- * The text `hash_compute` hands a model, from the executor the tools run.
+ * The text `hashes_compute` hands a model, from the executor the tools run.
  *
  * @param {HashComputeParams} params - The tool arguments.
  * @returns {string} `content[0].text`.
@@ -25,7 +25,7 @@ export function computeText(params: HashComputeParams): string {
 }
 
 /**
- * The text `hash_hmac` hands a model.
+ * The text `hashes_hmac_compute` hands a model.
  *
  * @param {HashHmacParams} params - The tool arguments.
  * @returns {string} `content[0].text`.
@@ -35,7 +35,7 @@ export function hmacText(params: HashHmacParams): string {
 }
 
 /**
- * The text `hash_verify` hands a model, with the verdict.
+ * The text `hashes_verify` hands a model, with the verdict.
  *
  * @param {HashVerifyParams} params - The tool arguments.
  * @returns {{ text: string; match: boolean; digest: string }} `content[0].text` and the details it came from.
@@ -50,7 +50,7 @@ export function verifyAnswer(params: HashVerifyParams): {
 }
 
 /**
- * The text `hash_algorithms` hands a model: the listing, one family or category, or one algorithm.
+ * The text `hashes_algorithms` hands a model: the listing, one family or category, or one algorithm.
  *
  * @param {HashAlgorithmsParams} params - The tool arguments.
  * @returns {string} `content[0].text`.

@@ -15,7 +15,7 @@ const base64 = computed(() =>
 const lowered = computed(() => base64.value.toLowerCase());
 const upper = computed(() => props.sample.digest.toUpperCase());
 
-/** Both checks through the executor `hash_verify` runs, so the verdicts are the tool's own. */
+/** Both checks through the executor `hashes_verify` runs, so the verdicts are the tool's own. */
 const hex = computed(() =>
   verifyAnswer({ algorithm: slug.value, input: SAMPLE_INPUT, expected: upper.value }),
 );
@@ -49,7 +49,7 @@ const ticks = computed(() => {
 });
 const differing = computed(() => ticks.value.filter(Boolean).length);
 
-const title = computed(() => `hash_verify("${slug.value}", "${SAMPLE_INPUT}", base64)`);
+const title = computed(() => `hashes_verify("${slug.value}", "${SAMPLE_INPUT}", base64)`);
 const playground = computed(
   () =>
     `/playground?op=verify&algorithm=${slug.value}&input=${encodeURIComponent(SAMPLE_INPUT)}&expected=${encodeURIComponent(lowered.value)}&encoding=base64`,
@@ -70,7 +70,7 @@ const playground = computed(
     <header class="console-bar">
       <UTooltip :text="title">
         <span class="console-title verify-call" tabindex="0"
-          ><span class="console-tag">Call</span>hash_verify(<span class="tok-str"
+          ><span class="console-tag">Call</span>hashes_verify(<span class="tok-str"
             >"{{ slug }}"</span
           >, <span class="tok-str">"{{ SAMPLE_INPUT }}"</span>, …)</span
         >

@@ -7,7 +7,7 @@ const props = defineProps<{ sample: LandingSample }>();
 const emit = defineEmits<{ pause: [paused: boolean] }>();
 
 const text = computed(() => computeText({ algorithm: props.sample.entry.slug, input: SAMPLE_INPUT }));
-const title = computed(() => `hash_compute("${props.sample.entry.slug}", "${SAMPLE_INPUT}")`);
+const title = computed(() => `hashes_compute("${props.sample.entry.slug}", "${SAMPLE_INPUT}")`);
 
 /** The two lines of the tool text as rows: the digest, then what it is, so a model can check it later. */
 const rows = computed(() => {
@@ -16,7 +16,7 @@ const rows = computed(() => {
   return [
     { label: "digest", value: digest, accent: true },
     { label: "about", value: about },
-    { label: "hmac", value: info.hmac ? "hash_hmac takes a key" : "hash_hmac says no", dim: !info.hmac },
+    { label: "hmac", value: info.hmac ? "hashes_hmac_compute takes a key" : "hashes_hmac_compute says no", dim: !info.hmac },
   ];
 });
 </script>
@@ -35,7 +35,7 @@ const rows = computed(() => {
 
     <header class="console-bar">
       <span class="console-title"
-        ><span class="console-tag">Call</span>hash_compute(<Transition
+        ><span class="console-tag">Call</span>hashes_compute(<Transition
           name="hashes-roll"
           mode="out-in"
           ><span :key="sample.entry.slug" class="hashes-roll-slot tok-str"

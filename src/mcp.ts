@@ -32,10 +32,10 @@ interface ToolDefinition {
 
 /** Arguments reach an executor only after `Value.Check` passed against the tool's schema. */
 const tools: readonly ToolDefinition[] = [
-  { name: "hash_compute", execute: (args) => hashCompute(args as HashComputeParams) },
-  { name: "hash_hmac", execute: (args) => hashHmac(args as HashHmacParams) },
-  { name: "hash_verify", execute: (args) => hashVerify(args as HashVerifyParams) },
-  { name: "hash_algorithms", execute: (args) => hashAlgorithms(args as HashAlgorithmsParams) },
+  { name: "hashes_compute", execute: (args) => hashCompute(args as HashComputeParams) },
+  { name: "hashes_hmac_compute", execute: (args) => hashHmac(args as HashHmacParams) },
+  { name: "hashes_verify", execute: (args) => hashVerify(args as HashVerifyParams) },
+  { name: "hashes_algorithms", execute: (args) => hashAlgorithms(args as HashAlgorithmsParams) },
 ];
 
 /**
@@ -146,7 +146,7 @@ export function createMcpServer(): Server {
       description: TOOL_DESCRIPTIONS[tool.name],
       inputSchema: schemaOf(tool.name) as Tool["inputSchema"],
       // A KDF without a salt draws a new one each call, so computing is not idempotent.
-      annotations: { ...annotations, idempotentHint: tool.name !== "hash_compute" },
+      annotations: { ...annotations, idempotentHint: tool.name !== "hashes_compute" },
     })),
   }));
 

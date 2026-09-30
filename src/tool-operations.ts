@@ -59,9 +59,9 @@ export type ToolName = keyof typeof toolSchemas;
 
 /** Every argument each tool takes, pinned to the schemas by a test; anything else is rejected. */
 export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
-  hash_compute: ["algorithm", "input", "inputEncoding", "encoding", "salt", "parameters"],
-  hash_hmac: ["algorithm", "input", "inputEncoding", "key", "keyEncoding", "encoding"],
-  hash_verify: [
+  hashes_compute: ["algorithm", "input", "inputEncoding", "encoding", "salt", "parameters"],
+  hashes_hmac_compute: ["algorithm", "input", "inputEncoding", "key", "keyEncoding", "encoding"],
+  hashes_verify: [
     "algorithm",
     "input",
     "inputEncoding",
@@ -70,17 +70,17 @@ export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
     "salt",
     "parameters",
   ],
-  hash_algorithms: ["category", "family", "algorithm"],
+  hashes_algorithms: ["category", "family", "algorithm"],
 };
 
 /** A tool's arguments as its schema declares them, read-only down to nested objects. */
 type ReadonlyValue<V> = V extends object ? Readonly<V> : V;
 type Arguments<T> = { readonly [K in keyof T]: ReadonlyValue<T[K]> };
 
-export type HashComputeParams = Arguments<Static<typeof toolSchemas.hash_compute>>;
-export type HashHmacParams = Arguments<Static<typeof toolSchemas.hash_hmac>>;
-export type HashVerifyParams = Arguments<Static<typeof toolSchemas.hash_verify>>;
-export type HashAlgorithmsParams = Arguments<Static<typeof toolSchemas.hash_algorithms>>;
+export type HashComputeParams = Arguments<Static<typeof toolSchemas.hashes_compute>>;
+export type HashHmacParams = Arguments<Static<typeof toolSchemas.hashes_hmac_compute>>;
+export type HashVerifyParams = Arguments<Static<typeof toolSchemas.hashes_verify>>;
+export type HashAlgorithmsParams = Arguments<Static<typeof toolSchemas.hashes_algorithms>>;
 
 export interface DigestDetails {
   algorithm: string;
@@ -359,7 +359,7 @@ function digestText(details: DigestDetails): string {
  * @returns {ToolResult<DigestDetails>} The digest.
  */
 export function hashCompute(params: HashComputeParams): ToolResult<DigestDetails> {
-  assertArguments("hash_compute", params);
+  assertArguments("hashes_compute", params);
   const algorithm = algorithmArgument(params.algorithm);
   const input = inputArgument(params.input, params.inputEncoding);
   const encoding = encodingArgument(params.encoding);
@@ -376,7 +376,7 @@ export function hashCompute(params: HashComputeParams): ToolResult<DigestDetails
  * @returns {ToolResult<DigestDetails>} The HMAC.
  */
 export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDetails> {
-  assertArguments("hash_hmac", params);
+  assertArguments("hashes_hmac_compute", params);
   const algorithm = algorithmArgument(params.algorithm);
   const input = inputArgument(params.input, params.inputEncoding);
   const key = keyArgument(params.key, params.keyEncoding);
@@ -398,7 +398,7 @@ export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDet
  * @returns {ToolResult<VerifyDetails>} Whether the digests match, with both of them.
  */
 export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> {
-  assertArguments("hash_verify", params);
+  assertArguments("hashes_verify", params);
   const algorithm = algorithmArgument(params.algorithm);
   const input = inputArgument(params.input, params.inputEncoding);
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
@@ -457,7 +457,7 @@ function infoText(info: AlgorithmInfo): string {
 export function hashAlgorithms(
   params: Readonly<HashAlgorithmsParams>,
 ): ToolResult<AlgorithmsDetails> {
-  assertArguments("hash_algorithms", params);
+  assertArguments("hashes_algorithms", params);
   if (params.algorithm !== undefined) {
     const info = algorithmArgument(params.algorithm).info();
     return { content: [{ type: "text", text: infoText(info) }], details: { algorithms: [info] } };
@@ -471,7 +471,7 @@ export function hashAlgorithms(
     `${infos.length} algorithms, listing order:`,
     ...infos.map(listingLine),
     "",
-    "Call hash_algorithms with an algorithm name to see its options.",
+    "Call hashes_algorithms with an algorithm name to see its options.",
   ];
   return { content: [{ type: "text", text: lines.join("\n") }], details: { algorithms: infos } };
 }

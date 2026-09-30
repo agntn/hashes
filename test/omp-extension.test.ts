@@ -46,15 +46,15 @@ function renderedText(component: unknown): string {
 }
 
 const sharedSchemas = {
-  hash_compute: hashComputeSchema,
-  hash_hmac: hashHmacSchema,
-  hash_verify: hashVerifySchema,
-  hash_algorithms: hashAlgorithmsSchema,
+  hashes_compute: hashComputeSchema,
+  hashes_hmac_compute: hashHmacSchema,
+  hashes_verify: hashVerifySchema,
+  hashes_algorithms: hashAlgorithmsSchema,
 };
 
 /** Arguments that probe each restated bound: the shared schema decides, OMP has to agree. */
 const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
-  hash_compute: [
+  hashes_compute: [
     { algorithm: "sha256", input: "x" },
     { algorithm: "", input: "x" },
     { algorithm: "a".repeat(33), input: "x" },
@@ -74,7 +74,7 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     // No probe over MAX_PARAMETERS: omptype ignores maxProperties, so the shared executor enforces it.
     { algorithm: "sha256" },
   ],
-  hash_hmac: [
+  hashes_hmac_compute: [
     { algorithm: "sha256", input: "x", key: "" },
     { algorithm: "sha256", input: "x" },
     { algorithm: "sha256", input: "x", key: "k".repeat(10_001) },
@@ -84,7 +84,7 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     { algorithm: "sha256", input: "x", key: "aa", keyEncoding: "hex" },
     { algorithm: "sha256", input: "x", key: "aa", keyEncoding: "base64url" },
   ],
-  hash_verify: [
+  hashes_verify: [
     { algorithm: "sha256", input: "x", expected: "ab" },
     { algorithm: "sha256", input: "x", expected: "" },
     { algorithm: "sha256", input: "x", expected: "a".repeat(1025) },
@@ -100,7 +100,7 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     },
     { algorithm: "pbkdf2", input: "x", expected: "ab", parameters: { iterations: "x".repeat(65) } },
   ],
-  hash_algorithms: [
+  hashes_algorithms: [
     {},
     { category: "password" },
     { category: "toString" },
@@ -162,7 +162,7 @@ describe("omp hashes extension", () => {
   );
 
   it("executes against the library and returns structured details", async () => {
-    const result = await registerTool("hash_verify").execute(
+    const result = await registerTool("hashes_verify").execute(
       "call-1",
       { algorithm: "md5", input: "hello", expected: "5D41402ABC4B2A76B9719D911017C592" },
       undefined,
@@ -177,7 +177,7 @@ describe("omp hashes extension", () => {
 
   it("keeps the HMAC key off the status line and sanitizes the input", () => {
     const text = renderedText(
-      registerTool("hash_hmac").renderCall?.(
+      registerTool("hashes_hmac_compute").renderCall?.(
         { algorithm: "sha256", input: "\u001B]0;evil\u0007msg\nnext", key: "hunter2" },
         { expanded: false, isPartial: false },
         theme,
@@ -197,7 +197,7 @@ describe("omp hashes extension", () => {
     "draws the call status with the host theme (partial=%s, frame=%s)",
     (isPartial, spinnerFrame, icon) => {
       const text = renderedText(
-        registerTool("hash_algorithms").renderCall?.(
+        registerTool("hashes_algorithms").renderCall?.(
           { category: "password" },
           { expanded: false, isPartial, spinnerFrame },
           theme,
@@ -210,21 +210,21 @@ describe("omp hashes extension", () => {
 
   it("summarizes a digest, a verdict and a listing, and nothing for an error", () => {
     const digest = renderedText(
-      registerTool("hash_compute").renderResult?.(
+      registerTool("hashes_compute").renderResult?.(
         { content: [], details: { algorithm: "sha256", digest: "ab\u001B[31mcd" } },
         { expanded: false, isPartial: false },
         theme,
       ),
     );
     const verdict = renderedText(
-      registerTool("hash_verify").renderResult?.(
+      registerTool("hashes_verify").renderResult?.(
         { content: [], details: { match: false } },
         { expanded: false, isPartial: false },
         theme,
       ),
     );
     const failed = renderedText(
-      registerTool("hash_algorithms").renderResult?.(
+      registerTool("hashes_algorithms").renderResult?.(
         { content: [], details: { algorithms: [1, 2] }, isError: true },
         { expanded: false, isPartial: false },
         theme,
