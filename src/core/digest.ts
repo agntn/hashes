@@ -1,5 +1,13 @@
 import { InvalidOptionError, normalizeError } from "./errors.ts";
-import type { AlgorithmInfo, HashInput, HashOption, HashResult, OutputEncoding } from "./types.ts";
+import type {
+  AlgorithmInfo,
+  HashChain,
+  HashInput,
+  HashOption,
+  HashOptions,
+  HashResult,
+  OutputEncoding,
+} from "./types.ts";
 
 /** The `encoding` option every algorithm takes. */
 export const ENCODING_OPTION: HashOption = {
@@ -25,6 +33,54 @@ export const SALT_OPTION: HashOption = {
   required: false,
   description: "Salt in hex; 32 random bytes when omitted",
 };
+
+/** The `rounds` option of a fixed-length digest. */
+export const ROUNDS_OPTION: HashOption = {
+  name: "rounds",
+  type: "number",
+  required: false,
+  default: 1,
+  description: "How many times to hash, each round hashing the previous digest",
+};
+
+/** The `chain` option of a fixed-length digest. */
+export const CHAIN_OPTION: HashOption = {
+  name: "chain",
+  type: "string",
+  required: false,
+  default: "bytes",
+  description: "What each round after the first hashes: bytes of the digest, or its lowercase hex",
+};
+
+/**
+ * Reads the rounds and chain options with their defaults.
+ *
+ * @param options - The caller's options.
+ * @returns {{ rounds: number, chain: HashChain }} How many rounds, and what each next one hashes.
+ */
+export function roundOptions(options?: Readonly<HashOptions>): {
+  rounds: number;
+  chain: HashChain;
+} {
+  const { rounds = 1, chain = "bytes" } = options ?? {};
+  assertPositiveIntegers({ rounds });
+  if (chain !== "bytes" && chain !== "hex") {
+    throw new InvalidOptionError("chain", chain, "use bytes or hex");
+  }
+  return { rounds, chain };
+}
+
+/**
+ * Refuses more than one round where rounds do not apply, instead of computing one quietly.
+ *
+ * @param options - The caller's options.
+ * @param reason - Why one round is all there is, for the error.
+ */
+export function assertOneRound(options: Readonly<HashOptions> | undefined, reason: string): void {
+  if (options?.rounds !== undefined && options.rounds !== 1) {
+    throw new InvalidOptionError("rounds", options.rounds, reason);
+  }
+}
 
 /**
  * Whether the algorithm's digest depends on a salt, read from its declared options.

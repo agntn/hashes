@@ -50,6 +50,8 @@ describe("hashes CLI", () => {
 
     expect(help.stdout).toContain("USAGE hashes hash|hmac|verify|algorithms|info|mcp");
     expect(usage.stdout).toContain("ALGORITHM");
+    expect(usage.stdout).toContain("previous digest (all but scrypt, pbkdf2)");
+    expect(usage.stdout).toContain("Seed value for xxHash (xxhash)");
     for (const output of [help, usage]) {
       expect(output.stdout + output.stderr).not.toContain("\u001B");
     }
@@ -175,10 +177,14 @@ describe("hashes CLI", () => {
     expect(scrypt.stdout).toBe(
       `${scryptSync("pw", Buffer.from("00112233", "hex"), 16, { N: 1024, r: 1, p: 1 }).toString("hex")}\n`,
     );
+    const twice = createHash("sha256").update(createHash("sha256").update("abc").digest("hex"));
+    expect(run(["sha256", "abc", "--rounds", "2", "--chain", "hex"]).stdout).toBe(
+      `${twice.digest("hex")}\n`,
+    );
     expect(run(["sha256", "abc", "--salt", "deadbeef"])).toMatchObject({
       code: 1,
       stdout: "",
-      stderr: "Invalid option salt=deadbeef: sha256 takes no parameters\n",
+      stderr: "Invalid option salt=deadbeef: sha256 takes rounds, chain\n",
     });
   });
 

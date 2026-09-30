@@ -20,9 +20,9 @@ import {
   FAMILIES,
   SAMPLE_OPTIONS,
   algorithmEntry,
+  callOptions,
   categoryLabel,
   digestBits,
-  ownOptions,
 } from "../../utils/algorithms";
 import { optionFlags, shellArg } from "../../utils/format";
 import { jsonTokens, shellTokens } from "../../utils/tokens";
@@ -78,7 +78,7 @@ const entry = computed(() => algorithmEntry(algorithmName.value) ?? ALGORITHMS[0
 const takesSalt = computed(() => entry.value.info.options.some((option) => option.name === "salt"));
 /** Options besides encoding, key and salt: the `parameters` a tool call takes. */
 const parameterFields = computed(() =>
-  ownOptions(entry.value.info).filter((option) => option.name !== "salt"),
+  callOptions(entry.value.info).filter((option) => option.name !== "salt"),
 );
 const usesParameters = computed(() => operation.value === "hash" || operation.value === "verify");
 
@@ -367,7 +367,7 @@ function readQuery(query: Record<string, unknown>) {
   const known = algorithmEntry(name);
   if (known && op !== "algorithms") {
     selectAlgorithm(name);
-    for (const field of ownOptions(known.info)) {
+    for (const field of callOptions(known.info)) {
       const value = query[field.name];
       if (typeof value !== "string") continue;
       if (field.name === "salt") salt.value = value;

@@ -1,6 +1,18 @@
-import { ENCODING_OPTION, encodeDigest, guarded, toBytes } from "./digest.ts";
+import {
+  CHAIN_OPTION,
+  ENCODING_OPTION,
+  ROUNDS_OPTION,
+  assertOneRound,
+  encodeDigest,
+  guarded,
+  roundOptions,
+  toBytes,
+} from "./digest.ts";
 import { Hash, type HashAbout } from "./hash.ts";
 import type { AlgorithmInfo, HashInput, HashOption, HashOptions, HashResult } from "./types.ts";
+
+/** The options every fixed-length digest takes: how many rounds, and what each next one hashes. */
+export const ROUND_OPTIONS: readonly HashOption[] = [ROUNDS_OPTION, CHAIN_OPTION];
 
 /** Base class for a fixed-length digest, with no HMAC mode unless a subclass adds one. */
 export abstract class FixedHash<Options extends HashOptions = HashOptions> extends Hash {
@@ -49,30 +61,37 @@ export abstract class FixedHash<Options extends HashOptions = HashOptions> exten
       name: this.key,
       ...this.about,
       hmac: false,
-      options: [ENCODING_OPTION, ...this.options],
+      options: [ENCODING_OPTION, ...this.options, ...ROUND_OPTIONS],
     };
   }
 
   /**
-   * Hashes the input, or computes its HMAC when a key is given.
+   * Hashes the input `rounds` times, or computes its HMAC when a key is given.
    *
    * @param input - Text or bytes.
-   * @param options - Encoding, HMAC key and the algorithm's own options.
+   * @param options - Encoding, HMAC key, rounds and the algorithm's own options.
    * @returns {HashResult} The digest.
    */
   hash(input: HashInput, options?: Readonly<Options>): HashResult {
     return guarded(this.key, () => {
       const encoding = options?.encoding ?? "hex";
+      const { rounds, chain } = roundOptions(options);
       if (options?.key !== undefined) {
+        assertOneRound(options, "HMAC runs one round");
         const tag = this.hmac(toBytes(options.key), toBytes(input));
         return encodeDigest(tag, this.key, "hmac", encoding, { hmac: true });
       }
+      let digest = this.digest(toBytes(input), options);
+      for (let round = 1; round < rounds; round++) {
+        digest = this.digest(chain === "hex" ? toBytes(digest.toHex()) : digest, options);
+      }
+      const reported = this.reported(options);
       return encodeDigest(
-        this.digest(toBytes(input), options),
+        digest,
         this.key,
         "hash",
         encoding,
-        this.reported(options),
+        rounds > 1 ? { ...reported, rounds, chain } : reported,
       );
     });
   }
