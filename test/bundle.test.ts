@@ -1,7 +1,8 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { globSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
@@ -51,8 +52,8 @@ afterAll(() => {
 
 /**
  * Bundles a consumer of one export from the packed package the way Wrangler does, with esbuild.
- * All of `src` is one chunk in the output, so only the module-level code esbuild can prove pure drops
- * out of it.
+ * The root entry loads the registry's chunk, so only the module-level code esbuild can prove pure
+ * drops out of it.
  *
  * @param name - The export to import.
  * @returns {Promise<string>} The minified bundle.
@@ -91,6 +92,42 @@ describe("one byte function bundled with esbuild", () => {
     // PBKDF2's digest list and the tool contract's argument descriptions.
     expect(["sha3-512", "case-insensitive"].filter((text) => code.includes(text))).toEqual([]);
     expect(code.length).toBeLessThan(limit);
+  });
+});
+
+describe("one byte function subpath in plain Node", () => {
+  it.each([
+    ["sha1", []],
+    ["md5", []],
+    ["sha2", []],
+    ["ripemd160", []],
+    ["crc", []],
+    ["hmac", []],
+    ["keccak", ["_chunks/keccak.mjs"]],
+    ["blake2b", ["_chunks/blake2b.mjs"]],
+    ["blake256", ["_chunks/blake256.mjs"]],
+  ])("%s loads the digests chunk and nothing of the registry", (name, own) => {
+    const script = `
+      import { registerHooks } from "node:module";
+      const loaded = [];
+      registerHooks({
+        load(url, context, next) {
+          if (url.startsWith(${JSON.stringify(pathToFileURL(packed).href + "/")})) {
+            loaded.push(url.slice(${JSON.stringify(pathToFileURL(packed).href.length + 1)}));
+          }
+          return next(url, context);
+        },
+      });
+      await import(${JSON.stringify(pathToFileURL(join(packed, `${name}.mjs`)).href)});
+      console.log(JSON.stringify(loaded));
+    `;
+    const output = execFileSync(process.execPath, ["--input-type=module", "-e", script], {
+      encoding: "utf8",
+    });
+
+    expect((JSON.parse(output) as string[]).toSorted()).toEqual(
+      [`${name}.mjs`, "_chunks/digests.mjs", ...own].toSorted(),
+    );
   });
 });
 
