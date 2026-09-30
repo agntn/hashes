@@ -50,36 +50,4 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
   },
-  /**
-   * One bundle, five inputs: the entries share their chunks and therefore any module-level state.
-   * Separate bundles would each carry their own registry, so an algorithm registered through the
-   * package entry would be invisible to the MCP server. Chunks keep stable names under `_chunks`,
-   * as obuild wrote them.
-   */
-  pack: {
-    entry: {
-      index: "src/index.ts",
-      cli: "src/cli.ts",
-      ai: "src/ai.ts",
-      mcp: "src/mcp.ts",
-      "tool-operations": "src/tool-operations.ts",
-    },
-    dts: true,
-    format: "esm",
-    platform: "node",
-    sourcemap: true,
-    hash: false,
-    outputOptions: {
-      chunkFileNames: "_chunks/[name].mjs",
-      /* JSDoc ships once, in the declarations; the runtime files keep only legal and annotation comments. */
-      comments: { jsdoc: false },
-    },
-    /** Pi supplies typebox as an optional peer; the CLI and MCP server carry their own copy. */
-    deps: {
-      onlyBundle: [/^typebox(?:\/|$)/u],
-      alwaysBundle: [/^typebox(?:\/|$)/u],
-    },
-    /** Inlined typebox has no license header of its own, so its MIT notice ships beside it. */
-    copy: [{ from: "node_modules/typebox/license", rename: "typebox.LICENSE" }],
-  },
 });
