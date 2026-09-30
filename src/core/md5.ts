@@ -80,3 +80,13 @@ export class Md5Hasher extends MerkleDamgard {
     s[3] = (s[3]! + d) | 0;
   }
 }
+
+/**
+ * MD5 of the input.
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 16 bytes.
+ */
+export function md5(data: Uint8Array): Uint8Array {
+  return new Md5Hasher().update(data).digest();
+}

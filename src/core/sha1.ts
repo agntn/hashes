@@ -85,3 +85,13 @@ export class Sha0Hasher extends Sha1Hasher {
     for (let i = 16; i < 80; i++) w[i] = w[i - 3]! ^ w[i - 8]! ^ w[i - 14]! ^ w[i - 16]!;
   }
 }
+
+/**
+ * SHA-1 of the input.
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 20 bytes.
+ */
+export function sha1(data: Uint8Array): Uint8Array {
+  return new Sha1Hasher().update(data).digest();
+}

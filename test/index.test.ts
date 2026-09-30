@@ -32,11 +32,13 @@ import {
   hashCategories,
   hmac,
   keccak256,
+  md5,
   normalizeError,
   pbkdf2,
   register,
   resolveAlgorithm,
   ripemd160,
+  sha1,
   sha256,
   sha3_256,
   sha512,
@@ -465,6 +467,8 @@ describe("byte functions", () => {
 
   it("give the registry's digest for every length", () => {
     const functions = {
+      md5,
+      sha1,
       sha256,
       sha512,
       ripemd160,
@@ -487,6 +491,8 @@ describe("byte functions", () => {
 
   it("match Node for the digests OpenSSL and zlib compute", () => {
     for (const bytes of inputs) {
+      expect(md5(bytes).toHex()).toBe(createHash("md5").update(bytes).digest("hex"));
+      expect(sha1(bytes).toHex()).toBe(createHash("sha1").update(bytes).digest("hex"));
       expect(sha256(bytes).toHex()).toBe(createHash("sha256").update(bytes).digest("hex"));
       expect(sha512(bytes).toHex()).toBe(createHash("sha512").update(bytes).digest("hex"));
       expect(ripemd160(bytes).toHex()).toBe(createHash("ripemd160").update(bytes).digest("hex"));
