@@ -284,7 +284,7 @@ describe("hashes MCP server", () => {
     const answer = await call("hashes_compute", { algorithm: "sha256", input: "x", salt: "00" });
 
     expect(answer.isError).toBe(true);
-    expect(answer.text).toContain("Invalid option salt=00: sha256 takes no parameters");
+    expect(answer.text).toContain("Invalid option salt=00: sha256 takes rounds, chain");
   });
 
   it("lists by family or category and describes one algorithm with its options", async () => {
@@ -386,11 +386,38 @@ describe("hashes MCP server", () => {
       parameters: { N: 1_048_576, r: 8 },
     });
 
-    expect(seedOnSha.text).toContain("Invalid option seed=1: sha256 takes no parameters");
+    expect(seedOnSha.text).toContain("Invalid option seed=1: sha256 takes rounds, chain");
     expect(iterations.text).toContain("must be 1 to 10000000 in a tool call");
     expect(memory.text).toContain(
       "needs 1073741824 bytes of blocks, over 268435456 in a tool call",
     );
+  });
+
+  it("hashes many rounds in one call and names the rounds and chain to repeat it", async () => {
+    let expected = createHash("sha512").update("answer").digest("hex");
+    for (let round = 1; round < 11_513; round++) {
+      expected = createHash("sha512").update(expected).digest("hex");
+    }
+    const answer = await call("hashes_compute", {
+      algorithm: "sha512",
+      input: "answer",
+      parameters: { rounds: 11_513, chain: "hex" },
+    });
+    const verified = await call("hashes_verify", {
+      algorithm: "sha512",
+      input: "answer",
+      expected,
+      parameters: { rounds: 11_513, chain: "hex" },
+    });
+    const tooMany = await call("hashes_compute", {
+      algorithm: "sha256",
+      input: "x",
+      parameters: { rounds: 1_000_001 },
+    });
+
+    expect(answer.text).toBe(`${expected}\nsha512, hex, 64 bytes, rounds 11513, chain hex`);
+    expect(verified.text).toContain("MATCH");
+    expect(tooMany.text).toContain("rounds=1000001: must be 1 to 1000000 in a tool call");
   });
 
   it("runs scrypt at brainwallet.io's cost, whose blocks fill the limit exactly", async () => {

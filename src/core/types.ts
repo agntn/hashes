@@ -20,12 +20,19 @@ export interface HashResult {
   options: Record<string, unknown>;
 }
 
+/** What each round after the first hashes: the previous digest's bytes, or its lowercase hex. */
+export type HashChain = "bytes" | "hex";
+
 /** Options for hash operations. */
 export interface HashOptions {
   /** Output encoding. Default: `hex`. */
   encoding?: OutputEncoding;
   /** HMAC key; enables HMAC mode when set. */
   key?: HashInput;
+  /** Fixed-length digests only: how many times to hash. Default: 1. */
+  rounds?: number;
+  /** Fixed-length digests only: what the next round hashes. Default: `bytes`. */
+  chain?: HashChain;
 }
 
 /** What an algorithm is fit for, whatever family it comes from. */

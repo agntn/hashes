@@ -1,4 +1,5 @@
 import {
+  assertOneRound,
   ENCODING_OPTION,
   assertPositiveIntegers,
   SALT_OPTION,
@@ -120,6 +121,7 @@ export class Pbkdf2 extends Hash {
   hash(input: HashInput, options?: Readonly<Pbkdf2Options>): HashResult {
     return guarded(this.key, () => {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
+      assertOneRound(options, `${this.key} sets its cost with its own parameters`);
       const { iterations, digest, keyLength } = parameters(options);
       const salt = resolveSalt(options);
       const hash = new HASHES[digest]!();

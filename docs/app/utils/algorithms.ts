@@ -158,14 +158,26 @@ export function registryPosition(slug: string): number {
 }
 
 /**
- * The options an algorithm takes besides the output encoding and the HMAC key, which every
- * digest shares.
+ * The options a tool call passes as `salt` or `parameters`: all but encoding and key.
+ *
+ * @param {AlgorithmInfo} info - The algorithm's metadata.
+ * @returns {AlgorithmInfo["options"]} Salt, seed, costs and rounds, in declared order.
+ */
+export function callOptions(info: AlgorithmInfo): AlgorithmInfo["options"] {
+  return info.options.filter((option) => option.name !== "encoding" && option.name !== "key");
+}
+
+/** Options every fixed-length digest takes, so they tell no algorithm apart from another. */
+const SHARED_OPTIONS = new Set(["rounds", "chain"]);
+
+/**
+ * The options that set an algorithm apart, without the rounds every fixed-length digest takes.
  *
  * @param {AlgorithmInfo} info - The algorithm's metadata.
  * @returns {AlgorithmInfo["options"]} Salt, seed and cost parameters, in declared order.
  */
 export function ownOptions(info: AlgorithmInfo): AlgorithmInfo["options"] {
-  return info.options.filter((option) => option.name !== "encoding" && option.name !== "key");
+  return callOptions(info).filter((option) => !SHARED_OPTIONS.has(option.name));
 }
 
 /**

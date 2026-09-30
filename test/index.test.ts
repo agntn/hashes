@@ -43,6 +43,7 @@ import {
   sha3_256,
   sha512,
   version,
+  type HashOptions,
   type Pbkdf2Options,
   type ScryptOptions,
   type XxhashOptions,
@@ -729,6 +730,85 @@ describe("byte function subpaths", () => {
       for (const key of expected) expect(module[key]).toBe(root[key]);
     },
   );
+});
+
+describe("rounds", () => {
+  /* Node's digest looped as many rounds, each over the last digest's bytes or its hex. */
+  function nodeRounds(name: string, input: string, rounds: number, chain: "bytes" | "hex") {
+    let digest = createHash(name).update(input).digest();
+    for (let round = 1; round < rounds; round++) {
+      digest = createHash(name)
+        .update(chain === "hex" ? digest.toString("hex") : digest)
+        .digest();
+    }
+    return digest.toString("hex");
+  }
+
+  it("matches Node looping over the bytes or the hex of each digest", () => {
+    for (const [name, node] of [
+      ["sha256", "sha256"],
+      ["sha512", "sha512"],
+      ["sha3-256", "sha3-256"],
+      ["md5", "md5"],
+      ["ripemd160", "ripemd160"],
+    ] as const) {
+      for (const chain of ["bytes", "hex"] as const) {
+        expect(create(name).hash("abc", { rounds: 1000, chain }).digest).toBe(
+          nodeRounds(node, "abc", 1000, chain),
+        );
+      }
+    }
+  });
+
+  it("chains bytes by default and reports rounds and chain only past one round", () => {
+    const sha256 = create("sha256");
+    expect(sha256.hash("abc", { rounds: 2 }).digest).toBe(nodeRounds("sha256", "abc", 2, "bytes"));
+    expect(sha256.hash("abc", { rounds: 2 }).options).toEqual({
+      encoding: "hex",
+      rounds: 2,
+      chain: "bytes",
+    });
+    expect(sha256.hash("abc", { rounds: 1, chain: "hex" })).toEqual(sha256.hash("abc"));
+    expect(create("xxhash").hash("abc", { rounds: 2, seed: 1 } as XxhashOptions).options).toEqual({
+      encoding: "hex",
+      seed: 1,
+      rounds: 2,
+      chain: "bytes",
+    });
+  });
+
+  it("is an option of every fixed-length digest and of no KDF", () => {
+    for (const name of builtinAlgorithms) {
+      const names = create(name)
+        .info()
+        .options.map((option) => option.name);
+      const kdf = name === "scrypt" || name === "pbkdf2";
+      expect(names.includes("rounds") && names.includes("chain"), name).toBe(!kdf);
+    }
+  });
+
+  it("refuses rounds that are not a positive integer and an unknown chain", () => {
+    const sha256 = create("sha256");
+    const loose = (value: object) => value as HashOptions;
+    for (const rounds of [0, -1, 1.5, Number.NaN, 2 ** 31, "3"]) {
+      expect(() => sha256.hash("abc", loose({ rounds }))).toThrow(InvalidOptionError);
+    }
+    expect(() => sha256.hash("abc", loose({ chain: "base64" }))).toThrow(
+      "Invalid option chain=base64: use bytes or hex",
+    );
+  });
+
+  it("refuses rounds for HMAC and the KDFs instead of running one", () => {
+    expect(() => create("sha256").hash("abc", { key: "k", rounds: 2 })).toThrow(
+      "Invalid option rounds=2: HMAC runs one round",
+    );
+    expect(() => create("pbkdf2").hash("abc", { salt: "00", rounds: 2 } as Pbkdf2Options)).toThrow(
+      "pbkdf2 sets its cost with its own parameters",
+    );
+    expect(() => create("scrypt").hash("abc", { salt: "00", rounds: 2 } as ScryptOptions)).toThrow(
+      "scrypt sets its cost with its own parameters",
+    );
+  });
 });
 
 describe("key derivation", () => {

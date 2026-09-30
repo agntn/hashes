@@ -26,6 +26,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - ⚡ **Plain TypeScript.** Every algorithm is computed right here. The library imports nothing from `node:*`, and there's no hashing dependency at all.
 - 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too. Got a public key in hex? `--input-encoding hex` hashes its bytes, not the letters.
 - 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
+- 🔁 **Ten thousand rounds, one call.** `--rounds 10000 --chain hex` hashes each digest again. Bytes or hex in between? Puzzles use both, so you pick.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share four tools and the code behind them.
 - 🧩 **Bring your own.** Extend `FixedHash`, or `BlockHash` if you want HMAC too, and `register()` the class.
 
@@ -98,6 +99,7 @@ import { create, resolveAlgorithm, digestMatches } from "@agntn/hashes";
 
 create("sha256").hash("abc").digest; // "ba7816bf8f01cfea..."
 create("sha256").hash("message", { key: "secret" }).operation; // "hmac"
+create("sha256").hash("abc", { rounds: 2 }).digest; // "4f8b42c22dd3729b...", hash256 by another name
 
 const blake3 = resolveAlgorithm("BLAKE3");
 blake3.hash(new Uint8Array([1, 2, 3]), { encoding: "base64" });

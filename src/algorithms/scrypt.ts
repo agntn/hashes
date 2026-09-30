@@ -1,4 +1,5 @@
 import {
+  assertOneRound,
   ENCODING_OPTION,
   assertPositiveIntegers,
   SALT_OPTION,
@@ -109,6 +110,7 @@ export class Scrypt extends Hash {
   hash(input: HashInput, options?: Readonly<ScryptOptions>): HashResult {
     return guarded(this.key, () => {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
+      assertOneRound(options, `${this.key} sets its cost with its own parameters`);
       const { N, r, p, keyLength } = costParameters(options);
       const salt = resolveSalt(options);
       const raw = scrypt(toBytes(input), salt, N, r, p, keyLength);

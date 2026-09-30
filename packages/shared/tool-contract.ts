@@ -28,6 +28,7 @@ export const PARAMETER_LIMITS: Readonly<Record<string, number>> = {
   p: 16,
   iterations: 10_000_000,
   keyLength: 1_024,
+  rounds: 1_000_000,
 };
 /** Largest block table a scrypt call may fill, 128 * r * N bytes. */
 export const MAX_SCRYPT_MEMORY = 256 * 1024 * 1024;
@@ -90,7 +91,7 @@ function parameterDescriptions() {
     verifySalt:
       "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
     parameters:
-      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
+      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but scrypt and pbkdf2, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
     category: "Category to list. Omit to list every category",
     family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
     describe: "Registered algorithm to describe with its options. Omit to list",

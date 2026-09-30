@@ -63,9 +63,21 @@ function builtinParameterArgs(): Record<string, StringArg> {
   return Object.fromEntries(
     [...flags].map(([name, flag]) => [
       name,
-      { type: "string", description: `${flag.description} (${flag.algorithms.join(", ")})` },
+      { type: "string", description: `${flag.description} (${takenBy(flag.algorithms)})` },
     ]),
   );
+}
+
+/**
+ * Names the algorithms that take a flag, or the ones that don't when those are fewer.
+ *
+ * @param algorithms - The algorithms that declare the option.
+ * @returns {string} The shorter list.
+ */
+function takenBy(algorithms: readonly string[]): string {
+  const others = builtinAlgorithms.filter((name) => !algorithms.includes(name));
+  if (others.length === 0) return "all";
+  return others.length < algorithms.length ? `all but ${others.join(", ")}` : algorithms.join(", ");
 }
 
 /** The parameter flags of `hash` and `verify`. */

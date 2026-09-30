@@ -1,5 +1,5 @@
 import { ENCODING_OPTION, KEY_OPTION } from "./digest.ts";
-import { FixedHash } from "./fixed-hash.ts";
+import { FixedHash, ROUND_OPTIONS } from "./fixed-hash.ts";
 import type { Hasher } from "./hasher.ts";
 import { hmac } from "./hmac.ts";
 import type { AlgorithmInfo } from "./types.ts";
@@ -43,7 +43,7 @@ export abstract class BlockHash extends FixedHash {
     return {
       ...super.info(),
       hmac: true,
-      options: [ENCODING_OPTION, KEY_OPTION, ...this.options],
+      options: [ENCODING_OPTION, KEY_OPTION, ...this.options, ...ROUND_OPTIONS],
     };
   }
 }
