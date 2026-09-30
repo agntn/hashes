@@ -1,4 +1,4 @@
-/** HMAC (RFC 2104) over any `Hasher`, and PBKDF2 (RFC 8018) over HMAC. */
+/** HMAC (RFC 2104) over any `Hasher`, and PBKDF2 (RFC 8018) and HKDF (RFC 5869) over HMAC. */
 import { InvalidOptionError } from "./errors.ts";
 import { type Hasher, assertBytes } from "./hasher.ts";
 
@@ -93,4 +93,76 @@ export function pbkdf2(
     out.set(t.subarray(0, Math.min(length, keyLength - offset)), offset);
   }
   return out;
+}
+
+/**
+ * Runs HKDF's extract step. An empty salt equals the RFC's zero salt, as HMAC pads the key.
+ *
+ * @param create - Creates a fresh hasher of the underlying hash.
+ * @param salt - The salt, empty for none.
+ * @param ikm - The input key material.
+ * @returns {Uint8Array} The pseudorandom key, as long as the hash's digest.
+ */
+export function hkdfExtract(create: () => Hasher, salt: Uint8Array, ikm: Uint8Array): Uint8Array {
+  assertBytes(salt, "salt");
+  assertBytes(ikm, "ikm");
+  return hmac(create, salt, ikm);
+}
+
+/**
+ * Runs the expand step of HKDF, which chains HMAC blocks keyed with the pseudorandom key.
+ *
+ * @param create - Creates a fresh hasher of the underlying hash.
+ * @param prk - The pseudorandom key, usually from `hkdfExtract`.
+ * @param info - Context that binds the output to its use, empty for none.
+ * @param length - Output bytes, at most 255 digests.
+ * @returns {Uint8Array} The output key material.
+ */
+export function hkdfExpand(
+  create: () => Hasher,
+  prk: Uint8Array,
+  info: Uint8Array,
+  length: number,
+): Uint8Array {
+  assertBytes(prk, "prk");
+  assertBytes(info, "info");
+  const keyed = keyHmac(create, prk);
+  const hashLength = keyed.inner.outputLength;
+  if (!Number.isSafeInteger(length) || length < 1 || length > 255 * hashLength) {
+    throw new InvalidOptionError("keyLength", length, `must be 1 to ${255 * hashLength} bytes`);
+  }
+  const inner = create();
+  const outer = create();
+  const block = new Uint8Array(hashLength);
+  const counter = new Uint8Array(1);
+  const out = new Uint8Array(length);
+  for (let index = 1, offset = 0; offset < length; offset += hashLength, index++) {
+    counter[0] = index;
+    inner.load(keyed.inner);
+    if (index > 1) inner.update(block);
+    inner.update(info).update(counter).digestInto(block);
+    outer.load(keyed.outer).update(block).digestInto(block);
+    out.set(block.subarray(0, Math.min(hashLength, length - offset)), offset);
+  }
+  return out;
+}
+
+/**
+ * Derives a key with HKDF: extract, then expand.
+ *
+ * @param create - Creates a fresh hasher of the underlying hash.
+ * @param ikm - The input key material, such as a shared secret.
+ * @param salt - The salt, empty for none.
+ * @param info - Context that binds the output to its use, empty for none.
+ * @param length - Output bytes, at most 255 digests.
+ * @returns {Uint8Array} The derived key.
+ */
+export function hkdf(
+  create: () => Hasher,
+  ikm: Uint8Array,
+  salt: Uint8Array,
+  info: Uint8Array,
+  length: number,
+): Uint8Array {
+  return hkdfExpand(create, hkdfExtract(create, salt, ikm), info, length);
 }

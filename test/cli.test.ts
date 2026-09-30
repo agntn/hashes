@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createHash, createHmac, scryptSync } from "node:crypto";
+import { createHash, createHmac, hkdfSync, scryptSync } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -50,7 +50,7 @@ describe("hashes CLI", () => {
 
     expect(help.stdout).toContain("USAGE hashes hash|hmac|verify|algorithms|info|mcp");
     expect(usage.stdout).toContain("ALGORITHM");
-    expect(usage.stdout).toContain("previous digest (all but scrypt, pbkdf2)");
+    expect(usage.stdout).toContain("previous digest (all but scrypt, pbkdf2, hkdf)");
     expect(usage.stdout).toContain("Seed value for xxHash (xxhash)");
     for (const output of [help, usage]) {
       expect(output.stdout + output.stderr).not.toContain("\u001B");
@@ -195,6 +195,17 @@ describe("hashes CLI", () => {
       code: 1,
       stderr: "Missing required option: salt (the one the expected digest was made with)\n",
     });
+  });
+
+  it("derives with HKDF from hex key material and verifies without a salt", () => {
+    const ikm = "0b".repeat(22);
+    const okm = Buffer.from(
+      hkdfSync("sha256", Buffer.from(ikm, "hex"), "", Buffer.from("f0f1", "hex"), 42),
+    ).toString("hex");
+    const args = ["--input-encoding", "hex", "--info", "f0f1", "--keyLength", "42"];
+
+    expect(run(["hkdf", ikm, ...args])).toMatchObject({ code: 0, stdout: `${okm}\n`, stderr: "" });
+    expect(run(["verify", "hkdf", ikm, okm, ...args])).toMatchObject({ code: 0 });
   });
 
   it("lists one family or category and describes one algorithm", () => {

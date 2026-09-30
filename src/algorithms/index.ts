@@ -10,6 +10,7 @@ import { Crc32 } from "./crc32.ts";
 import { Fnv1a } from "./fnv1a.ts";
 import { Hash160 } from "./hash160.ts";
 import { Hash256 } from "./hash256.ts";
+import { Hkdf } from "./hkdf.ts";
 import { Keccak256 } from "./keccak256.ts";
 import { Md5 } from "./md5.ts";
 import { Pbkdf2 } from "./pbkdf2.ts";
@@ -55,6 +56,7 @@ export const builtins: readonly HashConstructor[] = [
   Fnv1a,
   Scrypt,
   Pbkdf2,
+  Hkdf,
 ];
 
 export {
@@ -69,6 +71,7 @@ export {
   Fnv1a,
   Hash160,
   Hash256,
+  Hkdf,
   Keccak256,
   Md5,
   Pbkdf2,

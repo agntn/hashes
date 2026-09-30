@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
+import { createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
@@ -30,6 +30,9 @@ import {
   hash160,
   hash256,
   hashCategories,
+  hkdf,
+  hkdfExpand,
+  hkdfExtract,
   hmac,
   keccak256,
   md5,
@@ -44,6 +47,7 @@ import {
   sha512,
   version,
   type HashOptions,
+  type HkdfOptions,
   type Pbkdf2Options,
   type ScryptOptions,
   type XxhashOptions,
@@ -268,6 +272,7 @@ describe("digests", () => {
       "fnv1a",
       "scrypt",
       "pbkdf2",
+      "hkdf",
     ]);
     for (const name of without) {
       expect(() => create(name).hash("message", { key: "secret" })).toThrow(HashError);
@@ -554,6 +559,50 @@ describe("byte functions", () => {
     );
   });
 
+  it("derive the RFC 5869 SHA-256 test cases 1 and 3 with HKDF", () => {
+    const sha256Hasher = () => new Sha256Hasher();
+    const ikm = new Uint8Array(22).fill(0x0b);
+    const salt = Uint8Array.fromHex("000102030405060708090a0b0c");
+    const info = Uint8Array.fromHex("f0f1f2f3f4f5f6f7f8f9");
+    const prk = hkdfExtract(sha256Hasher, salt, ikm);
+    expect(prk.toHex()).toBe("077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5");
+    expect(hkdfExpand(sha256Hasher, prk, info, 42).toHex()).toBe(
+      "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865",
+    );
+    const empty = new Uint8Array(0);
+    expect(hkdfExtract(sha256Hasher, empty, ikm).toHex()).toBe(
+      "19ef24a32c717b167f33a91d6f648bdf96596776afdb6377ac434c1c293ccb04",
+    );
+    expect(hkdf(sha256Hasher, ikm, empty, empty, 42).toHex()).toBe(
+      "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8",
+    );
+  });
+
+  it("run HKDF over an exported hasher as Node does, up to 255 blocks", () => {
+    const hashers = {
+      sha256: () => new Sha256Hasher(),
+      sha512: () => new Sha512Hasher(),
+      ripemd160: () => new Ripemd160Hasher(),
+    };
+    const ikm = new TextEncoder().encode("shared secret");
+    const info = new Uint8Array(80).map((_, i) => 0xb0 + i);
+    for (const [name, create] of Object.entries(hashers)) {
+      const hashLength = create().outputLength;
+      for (const salt of [new Uint8Array(0), new Uint8Array(13), new Uint8Array(200).fill(0xaa)]) {
+        for (const length of [1, hashLength - 1, hashLength, hashLength + 1, 255 * hashLength]) {
+          expect(hkdf(create, ikm, salt, info, length).toHex(), `${name} ${length}`).toBe(
+            Buffer.from(hkdfSync(name, ikm, salt, info, length)).toString("hex"),
+          );
+        }
+      }
+      for (const length of [0, 255 * hashLength + 1, 1.5, Number.NaN]) {
+        expect(() => hkdf(create, ikm, new Uint8Array(0), info, length)).toThrow(
+          InvalidOptionError,
+        );
+      }
+    }
+  });
+
   it("refuse anything but bytes instead of hashing it as something else", () => {
     const loose = (value: unknown) => value as Uint8Array;
     expect(() => sha256(loose("abc"))).toThrow(
@@ -585,6 +634,9 @@ describe("byte functions", () => {
     expect(() => pbkdf2(() => new Sha256Hasher(), new Uint8Array(1), loose("salt"), 1, 32)).toThrow(
       new HashError("salt must be a Uint8Array, not string"),
     );
+    expect(() =>
+      hkdf(() => new Sha256Hasher(), new Uint8Array(1), new Uint8Array(0), loose("info"), 32),
+    ).toThrow(new HashError("info must be a Uint8Array, not string"));
   });
 
   it("build SHA-512 at 64 bytes and SHA-384 at 48, nothing in between", () => {
@@ -707,7 +759,7 @@ describe("byte function subpaths", () => {
     blake2b: ["Blake2bHasher", "blake2b"],
     blake256: ["blake256"],
     crc: ["crc16Xmodem", "crc32"],
-    hmac: ["hmac", "pbkdf2"],
+    hmac: ["hkdf", "hkdfExpand", "hkdfExtract", "hmac", "pbkdf2"],
   } as const;
   const names = Object.keys(SUBPATHS);
 
@@ -782,7 +834,7 @@ describe("rounds", () => {
       const names = create(name)
         .info()
         .options.map((option) => option.name);
-      const kdf = name === "scrypt" || name === "pbkdf2";
+      const kdf = name === "scrypt" || name === "pbkdf2" || name === "hkdf";
       expect(names.includes("rounds") && names.includes("chain"), name).toBe(!kdf);
     }
   });
@@ -846,6 +898,45 @@ describe("key derivation", () => {
     } as Pbkdf2Options);
     expect(long.digest).toBe(
       pbkdf2Sync("password", Buffer.from(salt, "hex"), 3, 100, "sha256").toString("hex"),
+    );
+  });
+
+  it("matches Node's HKDF for every digest it offers and reports salt and info", () => {
+    const ikm = Uint8Array.fromHex("0b".repeat(22));
+    const info = "f0f1f2f3f4f5f6f7f8f9";
+    for (const digest of ["sha256", "sha384", "sha512", "sha3-256", "sha3-512"]) {
+      const result = create("hkdf").hash(ikm, { salt, info, digest, keyLength: 42 } as HkdfOptions);
+      expect(result.digest).toBe(
+        Buffer.from(
+          hkdfSync(digest, ikm, Buffer.from(salt, "hex"), Buffer.from(info, "hex"), 42),
+        ).toString("hex"),
+      );
+      expect(result.options).toEqual({ encoding: "hex", digest, keyLength: 42, salt, info });
+    }
+  });
+
+  it("reads a missing HKDF salt as zeros instead of drawing one", () => {
+    const result = create("hkdf").hash("secret");
+    expect(result.digest).toBe(
+      Buffer.from(hkdfSync("sha256", "secret", new Uint8Array(32), "", 32)).toString("hex"),
+    );
+    expect(result.options).toEqual({ encoding: "hex", digest: "sha256", keyLength: 32 });
+    expect(create("hkdf").hash("secret").digest).toBe(result.digest);
+  });
+
+  it("refuses an HKDF info that is not hex and a key past 255 digests", () => {
+    const hkdf = create("hkdf");
+    expect(() => hkdf.hash("x", { info: "0x01" } as HkdfOptions)).toThrow(
+      "Invalid option info=4 characters: must be hex digit pairs, without a 0x prefix",
+    );
+    expect(() => hkdf.hash("x", { keyLength: 255 * 32 + 1 } as HkdfOptions)).toThrow(
+      "Invalid option keyLength=8161: must be 1 to 8160 bytes",
+    );
+    expect(
+      hkdf.hash("x", { digest: "sha512", keyLength: 255 * 64 } as HkdfOptions).digestLength,
+    ).toBe(255 * 64);
+    expect(() => hkdf.hash("x", { digest: "md5" } as HkdfOptions)).toThrow(
+      "Invalid option digest=md5",
     );
   });
 

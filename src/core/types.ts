@@ -37,7 +37,7 @@ export interface HashOptions {
 
 /** What an algorithm is fit for, whatever family it comes from. */
 export type HashCategory =
-  /** sha256, sha512, blake2b, blake3, sha3-* */
+  /** sha256, sha512, blake2b, blake3, sha3-*, hkdf */
   | "cryptographic"
   /** md5, sha1, sha0: not collision-resistant but still useful for checksums */
   | "legacy"

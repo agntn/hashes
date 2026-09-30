@@ -34,7 +34,7 @@ const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: string; a
     key: "hash",
     label: "Hash",
     tool: "hashes_compute",
-    about: "The digest of the input with any algorithm. A KDF without a salt draws one and says which.",
+    about: "The digest of the input with any algorithm. scrypt and PBKDF2 draw a salt when you give none, and say which.",
   },
   {
     key: "hmac",
@@ -75,7 +75,8 @@ const category = ref<HashCategory | "">("");
 const describe = ref("");
 
 const entry = computed(() => algorithmEntry(algorithmName.value) ?? ALGORITHMS[0]!);
-const takesSalt = computed(() => entry.value.info.options.some((option) => option.name === "salt"));
+const saltOption = computed(() => entry.value.info.options.find((option) => option.name === "salt"));
+const takesSalt = computed(() => saltOption.value !== undefined);
 /** Options besides encoding, key and salt: the `parameters` a tool call takes. */
 const parameterFields = computed(() =>
   callOptions(entry.value.info).filter((option) => option.name !== "salt"),
@@ -665,7 +666,7 @@ const shareLink = computed(() => {
                       id="playground-salt"
                       v-model="salt"
                       variant="none"
-                      placeholder="hex, 32 random bytes when empty"
+                      :placeholder="saltOption?.description"
                       spellcheck="false"
                       autocomplete="off"
                       class="w-full"

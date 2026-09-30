@@ -32,12 +32,12 @@ const ORDER: readonly AlgorithmEntry["slug"][] = [
 ];
 
 /**
- * Every digest in the registry. The KDFs stay out: each step would run scrypt or 600000 rounds of
- * PBKDF2 in the page. A newcomer missing from `ORDER` joins at the end.
+ * Every fixed-length digest, so no KDF runs its cost in the page. A newcomer missing from `ORDER`
+ * joins at the end.
  */
 const WALK: readonly AlgorithmEntry[] = [
   ...ORDER.map((slug) => ALGORITHMS.find((row) => row.slug === slug)!),
-  ...ALGORITHMS.filter((row) => !ORDER.includes(row.slug) && row.info.category !== "password"),
+  ...ALGORITHMS.filter((row) => !ORDER.includes(row.slug) && row.info.digestLength !== undefined),
 ];
 
 export interface LandingSample {

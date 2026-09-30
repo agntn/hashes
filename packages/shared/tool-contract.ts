@@ -16,7 +16,8 @@ export const SALT_PATTERN = "^(?:[0-9A-Fa-f]{2}){1,256}$";
 /** Most parameters a call may pass, and the pattern of their names. */
 export const MAX_PARAMETERS = 8;
 export const PARAMETER_NAME_PATTERN = "^[A-Za-z][A-Za-z0-9]{0,31}$";
-export const MAX_PARAMETER_LENGTH = 64;
+/** Longest text parameter. HKDF info for a TLS 1.3 label runs past 64 hex digits. */
+export const MAX_PARAMETER_LENGTH = 1_024;
 
 /**
  * Upper bounds on the cost parameters a model may choose. A caller of the library picks any cost;
@@ -41,16 +42,17 @@ export const HASH_CATEGORIES = [
   "non-cryptographic",
   "password",
 ] as const;
-export const BUILTIN_FAMILIES = "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF";
+export const BUILTIN_FAMILIES =
+  "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF, HKDF";
 export const BUILTIN_ALGORITHMS =
-  "sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256, md5, sha1, sha0, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2";
+  "sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256, md5, sha1, sha0, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2, hkdf";
 export const HMAC_ALGORITHMS =
   "sha256, sha384, sha512, sha3-256, sha3-512, keccak256, blake2b, blake2s, ripemd160, md5, sha1, sha0";
 
 /** What each tool does, the same text on every surface. */
 export const TOOL_DESCRIPTIONS = {
   hashes_compute:
-    "Hash text or bytes with any registered algorithm. The answer is the digest, then the algorithm, encoding, length and, for scrypt and pbkdf2, the salt and cost parameters needed to reproduce it.",
+    "Hash text or bytes with any registered algorithm. The answer is the digest, then the algorithm, encoding, length and, for a KDF, the salt and parameters needed to reproduce it.",
   hashes_hmac_compute:
     "Compute an HMAC of text or bytes with a key, using an algorithm that has an HMAC mode.",
   hashes_verify:
@@ -84,14 +86,14 @@ function parameterDescriptions() {
     keyEncoding:
       "How to read key (default utf8). hex and base64 give a binary key, such as a BIP32 chain code. hex takes no 0x prefix",
     encoding: "Digest encoding (default hex)",
-    salt: "scrypt and pbkdf2 only: salt in hex. Omitted, a random 32-byte salt is drawn and the answer names it. hashes_verify needs it",
+    salt: "scrypt, pbkdf2 and hkdf only: salt in hex. Omitted, scrypt and pbkdf2 draw a random 32-byte salt and the answer names it, hashes_verify needs it. hkdf reads a missing salt as zeros",
     expected:
       "Expected digest. Hex ignores case and takes no 0x prefix, base64 and base64url keep case",
     expectedEncoding: "Encoding of the expected digest (default hex)",
     verifySalt:
-      "scrypt and pbkdf2 only, and required there: the salt in hex the expected digest was made with",
+      "scrypt, pbkdf2 and hkdf only: the salt in hex the expected digest was made with, required for scrypt and pbkdf2",
     parameters:
-      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but scrypt and pbkdf2, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2",
+      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but the KDFs, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2, info (hex), digest and keyLength for hkdf",
     category: "Category to list. Omit to list every category",
     family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
     describe: "Registered algorithm to describe with its options. Omit to list",

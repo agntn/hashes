@@ -82,6 +82,7 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   fnv1a: { icon: "i-lucide-binary", blurb: "XOR, multiply, repeat. 64 bits of it" },
   scrypt: { icon: "i-lucide-hourglass", blurb: "Slow on purpose and hungry for memory" },
   pbkdf2: { icon: "i-lucide-key-round", blurb: "HMAC a few hundred thousand times" },
+  hkdf: { icon: "i-lucide-split", blurb: "One strong secret, as many keys as the protocol needs" },
 };
 
 export interface AlgorithmEntry {

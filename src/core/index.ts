@@ -7,6 +7,7 @@ export type {
   HashResult,
   OutputEncoding,
 } from "./types.ts";
+export type { HkdfOptions } from "../algorithms/hkdf.ts";
 export type { Pbkdf2Options } from "../algorithms/pbkdf2.ts";
 export type { ScryptOptions } from "../algorithms/scrypt.ts";
 export type { XxhashOptions } from "../algorithms/xxhash.ts";
@@ -25,7 +26,7 @@ export { Hasher } from "./hasher.ts";
 export { Blake2bHasher, blake2b } from "./blake2b.ts";
 export { blake256 } from "./blake256.ts";
 export { crc16Xmodem, crc32 } from "./crc.ts";
-export { hmac, pbkdf2 } from "./hmac.ts";
+export { hkdf, hkdfExpand, hkdfExtract, hmac, pbkdf2 } from "./hmac.ts";
 export { keccak256, sha3_256 } from "./keccak.ts";
 export { md5 } from "./md5.ts";
 export { Ripemd160Hasher, hash160, ripemd160 } from "./ripemd160.ts";
