@@ -57,12 +57,7 @@ export type InputEncoding = (typeof INPUT_ENCODINGS)[number];
 
 export type ToolName = keyof typeof toolSchemas;
 
-/**
- * Every argument each tool takes, in schema order; anything else is rejected, not ignored. Listed
- * rather than read from the schemas: OMP swaps `typebox` for a shim whose objects have no
- * `.properties`, so the executors must not build a schema at all. `test/mcp.test.ts` pins the
- * table to the schemas.
- */
+/** Every argument each tool takes, pinned to the schemas by a test; anything else is rejected. */
 export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
   hash_compute: ["algorithm", "input", "inputEncoding", "encoding", "salt", "parameters"],
   hash_hmac: ["algorithm", "input", "inputEncoding", "key", "keyEncoding", "encoding"],

@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-// OMP's loader hands an extension its own TypeBox shim wherever the code imports `typebox`, and
-// the shim's `Type.Object` has no `.properties`. The same swap here catches any runtime use of
-// the schemas on the executor path, which the other OMP tests miss because they run real TypeBox.
+// OMP swaps `typebox` for its shim, whose objects have no `.properties` (#58).
 vi.mock("typebox", () => import("@oh-my-pi/omptype/typebox"));
 vi.mock("@oh-my-pi/pi-coding-agent", () => ({ Text: class {} }));
 
