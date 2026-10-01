@@ -1,6 +1,29 @@
 # Changelog
 
 
+## v0.6.1
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.6.0...v0.6.1)
+
+### 🚀 Enhancements
+
+- Expose scrypt as a byte function ([#97](https://github.com/agntn/hashes/pull/97))
+- Add Argon2 ([#102](https://github.com/agntn/hashes/pull/102))
+- Fill in the SHA-2, MD4 and RIPEMD gaps ([#103](https://github.com/agntn/hashes/pull/103))
+
+### 🩹 Fixes
+
+- **tools:** List the options the tools take ([#93](https://github.com/agntn/hashes/pull/93))
+
+### ✅ Tests
+
+- Check the README algorithm counts ([#105](https://github.com/agntn/hashes/pull/105))
+
+### ❤️ Contributors
+
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+- Ori ([@oritwoen](https://github.com/oritwoen))
+
 ## v0.6.0
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.5.0...v0.6.0)
