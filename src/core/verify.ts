@@ -1,5 +1,5 @@
-import { InvalidOptionError } from "./errors.ts";
-import type { HashResult } from "./types.ts";
+import { InvalidOptionError, MissingOptionError } from "./errors.ts";
+import type { AlgorithmInfo, HashResult } from "./types.ts";
 
 /**
  * Decodes an expected digest written in the result's encoding. Hex ignores case; base64 and
@@ -64,4 +64,23 @@ export function digestMatches(result: HashResult, expected: string): boolean {
   let difference = 0;
   for (let i = 0; i < want.length; i++) difference |= want[i]! ^ have[i]!;
   return difference === 0;
+}
+
+/**
+ * Refuses to verify without an option drawn at random, such as a KDF salt: a fresh one can't match.
+ *
+ * @param info - The algorithm's metadata.
+ * @param options - The options the digest is recomputed with.
+ */
+export function assertDrawnOptions(
+  info: AlgorithmInfo,
+  options: Readonly<Record<string, unknown>>,
+): void {
+  const missing = info.options.find(
+    (option) =>
+      option.random && (!Object.hasOwn(options, option.name) || options[option.name] === undefined),
+  );
+  if (missing) {
+    throw new MissingOptionError(`${missing.name} (the one the expected digest was made with)`);
+  }
 }

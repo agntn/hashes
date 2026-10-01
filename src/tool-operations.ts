@@ -8,11 +8,11 @@
  */
 
 import type { Static } from "typebox";
-import { decodeInput, parameterText, takesSalt } from "./core/digest.ts";
+import { decodeInput, parameterText } from "./core/digest.ts";
 import { shown } from "./core/errors.ts";
 import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";
 import { algorithmInfos } from "./core/resolve.ts";
-import { assertExpected } from "./core/verify.ts";
+import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
 import {
   InvalidOptionError,
   MissingOptionError,
@@ -406,9 +406,7 @@ export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> 
   const encoding = encodingArgument(params.encoding);
   assertExpected(expected, encoding);
   const options = algorithmOptions(algorithm, params.salt, params.parameters);
-  if (options["salt"] === undefined && takesSalt(algorithm.info())) {
-    throw new MissingOptionError("salt (the one the expected digest was made with)");
-  }
+  assertDrawnOptions(algorithm.info(), options);
   const result = algorithm.hash(input, { encoding, ...options } as HashOptions);
   const details = { ...digestDetails(result, encoding), expected };
   const match = digestMatches(result, expected);

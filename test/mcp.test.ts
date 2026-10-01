@@ -3,7 +3,17 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createMcpServer } from "../src/mcp.ts";
-import { builtinAlgorithms, create } from "../src/index.ts";
+import { Pbkdf2 } from "../src/algorithms/index.ts";
+import {
+  type AlgorithmInfo,
+  Hash,
+  type HashInput,
+  type HashOptions,
+  type HashResult,
+  builtinAlgorithms,
+  create,
+  register,
+} from "../src/index.ts";
 import {
   BUILTIN_ALGORITHMS,
   BUILTIN_FAMILIES,
@@ -278,6 +288,53 @@ describe("hashes MCP server", () => {
     expect(withSalt.text).toMatch(/^MATCH/);
     expect(withoutSalt.isError).toBe(true);
     expect(withoutSalt.text).toContain("Missing required option: salt");
+  });
+
+  it("asks a registered KDF for the salt it would draw", () => {
+    class ProbeKdf extends Hash {
+      static readonly key = "pbkdf2";
+
+      info(): AlgorithmInfo {
+        return {
+          name: "pbkdf2",
+          label: "Probe KDF",
+          description: "Draws a salt when given none",
+          family: "Probe",
+          category: "password",
+          hmac: false,
+          options: [
+            {
+              name: "salt",
+              type: "string",
+              required: false,
+              random: true,
+              description: "Salt in hex",
+            },
+          ],
+        };
+      }
+
+      hash(input: HashInput, options?: Readonly<HashOptions & { salt?: string }>): HashResult {
+        const salt = options?.salt ?? crypto.getRandomValues(new Uint8Array(32)).toHex();
+        const digest = createHash("sha256").update(salt).update(String(input)).digest("hex");
+        return {
+          algorithm: "pbkdf2",
+          digest,
+          operation: "hash",
+          encoding: "hex",
+          digestLength: 32,
+          options: { salt },
+        };
+      }
+    }
+    register(ProbeKdf);
+    try {
+      expect(() => hashVerify({ algorithm: "pbkdf2", input: "pw", expected: "00" })).toThrow(
+        "Missing required option: salt",
+      );
+    } finally {
+      register(Pbkdf2);
+    }
   });
 
   it("takes a TLS 1.3 sized HKDF info and verifies without a salt", async () => {
