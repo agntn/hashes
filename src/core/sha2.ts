@@ -1,5 +1,5 @@
 /**
- * SHA-256, SHA-384 and SHA-512 (FIPS 180-4). SHA-512 keeps each 64-bit word as a high and a low
+ * SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224 and SHA-512/256 (FIPS 180-4). SHA-512 keeps each 64-bit word as a high and a low
  * 32-bit half. A sum adds its low halves as unsigned numbers, exact below 2^53, and carries the
  * part above 2^32 into the high half. Summing up to five terms at once ran about 30% faster in an
  * interleaved run than a branchless int32 carry after each addition, the way BLAKE2b adds two.
@@ -76,6 +76,21 @@ export class Sha256Hasher extends MerkleDamgard {
     s[5] = (s[5]! + f) | 0;
     s[6] = (s[6]! + g) | 0;
     s[7] = (s[7]! + h) | 0;
+  }
+}
+
+/** SHA-224 initial value. */
+const IV224 = /* @__PURE__ */ new Int32Array([
+  0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4,
+]);
+
+/** SHA-224: SHA-256 from its own initial value, cut to 28 bytes. */
+export class Sha224Hasher extends Sha256Hasher {
+  override readonly outputLength = 28;
+
+  constructor() {
+    super();
+    this.state.set(IV224);
   }
 }
 
@@ -212,6 +227,35 @@ export class Sha512Hasher extends MerkleDamgard {
     add(s, 10, fh, fl);
     add(s, 12, gh, gl);
     add(s, 14, hh, hl);
+  }
+}
+
+/** SHA-512/224 initial value. */
+const IV512_224 = /* @__PURE__ */ new Int32Array([
+  0x8c3d37c8, 0x19544da2, 0x73e19966, 0x89dcd4d6, 0x1dfab7ae, 0x32ff9c82, 0x679dd514, 0x582f9fcf,
+  0x0f6d2b69, 0x7bd44da8, 0x77e36f73, 0x04c48942, 0x3f9d85a8, 0x6a1d36c8, 0x1112e6ad, 0x91d692a1,
+]);
+
+/** SHA-512/256 initial value. */
+const IV512_256 = /* @__PURE__ */ new Int32Array([
+  0x22312194, 0xfc2bf72c, 0x9f555fa3, 0xc84c64c2, 0x2393b86b, 0x6f53b151, 0x96387719, 0x5940eabd,
+  0x96283ee2, 0xa88effe3, 0xbe5e1e25, 0x53863992, 0x2b0199fc, 0x2c85b8aa, 0x0eb72ddc, 0x81c52ca2,
+]);
+
+/** SHA-512/224 or SHA-512/256: SHA-512 from the initial value FIPS 180-4 derives for the length. */
+export class Sha512tHasher extends Sha512Hasher {
+  override readonly outputLength: number;
+
+  /**
+   * @param outputLength - 28 for SHA-512/224, 32 for SHA-512/256.
+   */
+  constructor(outputLength: 28 | 32) {
+    if (outputLength !== 28 && outputLength !== 32) {
+      throw new InvalidOptionError("outputLength", outputLength, "must be 28 or 32");
+    }
+    super();
+    this.outputLength = outputLength;
+    this.state.set(outputLength === 28 ? IV512_224 : IV512_256);
   }
 }
 

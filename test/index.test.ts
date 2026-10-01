@@ -5,6 +5,7 @@ import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
 import { Md5, Sha1, builtins } from "../src/algorithms/index.ts";
 import { algorithmInfos } from "../src/core/resolve.ts";
+import { Sha224Hasher, Sha512tHasher } from "../src/core/sha2.ts";
 import {
   type AlgorithmInfo,
   DependencyError,
@@ -70,6 +71,9 @@ const OPENSSL_NAMES = {
   sha256: "sha256",
   sha384: "sha384",
   sha512: "sha512",
+  sha224: "sha224",
+  "sha512-224": "sha512-224",
+  "sha512-256": "sha512-256",
   "sha3-256": "sha3-256",
   "sha3-512": "sha3-512",
   keccak256: "keccak-256",
@@ -120,6 +124,9 @@ describe("registry", () => {
       "sha256",
       "sha384",
       "sha512",
+      "sha224",
+      "sha512-224",
+      "sha512-256",
       "sha512-half",
       "sha3-256",
       "sha3-512",
@@ -164,31 +171,31 @@ describe("registry", () => {
   });
 
   it("registers a class from outside the package", () => {
-    class Sha224 extends FixedHash {
-      static readonly key = "sha224";
+    class Sha3_384 extends FixedHash {
+      static readonly key = "sha3-384";
       protected readonly about = {
-        label: "SHA-224",
-        description: "SHA-2 family 224-bit hash",
+        label: "SHA3-384",
+        description: "SHA-3 family 384-bit hash",
         family: "SHA",
         category: "cryptographic",
-        digestLength: 28,
+        digestLength: 48,
       } as const;
 
       protected digest(bytes: Uint8Array): Uint8Array {
-        return createHash("sha224").update(bytes).digest();
+        return createHash("sha3-384").update(bytes).digest();
       }
     }
-    register(Sha224);
+    register(Sha3_384);
 
-    expect(has("sha224")).toBe(true);
-    expect(algorithms().at(-1)).toBe("sha224");
-    const sha224 = resolveAlgorithm("SHA224");
-    expect(sha224).toBeInstanceOf(Sha224);
-    expect(sha224.name()).toBe("sha224");
-    expect(sha224.info()).toMatchObject({ name: "sha224", hmac: false, digestLength: 28 });
-    // FIPS 180-4, the "abc" example.
-    expect(sha224.hash("abc").digest).toBe(
-      "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7",
+    expect(has("sha3-384")).toBe(true);
+    expect(algorithms().at(-1)).toBe("sha3-384");
+    const sha3_384 = resolveAlgorithm("SHA3_384");
+    expect(sha3_384).toBeInstanceOf(Sha3_384);
+    expect(sha3_384.name()).toBe("sha3-384");
+    expect(sha3_384.info()).toMatchObject({ name: "sha3-384", hmac: false, digestLength: 48 });
+    /** FIPS 202, the "abc" example. */
+    expect(sha3_384.hash("abc").digest).toBe(
+      "ec01498288516fc926459f58e2c6ad8df9b473cb0fc08c2596da7cf0e49be4b298d88cea927ac7f539f1edf228376d25",
     );
   });
 
@@ -275,6 +282,7 @@ describe("digests", () => {
       "blake256",
       "hash160",
       "hash256",
+      "ntlm",
       "crc32",
       "crc16-xmodem",
       "xxhash",
@@ -449,6 +457,94 @@ describe("hashes chains use", () => {
     );
     expect(create("sha0").hash("").digest).toBe("f96cea198ad1dd5617ac084a3d92c6107708c0ef");
     expect(create("sha0").hash("abc").digest).not.toBe(create("sha1").hash("abc").digest);
+  });
+
+  it("md4 matches the RFC 1320 vectors", () => {
+    for (const [input, digest] of [
+      ["", "31d6cfe0d16ae931b73c59d7e0c089c0"],
+      ["a", "bde52cb31de33e46245e05fbdbd6fb24"],
+      ["abc", "a448017aaf21d8525fc10ae87aa6729d"],
+      ["message digest", "d9130a8164549fe818874806e1c7014b"],
+      ["abcdefghijklmnopqrstuvwxyz", "d79e1c308aa5bbcdeea8ed63df412da9"],
+      [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+        "043f8582f241db351ce627e153e7f0e4",
+      ],
+      ["1234567890".repeat(8), "e33b4ddc9c38f2199c3e7b164fcc0536"],
+    ]) {
+      expect(create("md4").hash(input!).digest).toBe(digest);
+    }
+  });
+
+  it("ntlm hashes the password as UTF-16LE, a BOM included", () => {
+    /** `printf %s <password> | iconv -t utf-16le | rhash --md4 -`. */
+    expect(create("ntlm").hash("password").digest).toBe("8846f7eaee8fb117ad06bdd830b7586c");
+    expect(create("ntlm").hash("").digest).toBe("31d6cfe0d16ae931b73c59d7e0c089c0");
+    expect(create("ntlm").hash("Zażółć").digest).toBe("77ea2deb8eb6fb24fce4bf693f010787");
+    expect(create("ntlm").hash("fox 🦊").digest).toBe("201f5a9dce227da42aa1fd00d10d3339");
+    expect(create("ntlm").hash("\uFEFFabc").digest).toBe("e7e52b5469f2a7d9a9231dac50e030ae");
+    expect(create("ntlm").hash(new TextEncoder().encode("password")).digest).toBe(
+      "8846f7eaee8fb117ad06bdd830b7586c",
+    );
+  });
+
+  it("ntlm refuses bytes that are not UTF-8 text", () => {
+    expect(() => create("ntlm").hash(new Uint8Array([0xff]))).toThrow(
+      new HashError("ntlm hashes text, and the input is not valid UTF-8"),
+    );
+  });
+
+  it("ripemd128, ripemd256 and ripemd320 match the RIPEMD authors' vectors", () => {
+    /** The RIPEMD page's vectors, which RustCrypto's ripemd 0.1.3 computes too. */
+    const vectors = [
+      [
+        "",
+        "cdf26213a150dc3ecb610f18f6b38b46",
+        "02ba4c4e5f8ecd1877fc52d64d30e37a2d9774fb1e5d026380ae0168e3c5522d",
+        "22d65d5661536cdc75c1fdf5c6de7b41b9f27325ebc61e8557177d705a0ec880151c3a32a00899b8",
+      ],
+      [
+        "abc",
+        "c14a12199c66e4ba84636b0f69144c77",
+        "afbd6e228b9d8cbbcef5ca2d03e6dba10ac0bc7dcbe4680e1e42d2e975459b65",
+        "de4c01b3054f8930a79d09ae738e92301e5a17085beffdc1b8d116713e74f82fa942d64cdbc4682d",
+      ],
+      [
+        "message digest",
+        "9e327b3d6e523062afc1132d7df9d1b8",
+        "87e971759a1ce47a514d5c914c392c9018c7c46bc14465554afcdf54a5070c0e",
+        "3a8e28502ed45d422f68844f9dd316e7b98533fa3f2a91d29f84d425c88d6b4eff727df66a7c0197",
+      ],
+      [
+        "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+        "a1aa0689d0fafa2ddc22e88b49133a06",
+        "3843045583aac6c8c8d9128573e7a9809afb2a0f34ccc36ea9e72f16f6368e3f",
+        "d034a7950cf722021ba4b84df769a5de2060e259df4c9bb4a4268c0e935bbc7470a969c9d072a1ac",
+      ],
+      [
+        "1234567890".repeat(8),
+        "3f45ef194732c2dbb2c4a2c769795fa3",
+        "06fdcc7a409548aaf91368c06a6275b553e3f099bf0ea4edfd6778df89a890dd",
+        "557888af5f6d8ed62ab66945c6d2a0a47ecd5341e915eb8fea1d0524955f825dc717e4a008ab2d42",
+      ],
+      [
+        "a".repeat(1_000_000),
+        "4a7f5723f954eba1216c9d8f6320431f",
+        "ac953744e10e31514c150d4d8d7b677342e33399788296e43ae4850ce4f97978",
+        "bdee37f4371e20646b8b0d862dda16292ae36f40965e8c8509e63d1dbddecc503e2b63eb9245bb66",
+      ],
+    ] as const;
+    for (const [input, r128, r256, r320] of vectors) {
+      expect(create("ripemd128").hash(input).digest).toBe(r128);
+      expect(create("ripemd256").hash(input).digest).toBe(r256);
+      expect(create("ripemd320").hash(input).digest).toBe(r320);
+    }
+  });
+
+  it("ripemd128 keys HMAC as RFC 2286 test case 2 does", () => {
+    expect(create("ripemd128").hash("what do ya want for nothing?", { key: "Jefe" }).digest).toBe(
+      "875f828862b6b334b427c55f9f7ff09b",
+    );
   });
 
   it("blake2b-256 and blake2b-224 match the reference BLAKE2b", () => {
@@ -749,13 +845,23 @@ describe("byte functions", () => {
     );
   });
 
-  it("build SHA-512 at 64 bytes and SHA-384 at 48, nothing in between", () => {
+  it("build each SHA-2 length from its own initial value, nothing in between", () => {
     const bytes = new Uint8Array([1, 2, 3]);
-    expect(new Sha512Hasher(48).update(bytes).digest().toHex()).toBe(
-      createHash("sha384").update(bytes).digest("hex"),
-    );
+    for (const [hasher, name] of [
+      [new Sha224Hasher(), "sha224"],
+      [new Sha512Hasher(48), "sha384"],
+      [new Sha512tHasher(32), "sha512-256"],
+      [new Sha512tHasher(28), "sha512-224"],
+    ] as const) {
+      expect(hasher.update(bytes).digest().toHex()).toBe(
+        createHash(name).update(bytes).digest("hex"),
+      );
+    }
     for (const length of [32, 0, Number.NaN]) {
       expect(() => new Sha512Hasher(length as 64)).toThrow(InvalidOptionError);
+    }
+    for (const length of [48, 64, 0, Number.NaN]) {
+      expect(() => new Sha512tHasher(length as 32)).toThrow(InvalidOptionError);
     }
   });
 

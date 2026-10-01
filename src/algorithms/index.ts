@@ -16,17 +16,25 @@ import { Hash160 } from "./hash160.ts";
 import { Hash256 } from "./hash256.ts";
 import { Hkdf } from "./hkdf.ts";
 import { Keccak256 } from "./keccak256.ts";
+import { Md4 } from "./md4.ts";
 import { Md5 } from "./md5.ts";
+import { Ntlm } from "./ntlm.ts";
 import { Pbkdf2 } from "./pbkdf2.ts";
+import { Ripemd128 } from "./ripemd128.ts";
 import { Ripemd160 } from "./ripemd160.ts";
+import { Ripemd256 } from "./ripemd256.ts";
+import { Ripemd320 } from "./ripemd320.ts";
 import { Scrypt } from "./scrypt.ts";
 import { Sha0 } from "./sha0.ts";
 import { Sha1 } from "./sha1.ts";
+import { Sha224 } from "./sha224.ts";
 import { Sha256 } from "./sha256.ts";
 import { Sha3_256 } from "./sha3-256.ts";
 import { Sha3_512 } from "./sha3-512.ts";
 import { Sha384 } from "./sha384.ts";
 import { Sha512 } from "./sha512.ts";
+import { Sha512_224 } from "./sha512-224.ts";
+import { Sha512_256 } from "./sha512-256.ts";
 import { Sha512Half } from "./sha512-half.ts";
 import { Xxhash } from "./xxhash.ts";
 
@@ -38,6 +46,9 @@ export const builtins: readonly HashConstructor[] = [
   Sha256,
   Sha384,
   Sha512,
+  Sha224,
+  Sha512_224,
+  Sha512_256,
   Sha512Half,
   Sha3_256,
   Sha3_512,
@@ -49,11 +60,16 @@ export const builtins: readonly HashConstructor[] = [
   Blake3,
   Blake256,
   Ripemd160,
+  Ripemd320,
   Hash160,
   Hash256,
   Md5,
+  Md4,
+  Ntlm,
   Sha1,
   Sha0,
+  Ripemd128,
+  Ripemd256,
   Crc32,
   Crc16Xmodem,
   Xxhash,
@@ -85,17 +101,25 @@ export {
   Hash256,
   Hkdf,
   Keccak256,
+  Md4,
   Md5,
+  Ntlm,
   Pbkdf2,
+  Ripemd128,
   Ripemd160,
+  Ripemd256,
+  Ripemd320,
   Scrypt,
   Sha0,
   Sha1,
+  Sha224,
   Sha256,
   Sha384,
   Sha3_256,
   Sha3_512,
   Sha512,
+  Sha512_224,
+  Sha512_256,
   Sha512Half,
   Xxhash,
 };
