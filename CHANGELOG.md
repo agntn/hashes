@@ -1,6 +1,45 @@
 # Changelog
 
 
+## v0.6.0
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.5.0...v0.6.0)
+
+### 🚀 Enhancements
+
+- Add byte function subpaths ([#77](https://github.com/agntn/hashes/pull/77))
+- Hash many rounds in one call ([#78](https://github.com/agntn/hashes/pull/78))
+- Derive keys with HKDF ([#79](https://github.com/agntn/hashes/pull/79))
+- Add OpenSSL EVP_BytesToKey ([#82](https://github.com/agntn/hashes/pull/82))
+- Export evpBytesToKey from its own entry ([#85](https://github.com/agntn/hashes/pull/85))
+
+### 🔥 Performance
+
+- Drop BigInt from XXH64 ([#89](https://github.com/agntn/hashes/pull/89))
+
+### 🩹 Fixes
+
+- **tools:** Let scrypt fill the 256 MiB limit ([#72](https://github.com/agntn/hashes/pull/72))
+- Ask a registered KDF for its salt ([#81](https://github.com/agntn/hashes/pull/81))
+- **release:** Test the fresh build ([#88](https://github.com/agntn/hashes/pull/88))
+
+### 💅 Refactors
+
+- **tools:** ⚠️  Adopt `@agntn/tools` ([#86](https://github.com/agntn/hashes/pull/86))
+
+### 📦 Build
+
+- Skip the release age for `@agntn/*` ([#87](https://github.com/agntn/hashes/pull/87))
+
+#### ⚠️ Breaking Changes
+
+- **tools:** ⚠️  Adopt `@agntn/tools` ([#86](https://github.com/agntn/hashes/pull/86))
+
+### ❤️ Contributors
+
+- Ori
+- Aeitwoen
+
 ## v0.5.0
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.4.0...v0.5.0)
