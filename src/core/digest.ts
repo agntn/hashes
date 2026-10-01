@@ -1,6 +1,5 @@
 import { InvalidOptionError, normalizeError } from "./errors.ts";
 import type {
-  AlgorithmInfo,
   HashChain,
   HashInput,
   HashOption,
@@ -31,6 +30,7 @@ export const SALT_OPTION: HashOption = {
   name: "salt",
   type: "string",
   required: false,
+  random: true,
   description: "Salt in hex; 32 random bytes when omitted",
 };
 
@@ -80,16 +80,6 @@ export function assertOneRound(options: Readonly<HashOptions> | undefined, reaso
   if (options?.rounds !== undefined && options.rounds !== 1) {
     throw new InvalidOptionError("rounds", options.rounds, reason);
   }
-}
-
-/**
- * Whether the algorithm draws a random salt when given none, unlike HKDF, which reads zeros.
- *
- * @param info - The algorithm's metadata.
- * @returns {boolean} Whether it declares `SALT_OPTION`.
- */
-export function takesSalt(info: AlgorithmInfo): boolean {
-  return info.options.includes(SALT_OPTION);
 }
 
 /**

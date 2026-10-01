@@ -52,6 +52,8 @@ export interface HashOption {
   type: "number" | "string" | "boolean";
   required: boolean;
   default?: number | string | boolean;
+  /** Whether a missing value is drawn at random, so verify needs the one a digest was made with. */
+  random?: boolean;
   description: string;
 }
 
