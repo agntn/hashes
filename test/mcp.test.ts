@@ -1,4 +1,4 @@
-import { createHash, createHmac, pbkdf2Sync, scryptSync } from "node:crypto";
+import { createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -280,6 +280,30 @@ describe("hashes MCP server", () => {
     expect(withoutSalt.text).toContain("Missing required option: salt");
   });
 
+  it("takes a TLS 1.3 sized HKDF info and verifies without a salt", async () => {
+    /** The HkdfLabel of "tls13 derived" with a SHA-256 hash: 49 bytes, 98 hex digits. */
+    const info = `0020${"0d"}${Buffer.from("tls13 derived").toString("hex")}20${"e3".repeat(32)}`;
+    const okm = Buffer.from(
+      hkdfSync("sha256", "secret", "", Buffer.from(info, "hex"), 32),
+    ).toString("hex");
+    const computed = await call("hashes_compute", {
+      algorithm: "hkdf",
+      input: "secret",
+      parameters: { info },
+    });
+    const verified = await call("hashes_verify", {
+      algorithm: "hkdf",
+      input: "secret",
+      expected: okm,
+      parameters: { info },
+    });
+
+    expect(computed.text).toBe(
+      `${okm}\nhkdf, hex, 32 bytes, digest sha256, keyLength 32, info ${info}`,
+    );
+    expect(verified.text).toMatch(/^MATCH/);
+  });
+
   it("refuses a salt for an algorithm that takes none", async () => {
     const answer = await call("hashes_compute", { algorithm: "sha256", input: "x", salt: "00" });
 
@@ -548,8 +572,8 @@ describe("executors without a schema in front", () => {
       hashCompute({ algorithm: "pbkdf2", input: "x", salt: "00", parameters } as never);
 
     expect(pbkdf2({ salt: "ab".repeat(100_000) })).toThrow("pass the salt as the salt argument");
-    expect(pbkdf2({ digest: "x".repeat(65) })).toThrow(
-      "Invalid option digest=65 characters: at most 64",
+    expect(pbkdf2({ digest: "x".repeat(1025) })).toThrow(
+      "Invalid option digest=1025 characters: at most 1024",
     );
     expect(pbkdf2({ "1x": 1 })).toThrow("names are letters and digits");
   });

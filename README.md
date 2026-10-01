@@ -5,7 +5,7 @@
 [![license](https://npmx.dev/api/registry/badge/license/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/hashes)
 
-#️⃣ Twenty-five hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
+#️⃣ Twenty-six hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
 
 Docs, and a playground where the library runs in your browser: [hashes.agntn.dev](https://hashes.agntn.dev).
 
@@ -18,10 +18,10 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 
 ## ✨ Features
 
-- 🧮 **Twenty-five algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD-160, MD5, SHA-1, SHA-0, CRC-32, xxHash, FNV-1a, scrypt and PBKDF2.
+- 🧮 **Twenty-six algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD-160, MD5, SHA-1, SHA-0, CRC-32, xxHash, FNV-1a, scrypt, PBKDF2 and HKDF.
 - 🪙 **The ones chains use.** Keccak-256, HASH160, double SHA-256, BLAKE2b-256 and -224, BLAKE-256, SHA-512Half and CRC-16/XMODEM. Ethereum, Bitcoin, Sui, Cardano, Decred, XRP Ledger, Stellar and TON, covered.
 - 🔑 **HMAC where it exists.** Eleven of them take a key. The rest say no instead of pretending.
-- 🧂 **KDFs that tell you the salt.** No salt given, a random one is drawn and printed next to the digest. Without it that digest is useless.
+- 🧂 **KDFs that tell you the salt.** No salt given, scrypt and PBKDF2 draw a random one and print it next to the digest. Without it that digest is useless.
 - ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
 - ⚡ **Plain TypeScript.** Every algorithm is computed right here. The library imports nothing from `node:*`, and there's no hashing dependency at all.
 - 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too. Got a public key in hex? `--input-encoding hex` hashes its bytes, not the letters.
@@ -110,18 +110,18 @@ digestMatches(result, "5D41402ABC4B2A76B9719D911017C592"); // true
 
 That's most of it. `create()` wants the exact name. `resolveAlgorithm()` forgives case, spaces and underscores, so `SHA3_256` finds `sha3-256`. Every result has the digest, its length and the options it depends on. Something wrong? It's a `HashError`, and the message names the option. The types in [`src/core/types.ts`](./src/core/types.ts) are the rest.
 
-Only need bytes in and bytes out? `sha256`, `hash160`, `keccak256` and friends take a `Uint8Array` and return one. No registry comes along. `hmac` and `pbkdf2` run over `Sha512Hasher` and the other hashers. Plain Node doesn't tree-shake, so each group also has its own entry, and `import { sha1 } from "@agntn/hashes/sha1"` starts without the registry. The list is in [the hashing guide](https://hashes.agntn.dev/guide/hashing).
+Only need bytes in and bytes out? `sha256`, `hash160`, `keccak256` and friends take a `Uint8Array` and return one. No registry comes along. `hmac`, `pbkdf2` and `hkdf` run over `Sha512Hasher` and the other hashers. Plain Node doesn't tree-shake, so each group also has its own entry, and `import { sha1 } from "@agntn/hashes/sha1"` starts without the registry. The list is in [the hashing guide](https://hashes.agntn.dev/guide/hashing).
 
 ## 🗂️ Algorithms
 
-| Category          | Algorithms                                                                                                                                                    | HMAC                                               |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| cryptographic     | sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256 | sha2, sha3, keccak256, blake2b, blake2s, ripemd160 |
-| legacy            | md5, sha1, sha0                                                                                                                                               | yes                                                |
-| non-cryptographic | crc32, crc16-xmodem, xxhash, fnv1a                                                                                                                            | no                                                 |
-| password          | scrypt, pbkdf2                                                                                                                                                | no, they take a salt                               |
+| Category          | Algorithms                                                                                                                                                          | HMAC                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| cryptographic     | sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256, hkdf | sha2, sha3, keccak256, blake2b, blake2s, ripemd160 |
+| legacy            | md5, sha1, sha0                                                                                                                                                     | yes                                                |
+| non-cryptographic | crc32, crc16-xmodem, xxhash, fnv1a                                                                                                                                  | no                                                 |
+| password          | scrypt, pbkdf2                                                                                                                                                      | no, they take a salt                               |
 
-That's the category, what an algorithm is fit for. Each one also has a family, where it comes from: SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF. So SHA-0 and SHA3-256 share a family and nothing else, and `hashes algorithms -f sha` shows both.
+That's the category, what an algorithm is fit for. Each one also has a family, where it comes from: SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF, HKDF. So SHA-0 and SHA3-256 share a family and nothing else, and `hashes algorithms -f sha` shows both.
 
 MD5, SHA-1 and SHA-0 are broken for security. They're here for checksums, old systems and old papers. `hashes info <name>` has the security note for each.
 

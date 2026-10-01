@@ -20,7 +20,7 @@ import { Sha3_512 } from "./sha3-512.ts";
 import { Sha384 } from "./sha384.ts";
 import { Sha512 } from "./sha512.ts";
 
-/** Hashes PBKDF2 runs HMAC over, by their registry names. */
+/** Hashes PBKDF2 and HKDF run HMAC over, by their registry names. */
 const HASHES: Readonly<Record<string, new () => BlockHash>> = {
   sha256: Sha256,
   sha384: Sha384,
@@ -30,13 +30,26 @@ const HASHES: Readonly<Record<string, new () => BlockHash>> = {
 };
 
 /**
- * Lists the hashes PBKDF2 takes. A module-level list would keep every class in `HASHES` in a
- * bundle that never touches PBKDF2, since esbuild cannot drop the call that builds it.
+ * Lists the hashes PBKDF2 and HKDF take. A module-level list would keep every class in `HASHES`
+ * in a bundle that never touches a KDF, since esbuild cannot drop the call that builds it.
  *
  * @returns {string} Their names, comma-separated.
  */
-function digests(): string {
+export function kdfDigests(): string {
   return Object.keys(HASHES).join(", ");
+}
+
+/**
+ * Creates the hash a KDF runs HMAC over, refusing weaker ones such as `md5`.
+ *
+ * @param digest - Its registry name.
+ * @returns {BlockHash} The hash.
+ */
+export function kdfHash(digest: string): BlockHash {
+  if (!Object.hasOwn(HASHES, digest)) {
+    throw new InvalidOptionError("digest", digest, `use one of ${kdfDigests()}`);
+  }
+  return new HASHES[digest]!();
 }
 
 /** Options PBKDF2 takes besides the encoding. */
@@ -50,19 +63,15 @@ export interface Pbkdf2Options extends HashOptions, SaltOptions {
 }
 
 /**
- * Reads the PBKDF2 options with their defaults. Only the listed digests are taken, not weaker
- * ones such as `md5`.
+ * Reads the PBKDF2 options with their defaults.
  *
  * @param options - The PBKDF2 options.
- * @returns {{ iterations: number, digest: string, keyLength: number }} The parameters.
+ * @returns {{ iterations: number, digest: string, hash: BlockHash, keyLength: number }} The parameters.
  */
 function parameters(options?: Readonly<Pbkdf2Options>) {
   const { iterations = 600_000, digest = "sha512", keyLength = 64 } = options ?? {};
   assertPositiveIntegers({ iterations, keyLength });
-  if (!Object.hasOwn(HASHES, digest)) {
-    throw new InvalidOptionError("digest", digest, `use one of ${digests()}`);
-  }
-  return { iterations, digest, keyLength };
+  return { iterations, digest, hash: kdfHash(digest), keyLength };
 }
 
 export class Pbkdf2 extends Hash {
@@ -96,7 +105,7 @@ export class Pbkdf2 extends Hash {
           type: "string",
           required: false,
           default: "sha512",
-          description: `Underlying hash: ${digests()}`,
+          description: `Underlying hash: ${kdfDigests()}`,
         },
         {
           name: "keyLength",
@@ -122,9 +131,8 @@ export class Pbkdf2 extends Hash {
     return guarded(this.key, () => {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
       assertOneRound(options, `${this.key} sets its cost with its own parameters`);
-      const { iterations, digest, keyLength } = parameters(options);
+      const { iterations, digest, hash, keyLength } = parameters(options);
       const salt = resolveSalt(options);
-      const hash = new HASHES[digest]!();
       const raw = pbkdf2(() => hash.hasher(), toBytes(input), salt, iterations, keyLength);
       return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
         iterations,

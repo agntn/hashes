@@ -83,13 +83,13 @@ export function assertOneRound(options: Readonly<HashOptions> | undefined, reaso
 }
 
 /**
- * Whether the algorithm's digest depends on a salt, read from its declared options.
+ * Whether the algorithm draws a random salt when given none, unlike HKDF, which reads zeros.
  *
  * @param info - The algorithm's metadata.
- * @returns {boolean} Whether it takes a `salt` option.
+ * @returns {boolean} Whether it declares `SALT_OPTION`.
  */
 export function takesSalt(info: AlgorithmInfo): boolean {
-  return info.options.some((option) => option.name === SALT_OPTION.name);
+  return info.options.includes(SALT_OPTION);
 }
 
 /**

@@ -34,6 +34,7 @@ export const builtinAlgorithms = [
   // Password/KDF
   "scrypt",
   "pbkdf2",
+  "hkdf",
 ] as const;
 
 export type BuiltinAlgorithm = (typeof builtinAlgorithms)[number];
