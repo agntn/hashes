@@ -70,7 +70,7 @@ docs/                    - the hashes.agntn.dev site, its own pnpm project, outs
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.
 5. Add its page as `docs/content/2.algorithms/<position>.<name>.md` with `::algorithm-facts{name="<name>"}`, and its icon and blurb to `PRESENTATION` in `docs/app/utils/algorithms.ts`.
 
-`test/index.test.ts` fails when the files, `builtins` and `builtinAlgorithms` disagree; `test/mcp.test.ts` fails when the tool contract lists, families included, differ from the registry; `test/docs.test.ts` fails when an algorithm has no page.
+`test/index.test.ts` fails when the files, `builtins` and `builtinAlgorithms` disagree; `test/mcp.test.ts` fails when the tool contract lists, families included, differ from the registry; `test/docs.test.ts` fails when an algorithm has no page, or when the README or this file gives the wrong count of algorithms or of those with HMAC.
 
 ## Conventions
 
