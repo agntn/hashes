@@ -44,6 +44,7 @@ import {
   register,
   resolveAlgorithm,
   ripemd160,
+  scrypt,
   sha1,
   sha256,
   sha3_256,
@@ -736,6 +737,9 @@ describe("byte functions", () => {
     expect(() =>
       evpBytesToKey(() => new Md5Hasher(), loose("password"), new Uint8Array(0), 1, 32),
     ).toThrow(new HashError("password must be a Uint8Array, not string"));
+    expect(() => scrypt(new Uint8Array(1), loose("salt"), 16, 1, 1, 32)).toThrow(
+      new HashError("salt must be a Uint8Array, not string"),
+    );
   });
 
   it("build SHA-512 at 64 bytes and SHA-384 at 48, nothing in between", () => {
@@ -838,6 +842,37 @@ describe("byte functions", () => {
     expect(() => new Blake2bHasher(64, new Uint8Array(17))).toThrow(InvalidOptionError);
   });
 
+  it("derive scrypt bytes as RFC 7914 and Node do", () => {
+    const text = (value: string) => new TextEncoder().encode(value);
+    expect(scrypt(new Uint8Array(0), new Uint8Array(0), 16, 1, 1, 64).toHex()).toBe(
+      "77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906",
+    );
+    for (const [N, r, p, keyLength] of [
+      [1024, 8, 16, 64],
+      [2, 1, 1, 16],
+      [16, 3, 2, 33],
+    ] as const) {
+      expect(scrypt(text("password"), text("NaCl"), N, r, p, keyLength)).toEqual(
+        new Uint8Array(scryptSync("password", "NaCl", keyLength, { N, r, p })),
+      );
+    }
+  });
+
+  it("refuse scrypt costs that RFC 7914 rules out before any work", () => {
+    const derive = (N: number, r: number, p: number, keyLength: number) => () =>
+      scrypt(new Uint8Array(1), new Uint8Array(1), N, r, p, keyLength);
+    for (const N of [0, 1, 3, 1000, 1.5, Number.NaN]) {
+      expect(derive(N, 8, 1, 32)).toThrow(`Invalid option N=${N}`);
+    }
+    for (const bad of [0, -1, 1.5, Number.NaN, 2 ** 31]) {
+      expect(derive(16, bad, 1, 32)).toThrow(`Invalid option r=${bad}`);
+      expect(derive(16, 8, bad, 32)).toThrow(`Invalid option p=${bad}`);
+      expect(derive(16, 8, 1, bad)).toThrow(`Invalid option keyLength=${bad}`);
+    }
+    expect(derive(65536, 1, 1, 32)).toThrow("Invalid option N=65536");
+    expect(derive(2, 1, 2 ** 24, 32)).toThrow("Invalid option p=16777216");
+  });
+
   it("refuse PBKDF2 costs and lengths that are not positive integers", () => {
     const derive = (iterations: number, keyLength: number) =>
       pbkdf2(() => new Sha256Hasher(), new Uint8Array(1), new Uint8Array(1), iterations, keyLength);
@@ -860,6 +895,7 @@ describe("byte function subpaths", () => {
     crc: ["crc16Xmodem", "crc32"],
     hmac: ["hkdf", "hkdfExpand", "hkdfExtract", "hmac", "pbkdf2"],
     evp: ["evpBytesToKey"],
+    scrypt: ["scrypt"],
   } as const;
   const names = Object.keys(SUBPATHS);
 

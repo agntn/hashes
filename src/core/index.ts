@@ -28,6 +28,7 @@ export { Blake2bHasher, blake2b } from "./blake2b.ts";
 export { blake256 } from "./blake256.ts";
 export { crc16Xmodem, crc32 } from "./crc.ts";
 export { evpBytesToKey } from "./evp.ts";
+export { scrypt } from "./scrypt.ts";
 export { hkdf, hkdfExpand, hkdfExtract, hmac, pbkdf2 } from "./hmac.ts";
 export { keccak256, sha3_256 } from "./keccak.ts";
 export { Md5Hasher, md5 } from "./md5.ts";

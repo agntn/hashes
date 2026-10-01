@@ -86,6 +86,7 @@ describe("one byte function bundled with esbuild", () => {
     ["ripemd160", 5, 5_000],
     ["blake2b", 3, 8_000],
     ["crc32", 0, 1_500],
+    ["scrypt", 2, 8_000],
   ])("%s leaves the other algorithms out", async (name, tables, limit) => {
     const code = await bundle(name);
     expect(code.match(/new (?:Int32|Uint32|Uint8)Array\(\[/g)?.length ?? 0).toBe(tables);
@@ -104,6 +105,7 @@ describe("one byte function subpath in plain Node", () => {
     ["crc", []],
     ["hmac", []],
     ["evp", []],
+    ["scrypt", []],
     ["keccak", ["_chunks/keccak.mjs"]],
     ["blake2b", ["_chunks/blake2b.mjs"]],
     ["blake256", ["_chunks/blake256.mjs"]],

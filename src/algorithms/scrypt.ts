@@ -1,7 +1,6 @@
 import {
   assertOneRound,
   ENCODING_OPTION,
-  assertPositiveIntegers,
   SALT_OPTION,
   encodeDigest,
   guarded,
@@ -9,7 +8,6 @@ import {
   toBytes,
   type SaltOptions,
 } from "../core/digest.ts";
-import { InvalidOptionError } from "../core/errors.ts";
 import { Hash } from "../core/hash.ts";
 import { scrypt } from "../core/scrypt.ts";
 import type { AlgorithmInfo, HashInput, HashOptions, HashResult } from "../core/types.ts";
@@ -34,29 +32,7 @@ export interface ScryptOptions extends HashOptions, SaltOptions {
  */
 function costParameters(options?: Readonly<ScryptOptions>) {
   const { N = 16384, r = 8, p = 1, keyLength = 64 } = options ?? {};
-  if (!Number.isInteger(N) || N < 2 || (N & (N - 1)) !== 0) {
-    throw new InvalidOptionError("N", N, "must be a power of 2 and >= 2");
-  }
-  assertPositiveIntegers({ r, p, keyLength });
-  assertWithinRfc(N, r, p);
   return { N, r, p, keyLength };
-}
-
-/**
- * Checks the bounds of RFC 7914 as OpenSSL enforces them: N below 2^(16 r), and p * 128 * r
- * bytes of blocks that fit in an int.
- *
- * @param N - CPU and memory cost.
- * @param r - Block size.
- * @param p - Parallelization.
- */
-function assertWithinRfc(N: number, r: number, p: number): void {
-  if (r < 4 && N >= 2 ** (16 * r)) {
-    throw new InvalidOptionError("N", N, `must be below 2^${16 * r} with r ${r}`);
-  }
-  if (p * 128 * r > 0x7fff_ffff) {
-    throw new InvalidOptionError("p", p, "p * r * 128 must stay below 2^31");
-  }
 }
 
 export class Scrypt extends Hash {

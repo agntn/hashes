@@ -78,6 +78,10 @@
     "./evp": {
       "types": "./dist/evp.d.mts",
       "import": "./dist/evp.mjs"
+    },
+    "./scrypt": {
+      "types": "./dist/scrypt.d.mts",
+      "import": "./dist/scrypt.mjs"
     }
   },
   "publishConfig": {

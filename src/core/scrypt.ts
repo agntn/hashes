@@ -1,6 +1,54 @@
 /** scrypt (RFC 7914): PBKDF2-HMAC-SHA256 around ROMix, whose BlockMix runs Salsa20/8. */
+import { InvalidOptionError } from "./errors.ts";
+import { assertBytes } from "./hasher.ts";
 import { pbkdf2 } from "./hmac.ts";
 import { Sha256Hasher } from "./sha2.ts";
+
+/** The largest cost or key length OpenSSL took, a C int, so a larger one stays an error. */
+const MAX_INTEGER = 0x7fff_ffff;
+
+/**
+ * Holds the costs to RFC 7914 as OpenSSL did, before any memory is taken.
+ *
+ * @param N - CPU and memory cost.
+ * @param r - Block size.
+ * @param p - Parallelization.
+ * @param keyLength - Output bytes.
+ */
+function assertCosts(N: number, r: number, p: number, keyLength: number): void {
+  if (!Number.isInteger(N) || N < 2 || (N & (N - 1)) !== 0) {
+    throw new InvalidOptionError("N", N, "must be a power of 2 and >= 2");
+  }
+  for (const [name, value] of [
+    ["r", r],
+    ["p", p],
+    ["keyLength", keyLength],
+  ] as const) {
+    if (!Number.isSafeInteger(value) || value < 1) {
+      throw new InvalidOptionError(name, value, "must be a positive integer");
+    }
+    if (value > MAX_INTEGER) {
+      throw new InvalidOptionError(name, value, `must be at most ${MAX_INTEGER}`);
+    }
+  }
+  assertWithinRfc(N, r, p);
+}
+
+/**
+ * Checks N below 2^(16 r) and p * 128 * r bytes of blocks that fit in an int.
+ *
+ * @param N - CPU and memory cost.
+ * @param r - Block size.
+ * @param p - Parallelization.
+ */
+function assertWithinRfc(N: number, r: number, p: number): void {
+  if (r < 4 && N >= 2 ** (16 * r)) {
+    throw new InvalidOptionError("N", N, `must be below 2^${16 * r} with r ${r}`);
+  }
+  if (p * 128 * r > MAX_INTEGER) {
+    throw new InvalidOptionError("p", p, "p * r * 128 must stay below 2^31");
+  }
+}
 
 /**
  * Runs Salsa20/8 on the sixteen words at `x[0..16]`, adding the input back in.
@@ -164,6 +212,9 @@ export function scrypt(
   p: number,
   keyLength: number,
 ): Uint8Array {
+  assertBytes(password, "password");
+  assertBytes(salt, "salt");
+  assertCosts(N, r, p, keyLength);
   const words = 32 * r;
   const b = pbkdf2(() => new Sha256Hasher(), password, salt, 1, p * 128 * r);
   const view = new DataView(b.buffer);
