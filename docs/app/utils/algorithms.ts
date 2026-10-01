@@ -24,6 +24,13 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   sha256: { icon: "i-lucide-hash", blurb: "The default. Certificates, signatures, Bitcoin" },
   sha384: { icon: "i-lucide-hash", blurb: "SHA-512 with other start values, cut to 48 bytes" },
   sha512: { icon: "i-lucide-hash", blurb: "The widest SHA-2, 64-bit words all the way" },
+  sha224: { icon: "i-lucide-hash", blurb: "SHA-256 with other start values, cut to 28 bytes" },
+  "sha512-224": { icon: "i-lucide-hash", blurb: "SHA-512 doing SHA-224's job, faster on 64 bits" },
+  "sha512-256": {
+    icon: "i-token-algo",
+    blurb: "SHA-512 from its own start values, cut to 32 bytes",
+    usedBy: "Algorand",
+  },
   "sha512-half": {
     icon: "i-token-xrp",
     blurb: "The first half of SHA-512, which is not SHA-512/256",
@@ -59,6 +66,10 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
     blurb: "160 bits from 1996, alive thanks to Bitcoin",
     usedBy: "Bitcoin",
   },
+  ripemd320: {
+    icon: "i-lucide-fingerprint",
+    blurb: "RIPEMD-160 at 40 bytes, and not a bit stronger",
+  },
   hash160: {
     icon: "i-token-btc",
     blurb: "RIPEMD-160 of SHA-256, a public key becomes an address",
@@ -70,8 +81,19 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
     usedBy: "Bitcoin",
   },
   md5: { icon: "i-lucide-shield-alert", blurb: "Broken since 2004, still on every download page" },
+  md4: { icon: "i-lucide-shield-alert", blurb: "MD5's older sibling, broken before MD5 was" },
+  ntlm: {
+    icon: "i-lucide-monitor",
+    blurb: "MD4 of a password in UTF-16LE, no salt at all",
+    usedBy: "Windows",
+  },
   sha1: { icon: "i-lucide-shield-alert", blurb: "Broken since SHAttered, still inside Git" },
   sha0: { icon: "i-lucide-shield-alert", blurb: "SHA-1 minus one rotation, replaced in 1995" },
+  ripemd128: { icon: "i-lucide-fingerprint", blurb: "Four rounds and 16 bytes, too short today" },
+  ripemd256: {
+    icon: "i-lucide-fingerprint",
+    blurb: "RIPEMD-128 at 32 bytes, and not a bit stronger",
+  },
   crc32: { icon: "i-lucide-file-digit", blurb: "The checksum in every ZIP, PNG and gzip" },
   "crc16-xmodem": {
     icon: "i-token-xlm",

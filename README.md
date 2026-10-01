@@ -5,7 +5,7 @@
 [![license](https://npmx.dev/api/registry/badge/license/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/hashes)
 
-#️⃣ Thirty hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
+#️⃣ Thirty-eight hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
 
 Docs, and a playground where the library runs in your browser: [hashes.agntn.dev](https://hashes.agntn.dev).
 
@@ -18,9 +18,9 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 
 ## ✨ Features
 
-- 🧮 **Thirty algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD-160, MD5, SHA-1, SHA-0, CRC-32, xxHash, FNV-1a, scrypt, Argon2, PBKDF2, HKDF and OpenSSL's EVP_BytesToKey.
-- 🪙 **The ones chains use.** Keccak-256, HASH160, double SHA-256, BLAKE2b-256 and -224, BLAKE-256, SHA-512Half and CRC-16/XMODEM. Ethereum, Bitcoin, Sui, Cardano, Decred, XRP Ledger, Stellar and TON, covered.
-- 🔑 **HMAC where it exists.** Eleven of them take a key. The rest say no instead of pretending.
+- 🧮 **Thirty-eight algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD, MD4, MD5, NTLM, SHA-1, SHA-0, CRC-32, xxHash, FNV-1a, scrypt, Argon2, PBKDF2, HKDF and OpenSSL's EVP_BytesToKey.
+- 🪙 **The ones chains use.** Keccak-256, HASH160, double SHA-256, BLAKE2b-256 and -224, BLAKE-256, SHA-512Half, SHA-512/256 and CRC-16/XMODEM. Ethereum, Bitcoin, Sui, Cardano, Decred, XRP Ledger, Algorand, Stellar and TON, covered.
+- 🔑 **HMAC where it exists.** Nineteen of them take a key. The rest say no instead of pretending.
 - 🧂 **KDFs that tell you the salt.** No salt given, scrypt, Argon2 and PBKDF2 draw a random one and print it next to the digest. Without it that digest is useless.
 - ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
 - ⚡ **Plain TypeScript.** Every algorithm is computed right here. The library imports nothing from `node:*`, and there's no hashing dependency at all.
@@ -114,16 +114,16 @@ Only need bytes in and bytes out? `sha256`, `hash160`, `keccak256` and friends t
 
 ## 🗂️ Algorithms
 
-| Category          | Algorithms                                                                                                                                                          | HMAC                                               |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| cryptographic     | sha256, sha384, sha512, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, hash160, hash256, hkdf | sha2, sha3, keccak256, blake2b, blake2s, ripemd160 |
-| legacy            | md5, sha1, sha0                                                                                                                                                     | yes                                                |
-| non-cryptographic | crc32, crc16-xmodem, xxhash, fnv1a                                                                                                                                  | no                                                 |
-| password          | scrypt, pbkdf2, evp-bytestokey, argon2id, argon2i, argon2d                                                                                                          | no, they take a salt                               |
+| Category          | Algorithms                                                                                                                                                                                                     | HMAC                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| cryptographic     | sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, hkdf | sha2, sha3, keccak256, blake2b, blake2s, ripemd160, ripemd320 |
+| legacy            | md5, md4, ntlm, sha1, sha0, ripemd128, ripemd256                                                                                                                                                               | all but ntlm                                                  |
+| non-cryptographic | crc32, crc16-xmodem, xxhash, fnv1a                                                                                                                                                                             | no                                                            |
+| password          | scrypt, pbkdf2, evp-bytestokey, argon2id, argon2i, argon2d                                                                                                                                                     | no, they take a salt                                          |
 
 That's the category, what an algorithm is fit for. Each one also has a family, where it comes from: SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2. So SHA-0 and SHA3-256 share a family and nothing else, and `hashes algorithms -f sha` shows both.
 
-MD5, SHA-1 and SHA-0 are broken for security. They're here for checksums, old systems and old papers. `hashes info <name>` has the security note for each.
+MD4, MD5, NTLM, SHA-1 and SHA-0 are broken for security. They're here for checksums, old systems and old papers. `hashes info <name>` has the security note for each.
 
 ## 🤖 Agents
 
@@ -154,23 +154,23 @@ Missing one? A fixed-length digest is one small class. On Node you can still bor
 import { createHash } from "node:crypto";
 import { FixedHash, register, create } from "@agntn/hashes";
 
-class Sha224 extends FixedHash {
-  static readonly key = "sha224";
+class Sha3_384 extends FixedHash {
+  static readonly key = "sha3-384";
   protected readonly about = {
-    label: "SHA-224",
-    description: "SHA-2 family 224-bit hash",
+    label: "SHA3-384",
+    description: "SHA-3 family 384-bit hash",
     family: "SHA",
     category: "cryptographic",
-    digestLength: 28,
+    digestLength: 48,
   } as const;
 
   protected digest(bytes: Uint8Array): Uint8Array {
-    return createHash("sha224").update(bytes).digest();
+    return createHash("sha3-384").update(bytes).digest();
   }
 }
 
-register(Sha224);
-create("sha224").hash("abc").digest; // "23097d223405d8228642..."
+register(Sha3_384);
+create("sha3-384").hash("abc").digest; // "ec01498288516fc92645..."
 ```
 
 Want HMAC as well? Extend `BlockHash` and hand it a `Hasher`. Anything else extends `Hash`, and you write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL, a spec or a reference implementation, never from this package.

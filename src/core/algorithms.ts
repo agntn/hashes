@@ -6,6 +6,9 @@ export const builtinAlgorithms = [
   "sha256",
   "sha384",
   "sha512",
+  "sha224",
+  "sha512-224",
+  "sha512-256",
   "sha512-half",
   // Cryptographic (SHA-3 and Keccak)
   "sha3-256",
@@ -20,12 +23,17 @@ export const builtinAlgorithms = [
   "blake256",
   // Cryptographic (RIPEMD and Bitcoin's compositions)
   "ripemd160",
+  "ripemd320",
   "hash160",
   "hash256",
   // Legacy
   "md5",
+  "md4",
+  "ntlm",
   "sha1",
   "sha0",
+  "ripemd128",
+  "ripemd256",
   // Non-cryptographic
   "crc32",
   "crc16-xmodem",
