@@ -82,6 +82,10 @@
     "./scrypt": {
       "types": "./dist/scrypt.d.mts",
       "import": "./dist/scrypt.mjs"
+    },
+    "./argon2": {
+      "types": "./dist/argon2.d.mts",
+      "import": "./dist/argon2.mjs"
     }
   },
   "publishConfig": {

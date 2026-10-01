@@ -34,7 +34,7 @@ export const computeTool = defineTool({
   snippet: "Use hashes_compute to hash text or produce a checksum.",
   guidelines: [
     "Default output is hex; base64 and base64url are the other encodings.",
-    "For scrypt and pbkdf2, keep the salt the answer names: hashes_verify needs it.",
+    "For scrypt, pbkdf2 and argon2, keep the salt the answer names: hashes_verify needs it.",
   ],
   effect: "read",
   idempotent: false,

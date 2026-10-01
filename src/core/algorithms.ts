@@ -36,6 +36,9 @@ export const builtinAlgorithms = [
   "pbkdf2",
   "hkdf",
   "evp-bytestokey",
+  "argon2id",
+  "argon2i",
+  "argon2d",
 ] as const;
 
 export type BuiltinAlgorithm = (typeof builtinAlgorithms)[number];

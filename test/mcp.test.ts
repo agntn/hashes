@@ -1,4 +1,4 @@
-import { createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
+import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createMcpServer } from "../src/mcp.ts";
@@ -121,6 +121,33 @@ describe("hashes MCP server", () => {
       scryptSync("password", Buffer.from(salt ?? "", "hex"), 64, { N: 16384 }).toString("hex"),
     );
     expect(answer.text).toContain("N 16384, r 8, p 1, keyLength 64");
+  });
+
+  it("names the Argon2 salt and cost it ran with, so verify can repeat it", async () => {
+    const parameters = { memory: 256, iterations: 2, parallelism: 2, secret: "0a0b" };
+    const answer = await call("hashes_compute", { algorithm: "argon2id", input: "pw", parameters });
+    const salt = /salt ([0-9a-f]{64})/.exec(answer.text)?.[1] ?? "";
+    const digest = argon2Sync("argon2id", {
+      message: "pw",
+      nonce: Buffer.from(salt, "hex"),
+      memory: 256,
+      passes: 2,
+      parallelism: 2,
+      tagLength: 32,
+      secret: Buffer.from("0a0b", "hex"),
+    }).toString("hex");
+    const verified = await call("hashes_verify", {
+      algorithm: "argon2id",
+      input: "pw",
+      expected: digest,
+      salt,
+      parameters,
+    });
+
+    expect(answer.text.split("\n")[0]).toBe(digest);
+    expect(answer.text).toContain("memory 256, iterations 2, parallelism 2, keyLength 32");
+    expect(answer.text).not.toContain("0a0b");
+    expect(verified.text).toMatch(/^MATCH/);
   });
 
   it("computes an HMAC and refuses an algorithm without one", async () => {
@@ -399,7 +426,7 @@ describe("hashes MCP server", () => {
     const blake = await call("hashes_algorithms", { family: "blake" });
     const scrypt = await call("hashes_algorithms", { algorithm: "scrypt" });
 
-    expect(password.text).toContain("3 algorithms, listing order:");
+    expect(password.text).toContain("6 algorithms, listing order:");
     expect(password.text).toContain("scrypt [scrypt, password] variable, HMAC no: scrypt");
     expect(blake.text).toContain("6 algorithms, listing order:");
     expect(blake.text).toContain("blake3 [BLAKE, cryptographic] 256-bit, HMAC no: BLAKE3");
@@ -525,6 +552,27 @@ describe("hashes MCP server", () => {
     expect(memory.text).toContain(
       "needs 1073741824 bytes of blocks, over 268435456 in a tool call",
     );
+  });
+
+  it("caps Argon2 memory and memory times passes, defaults included", async () => {
+    const compute = (parameters: object) =>
+      call("hashes_compute", {
+        algorithm: "argon2i",
+        input: "x",
+        salt: "00".repeat(8),
+        parameters,
+      });
+    const memory = await compute({ memory: 262_145, iterations: 1 });
+    const work = await compute({ memory: 262_144, iterations: 5 });
+    const byDefault = await compute({ iterations: 17 });
+    const tiny = await compute({ memory: 8, iterations: 1, parallelism: 1, keyLength: 4 });
+
+    expect(memory.text).toContain("memory=262145: must be 1 to 262144 in a tool call");
+    expect(work.text).toContain(
+      "iterations=5: with memory=262144 fills 1310720 KiB, over 1048576 in a tool call",
+    );
+    expect(byDefault.text).toContain("with memory=65536 fills 1114112 KiB");
+    expect(tiny.isError).toBe(false);
   });
 
   it("hashes many rounds in one call and names the rounds and chain to repeat it", async () => {

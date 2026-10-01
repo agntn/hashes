@@ -84,6 +84,9 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   pbkdf2: { icon: "i-lucide-key-round", blurb: "HMAC a few hundred thousand times" },
   hkdf: { icon: "i-lucide-split", blurb: "One strong secret, as many keys as the protocol needs" },
   "evp-bytestokey": { icon: "i-lucide-lock-keyhole-open", blurb: "Key and IV from a passphrase, the openssl enc way" },
+  argon2id: { icon: "i-lucide-memory-stick", blurb: "The Argon2 that RFC 9106 tells you to pick" },
+  argon2i: { icon: "i-lucide-eye-off", blurb: "Argon2 whose reads never depend on the password" },
+  argon2d: { icon: "i-lucide-pickaxe", blurb: "Argon2 whose reads follow the data, fit for proof of work" },
 };
 
 export interface AlgorithmEntry {
@@ -195,6 +198,9 @@ export function securityParts(info: AlgorithmInfo): { short: string; full: strin
   return { short, full: info.securityNote };
 }
 
+/** `saltsalt` at 1 MiB and 2 passes, since the real 64 MiB at 3 passes takes a second in a tab. */
+const ARGON2_SAMPLE = { salt: "73616c7473616c74", memory: 1024, iterations: 2, parallelism: 1 };
+
 /**
  * Options an algorithm page hashes its sample with. The KDFs get a fixed salt and a small cost,
  * so the page stays reproducible and doesn't spend seconds on 600000 PBKDF2 rounds.
@@ -203,4 +209,7 @@ export const SAMPLE_OPTIONS: Partial<Record<BuiltinAlgorithm, Record<string, str
   scrypt: { salt: "73616c74", N: 1024 },
   pbkdf2: { salt: "73616c74", iterations: 1000 },
   "evp-bytestokey": { salt: "0102030405060708" },
+  argon2id: ARGON2_SAMPLE,
+  argon2i: ARGON2_SAMPLE,
+  argon2d: ARGON2_SAMPLE,
 };

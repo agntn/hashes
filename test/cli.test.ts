@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createHash, createHmac, hkdfSync, scryptSync } from "node:crypto";
+import { argon2Sync, createHash, createHmac, hkdfSync, scryptSync } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -51,7 +51,7 @@ describe("hashes CLI", () => {
     expect(help.stdout).toContain("USAGE hashes hash|hmac|verify|algorithms|info|mcp");
     expect(usage.stdout).toContain("ALGORITHM");
     expect(usage.stdout).toContain(
-      "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey)",
+      "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d)",
     );
     expect(usage.stdout).toContain("Seed value for xxHash (xxhash)");
     for (const output of [help, usage]) {
@@ -179,6 +179,31 @@ describe("hashes CLI", () => {
     expect(scrypt.stdout).toBe(
       `${scryptSync("pw", Buffer.from("00112233", "hex"), 16, { N: 1024, r: 1, p: 1 }).toString("hex")}\n`,
     );
+    const argon2 = run([
+      "argon2d",
+      "pw",
+      "--salt",
+      "0011223344556677",
+      "--memory",
+      "64",
+      "--iterations",
+      "1",
+      "--parallelism",
+      "1",
+      "--associatedData",
+      "ff",
+    ]);
+    expect(argon2.stdout).toBe(
+      `${argon2Sync("argon2d", {
+        message: "pw",
+        nonce: Buffer.from("0011223344556677", "hex"),
+        memory: 64,
+        passes: 1,
+        parallelism: 1,
+        tagLength: 32,
+        associatedData: Buffer.from("ff", "hex"),
+      }).toString("hex")}\n`,
+    );
     const twice = createHash("sha256").update(createHash("sha256").update("abc").digest("hex"));
     expect(run(["sha256", "abc", "--rounds", "2", "--chain", "hex"]).stdout).toBe(
       `${twice.digest("hex")}\n`,
@@ -233,7 +258,14 @@ describe("hashes CLI", () => {
         .split("\n")
         .slice(1)
         .map((line) => line.split(/\s+/)[0] ?? "");
-    expect(names(["-c", "password"])).toEqual(["scrypt", "pbkdf2", "evp-bytestokey"]);
+    expect(names(["-c", "password"])).toEqual([
+      "scrypt",
+      "pbkdf2",
+      "evp-bytestokey",
+      "argon2id",
+      "argon2i",
+      "argon2d",
+    ]);
     expect(names(["-f", "crc"])).toEqual(["crc32", "crc16-xmodem"]);
     expect(names(["-f", "SHA", "-c", "legacy"])).toEqual(["sha1", "sha0"]);
     expect(run(["info", "SHA3_256"]).stdout).toContain("SHA3-256 (sha3-256)");

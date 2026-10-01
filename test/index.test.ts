@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
+import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
@@ -21,6 +21,9 @@ import {
   Sha256Hasher,
   Sha512Hasher,
   algorithms,
+  argon2d,
+  argon2i,
+  argon2id,
   blake256,
   blake2b,
   builtinAlgorithms,
@@ -51,6 +54,7 @@ import {
   sha512,
   version,
   type HashOptions,
+  type Argon2Options,
   type EvpBytesToKeyOptions,
   type HkdfOptions,
   type Pbkdf2Options,
@@ -279,6 +283,9 @@ describe("digests", () => {
       "pbkdf2",
       "hkdf",
       "evp-bytestokey",
+      "argon2id",
+      "argon2i",
+      "argon2d",
     ]);
     for (const name of without) {
       expect(() => create(name).hash("message", { key: "secret" })).toThrow(HashError);
@@ -873,6 +880,87 @@ describe("byte functions", () => {
     expect(derive(2, 1, 2 ** 24, 32)).toThrow("Invalid option p=16777216");
   });
 
+  it("derive Argon2 bytes as RFC 9106 and Node do, past 128 blocks a lane and 64 bytes out", () => {
+    const rfc = {
+      memory: 32,
+      iterations: 3,
+      parallelism: 4,
+      keyLength: 32,
+      secret: new Uint8Array(8).fill(3),
+      associatedData: new Uint8Array(12).fill(4),
+    };
+    const password = new Uint8Array(32).fill(1);
+    const salt = new Uint8Array(16).fill(2);
+    expect(argon2d(password, salt, rfc).toHex()).toBe(
+      "512b391b6f1162975371d30919734294f868e3be3984f3c1a13a4db9fabe4acb",
+    );
+    expect(argon2i(password, salt, rfc).toHex()).toBe(
+      "c814d9d1dc7f37aa13f0d77f2494bda1c8de6b016dd388d29952a4c4672b6ce8",
+    );
+    expect(argon2id(password, salt, rfc).toHex()).toBe(
+      "0d640df58d78766c08c037a34a8b53c9d01ef0452d75b65eb52520e96b01e659",
+    );
+    for (const [memory, iterations, parallelism, keyLength] of [
+      [1100, 2, 1, 16],
+      [77, 1, 3, 65],
+      [16, 3, 2, 200],
+    ] as const) {
+      for (const [name, derive] of [
+        ["argon2d", argon2d],
+        ["argon2i", argon2i],
+        ["argon2id", argon2id],
+      ] as const) {
+        const message = new TextEncoder().encode(name);
+        const nonce = new Uint8Array(9).fill(memory & 0xff);
+        expect(
+          derive(message, nonce, { memory, iterations, parallelism, keyLength }),
+          `${name} m=${memory}`,
+        ).toEqual(
+          new Uint8Array(
+            argon2Sync(name, {
+              message,
+              nonce,
+              memory,
+              passes: iterations,
+              parallelism,
+              tagLength: keyLength,
+            }),
+          ),
+        );
+      }
+    }
+  });
+
+  it("refuse Argon2 parameters that RFC 9106 rules out before any work", () => {
+    const derive =
+      (parameters: object, salt = new Uint8Array(8)) =>
+      () =>
+        argon2id(new Uint8Array(1), salt, {
+          memory: 8,
+          iterations: 1,
+          parallelism: 1,
+          keyLength: 4,
+          ...parameters,
+        });
+    for (const bad of [0, -1, 1.5, Number.NaN, 2 ** 32]) {
+      expect(derive({ iterations: bad })).toThrow(`Invalid option iterations=${bad}`);
+      expect(derive({ parallelism: bad })).toThrow(`Invalid option parallelism=${bad}`);
+      expect(derive({ memory: bad })).toThrow(`Invalid option memory=${bad}`);
+      expect(derive({ keyLength: bad })).toThrow(`Invalid option keyLength=${bad}`);
+    }
+    expect(derive({ keyLength: 3 })).toThrow("Invalid option keyLength=3");
+    expect(derive({ parallelism: 2 ** 24 })).toThrow("Invalid option parallelism=16777216");
+    expect(derive({ memory: 15, parallelism: 2 })).toThrow("Invalid option memory=15");
+    expect(derive({}, new Uint8Array(7))).toThrow("Invalid option salt=7 bytes");
+    expect(derive({ secret: "00" })).toThrow(
+      new HashError("secret must be a Uint8Array, not string"),
+    );
+    const loose = (value: unknown) => value as Parameters<typeof argon2id>[2];
+    expect(() => argon2id(new Uint8Array(1), new Uint8Array(8), loose(null))).toThrow(
+      "Invalid option parameters=null",
+    );
+  });
+
   it("refuse PBKDF2 costs and lengths that are not positive integers", () => {
     const derive = (iterations: number, keyLength: number) =>
       pbkdf2(() => new Sha256Hasher(), new Uint8Array(1), new Uint8Array(1), iterations, keyLength);
@@ -896,6 +984,7 @@ describe("byte function subpaths", () => {
     hmac: ["hkdf", "hkdfExpand", "hkdfExtract", "hmac", "pbkdf2"],
     evp: ["evpBytesToKey"],
     scrypt: ["scrypt"],
+    argon2: ["argon2d", "argon2i", "argon2id"],
   } as const;
   const names = Object.keys(SUBPATHS);
 
@@ -970,7 +1059,7 @@ describe("rounds", () => {
       const names = create(name)
         .info()
         .options.map((option) => option.name);
-      const kdf = ["scrypt", "pbkdf2", "hkdf", "evp-bytestokey"].includes(name);
+      const kdf = create(name).info().category === "password" || name === "hkdf";
       expect(names.includes("rounds") && names.includes("chain"), name).toBe(!kdf);
     }
   });
@@ -1237,6 +1326,57 @@ describe("key derivation", () => {
     expect(create("hash160").info().securityNote).toMatch(/^80-bit collision resistance/);
   });
 
+  it("matches Node's Argon2 and reports the salt and cost, never the secret", () => {
+    for (const name of ["argon2id", "argon2i", "argon2d"] as const) {
+      const result = create(name).hash("password", {
+        salt,
+        memory: 64,
+        iterations: 2,
+        parallelism: 2,
+        secret: "0102",
+        associatedData: "ff",
+      } as Argon2Options);
+      expect(result.digest).toBe(
+        argon2Sync(name, {
+          message: "password",
+          nonce: Buffer.from(salt, "hex"),
+          memory: 64,
+          passes: 2,
+          parallelism: 2,
+          tagLength: 32,
+          secret: Buffer.from("0102", "hex"),
+          associatedData: Buffer.from("ff", "hex"),
+        }).toString("hex"),
+      );
+      expect(result.options).toEqual({
+        encoding: "hex",
+        memory: 64,
+        iterations: 2,
+        parallelism: 2,
+        keyLength: 32,
+        associatedData: "ff",
+        salt,
+      });
+    }
+  });
+
+  it("draws an Argon2 salt that verify then needs", () => {
+    const argon2 = create("argon2id");
+    const cost = { memory: 8, iterations: 1, parallelism: 1 } as Argon2Options;
+    const result = argon2.hash("pw", cost);
+    expect(String(result.options["salt"])).toMatch(/^[0-9a-f]{64}$/);
+    expect(argon2.info().options.find((option) => option.name === "salt")?.random).toBe(true);
+    expect(() => argon2.hash("pw", { ...cost, salt: "00" } as Argon2Options)).toThrow(
+      "Invalid option salt=1 bytes",
+    );
+    expect(() => argon2.hash("pw", { ...cost, secret: "abc" } as Argon2Options)).toThrow(
+      InvalidOptionError,
+    );
+    expect(() => argon2.hash("pw", { ...cost, salt, rounds: 2 } as Argon2Options)).toThrow(
+      "argon2id sets its cost with its own parameters",
+    );
+  });
+
   it("rejects bad cost parameters", () => {
     expect(() => create("scrypt").hash("x", { salt, N: 1000 } as ScryptOptions)).toThrow(
       InvalidOptionError,
@@ -1329,7 +1469,14 @@ describe("runtime", () => {
         () => {},
       );
       const { algorithms, create, digestMatches } = await import(${JSON.stringify(entry)});
-      const costs = { scrypt: { N: 16 }, pbkdf2: { iterations: 1 } };
+      const argon2 = { memory: 8, iterations: 1, parallelism: 1 };
+      const costs = {
+        scrypt: { N: 16 },
+        pbkdf2: { iterations: 1 },
+        argon2id: argon2,
+        argon2i: argon2,
+        argon2d: argon2,
+      };
       for (const name of algorithms()) {
         const hash = create(name);
         const result = hash.hash("abc", costs[name]);
