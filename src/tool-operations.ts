@@ -213,12 +213,26 @@ function saltArgument(value: unknown): string | undefined {
 }
 
 /**
+ * Names the argument that takes an option a model put into `parameters` instead.
+ *
+ * @param name - The parameter name.
+ * @param hmac - Whether the algorithm has an HMAC mode.
+ * @returns {string | undefined} Where the option goes, or nothing for a real parameter.
+ */
+function argumentFor(name: string, hmac: boolean): string | undefined {
+  if (name === "salt" || name === "encoding") return `pass the ${name} as the ${name} argument`;
+  if (name === "key" && hmac) return "pass the key to hashes_hmac_compute";
+  return undefined;
+}
+
+/**
  * Checks what the schema declares about `parameters` again: how many, the names, the length of
- * a text value, and that the salt comes through its own bounded argument.
+ * a text value, and that the salt, the encoding and an HMAC key come through their own arguments.
  *
  * @param given - The parameters as passed.
+ * @param hmac - Whether the algorithm has an HMAC mode.
  */
-function assertParameterEntries(given: Readonly<Record<string, unknown>>): void {
+function assertParameterEntries(given: Readonly<Record<string, unknown>>, hmac: boolean): void {
   const entries = Object.entries(given);
   if (entries.length > MAX_PARAMETERS) {
     throw new InvalidOptionError("parameters", "(object)", `at most ${MAX_PARAMETERS} entries`);
@@ -231,9 +245,8 @@ function assertParameterEntries(given: Readonly<Record<string, unknown>>): void 
         "names are letters and digits, starting with a letter",
       );
     }
-    if (name === "salt") {
-      throw new InvalidOptionError("parameters", name, "pass the salt as the salt argument");
-    }
+    const redirect = argumentFor(name, hmac);
+    if (redirect !== undefined) throw new InvalidOptionError("parameters", name, redirect);
     if (typeof value === "string" && value.length > MAX_PARAMETER_LENGTH) {
       throw new InvalidOptionError(
         name,
@@ -277,7 +290,7 @@ function algorithmOptions(
     throw new InvalidOptionError("parameters", parameters, "must be an object of option values");
   }
   const given = { ...(parameters as Readonly<Record<string, unknown>> | undefined) };
-  assertParameterEntries(given);
+  assertParameterEntries(given, algorithm.info().hmac);
   const hexSalt = saltArgument(salt);
   if (hexSalt !== undefined) given["salt"] = hexSalt;
   const options = checkedParameters(algorithm, given);
@@ -430,7 +443,7 @@ function listingLine(info: AlgorithmInfo): string {
 }
 
 /**
- * Describes one algorithm with its options.
+ * Describes one algorithm with its options, the encoding and key as the tools take them.
  *
  * @param info - The algorithm's metadata.
  * @returns {string} The description.
@@ -438,12 +451,17 @@ function listingLine(info: AlgorithmInfo): string {
 function infoText(info: AlgorithmInfo): string {
   const lines = [listingLine(info), info.description];
   if (info.securityNote) lines.push(`Security: ${info.securityNote}`);
+  const toolDescriptions: Readonly<Record<string, string>> = {
+    encoding: `Output encoding: ${TEXT_ENCODINGS.join(", ")}`,
+    key: "HMAC key; pass it to hashes_hmac_compute",
+  };
   lines.push("Options:");
   for (const option of info.options) {
     const requirement = option.required
       ? "required"
       : `default ${String(option.default ?? "none")}`;
-    lines.push(`  ${option.name} (${option.type}, ${requirement}): ${option.description}`);
+    const description = toolDescriptions[option.name] ?? option.description;
+    lines.push(`  ${option.name} (${option.type}, ${requirement}): ${description}`);
   }
   return lines.join("\n");
 }
