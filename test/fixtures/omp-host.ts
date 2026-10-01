@@ -1,10 +1,12 @@
-import * as typebox from "@oh-my-pi/omptype/typebox";
 import type {
   ExtensionAPI,
   ExtensionContext,
   Theme,
   ToolDefinition,
 } from "@oh-my-pi/pi-coding-agent";
+
+/** The adapter only wraps the JSON Schema in `Type.Unsafe`; this hands it back as it came. */
+const typebox = { Type: { Unsafe: (schema: unknown) => schema } };
 
 /**
  * Builds a test double of a host object from typed stubs. Reading a member the
@@ -45,15 +47,17 @@ export interface OmpTestHost {
  * the injected `typebox` facade, `setLabel` and `registerTool`.
  *
  * @param extension - The extension's default export.
- * @returns {OmpTestHost} The registered tools and labels.
+ * @returns {Promise<OmpTestHost>} The registered tools and labels.
  */
-export function registerOmpExtension(extension: (pi: ExtensionAPI) => void): OmpTestHost {
+export async function registerOmpExtension(
+  extension: (pi: ExtensionAPI) => void | Promise<void>,
+): Promise<OmpTestHost> {
   const tools = new Map<string, ToolDefinition>();
   const labels: string[] = [];
 
-  extension(
+  await extension(
     strictDouble<ExtensionAPI>("ExtensionAPI", {
-      typebox,
+      typebox: typebox as unknown as ExtensionAPI["typebox"],
       setLabel(label) {
         labels.push(label);
       },

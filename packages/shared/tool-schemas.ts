@@ -1,10 +1,10 @@
 /**
- * TypeBox schemas of the hash tools, shared by the MCP server and the Pi extension so every
- * parameter has one declaration. OMP validates with its own TypeBox build and restates them; a
- * test holds its copy to the same contract.
+ * Argument schemas of the hash tools, one declaration of every parameter for all four surfaces.
+ * `Type` comes from `@agntn/tools`, never a bare `typebox` import, which OMP rewrites to its own
+ * facade (#58).
  */
 
-import { Type, type TObject, type TProperties } from "typebox";
+import { Type, type TObject, type TProperties } from "@agntn/tools";
 import {
   HASH_CATEGORIES,
   INPUT_ENCODINGS,

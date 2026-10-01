@@ -132,21 +132,19 @@ describe("one byte function subpath in plain Node", () => {
   });
 });
 
-describe("typebox left to the host", () => {
+describe("typebox left to @agntn/tools", () => {
   it("keeps the packages Pi supplies out of dependencies", () => {
     const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
       readonly dependencies: Readonly<Record<string, string>>;
-      readonly peerDependencies: Readonly<Record<string, string>>;
     };
 
     expect(
       Object.keys(manifest.dependencies).filter((name) => hostProvidedPackages.includes(name)),
     ).toEqual([]);
-    expect(manifest.peerDependencies["typebox"]).toBe("*");
   });
 
-  /** A checkout's node_modules resolves a bare import anyway, so only the files prove the copy. */
-  it("bundles typebox into the CLI and the MCP server", () => {
+  /** A checkout's node_modules resolves a bare import anyway, so only the files prove it. */
+  it("imports typebox nowhere in the build", () => {
     const importers = globSync("**/*.mjs", { cwd: packed }).filter((file) =>
       /(?:from|import)\s*\(?\s*["']typebox(?:\/[^"']*)?["']/u.test(
         readFileSync(join(packed, file), "utf8"),
@@ -154,11 +152,5 @@ describe("typebox left to the host", () => {
     );
 
     expect(importers).toEqual([]);
-  });
-
-  it("ships the license of the typebox it bundles", () => {
-    expect(readFileSync(join(packed, "THIRD-PARTY-LICENSES.md"), "utf8")).toMatch(
-      /^## typebox$[\s\S]*?Copyright \(c\) .* Haydn Paterson/mu,
-    );
   });
 });

@@ -2,8 +2,7 @@
  * The contract of the hash tools: bounds, allowed values and descriptions. The schemas declare it,
  * the executors in `src/tool-operations.ts` enforce it again, since a host may skip validation.
  *
- * It lives beside the extensions, not in `src`: the Pi and OMP extensions read it before the
- * library loads, and the package ships no `src`. Nothing here imports a dependency.
+ * Nothing here imports a dependency: the library and the docs site read it too.
  */
 
 /** Bounds on model-controlled work: a KDF runs its full cost on whatever input it gets. */

@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type * as typebox from "@oh-my-pi/omptype/typebox";
 import type { ToolDefinition } from "@oh-my-pi/pi-coding-agent";
 
 // Compiled OMP injects only the package root into extensions, so the renderers run
@@ -17,10 +16,7 @@ vi.mock("@oh-my-pi/pi-coding-agent/tui", () => {
   throw new Error("The OMP host does not inject the TUI barrel");
 });
 
-import hashesExtension, {
-  preview,
-  sanitizeTerminalText,
-} from "../packages/omp/extensions/hashes.ts";
+import hashesExtension, { preview } from "../packages/omp/extensions/hashes.ts";
 import {
   hashAlgorithmsSchema,
   hashComputeSchema,
@@ -28,6 +24,7 @@ import {
   hashVerifySchema,
 } from "../packages/shared/tool-schemas.ts";
 import { Value } from "typebox/value";
+import { ToolInputError } from "@agntn/tools";
 import { TOOL_ARGUMENTS } from "../src/tool-operations.ts";
 import {
   ompTestTheme as theme,
@@ -37,8 +34,8 @@ import {
 
 const CONTROL_BYTES = /[\u0000-\u001F\u007F-\u009F]/;
 
-function registerTool(name: string): ToolDefinition {
-  return registerOmpExtension(hashesExtension).tool(name);
+async function registerTool(name: string): Promise<ToolDefinition> {
+  return (await registerOmpExtension(hashesExtension)).tool(name);
 }
 
 function renderedText(component: unknown): string {
@@ -52,7 +49,7 @@ const sharedSchemas = {
   hashes_algorithms: hashAlgorithmsSchema,
 };
 
-/** Arguments that probe each restated bound: the shared schema decides, OMP has to agree. */
+/** Arguments that probe each bound: the shared schema decides, a call through OMP has to agree. */
 const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
   hashes_compute: [
     { algorithm: "sha256", input: "x" },
@@ -71,7 +68,11 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     { algorithm: "scrypt", input: "x", parameters: { N: 1024, digest: "sha256" } },
     { algorithm: "xxhash", input: "x", parameters: { seed: 1.5 } },
     { algorithm: "xxhash", input: "x", parameters: { "1seed": 1 } },
-    // No probe over MAX_PARAMETERS: omptype ignores maxProperties, so the shared executor enforces it.
+    {
+      algorithm: "xxhash",
+      input: "x",
+      parameters: { a: 1, b: 1, c: 1, d: 1, e: 1, f: 1, g: 1, h: 1, i: 1 },
+    },
     { algorithm: "sha256" },
   ],
   hashes_hmac_compute: [
@@ -112,11 +113,9 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
   ],
 };
 
-describe("sanitizeTerminalText", () => {
+describe("preview", () => {
   it("strips ANSI, OSC, C0, and C1 sequences", () => {
-    const clean = sanitizeTerminalText(
-      "\u001B]0;evil\u0007safe\u001B[31mname\u009B1mtail\u0000end",
-    );
+    const clean = preview("\u001B]0;evil\u0007safe\u001B[31mname\u009B1mtail\u0000end");
 
     expect(clean).not.toMatch(CONTROL_BYTES);
     expect(clean).not.toContain("evil");
@@ -124,7 +123,7 @@ describe("sanitizeTerminalText", () => {
   });
 
   it("turns the Unicode line and paragraph separators into spaces", () => {
-    expect(sanitizeTerminalText("a\u2028b\u2029c")).toBe("a b c");
+    expect(preview("a\u2028b\u2029c")).toBe("a b c");
   });
 
   it("cuts a long preview", () => {
@@ -134,35 +133,38 @@ describe("sanitizeTerminalText", () => {
 });
 
 describe("omp hashes extension", () => {
-  it("registers the four hash tools as read-approval tools", () => {
-    const host = registerOmpExtension(hashesExtension);
+  it("registers the four hash tools with read approval", async () => {
+    const host = await registerOmpExtension(hashesExtension);
 
     expect([...host.tools.keys()]).toEqual(Object.keys(TOOL_ARGUMENTS));
     expect(host.labels).toEqual(["Hashes"]);
     for (const tool of host.tools.values()) expect(tool.approval).toBe("read");
   });
 
-  it.each(Object.entries(probes))(
-    "keeps the restated %s schema with the shared one",
-    (name, values) => {
-      const tool = registerTool(name);
-      const accepts = (value: unknown): boolean =>
-        (tool.parameters as unknown as typebox.TSchema).safeParse(value).success;
-      const shared = sharedSchemas[name as keyof typeof sharedSchemas];
+  it.each(Object.entries(probes))("checks %s against the shared schema", async (name, values) => {
+    const tool = await registerTool(name);
+    const shared = sharedSchemas[name as keyof typeof sharedSchemas];
+    const outcome = async (value: unknown): Promise<string> =>
+      Promise.resolve(tool.execute("call-1", value, undefined, undefined, ompToolContext)).then(
+        () => "ran",
+        (error: unknown) => (error instanceof ToolInputError ? "refused" : "ran"),
+      );
 
-      expect(values.some((value) => Value.Check(shared, value))).toBe(true);
-      expect(values.some((value) => !Value.Check(shared, value))).toBe(true);
-      for (const value of values) {
-        expect([JSON.stringify(value).slice(0, 60), accepts(value)]).toEqual([
-          JSON.stringify(value).slice(0, 60),
-          Value.Check(shared, value),
-        ]);
-      }
-    },
-  );
+    expect(tool.parameters).toEqual(shared);
+    expect(values.some((value) => Value.Check(shared, value))).toBe(true);
+    expect(values.some((value) => !Value.Check(shared, value))).toBe(true);
+    for (const value of values) {
+      expect([JSON.stringify(value).slice(0, 60), await outcome(value)]).toEqual([
+        JSON.stringify(value).slice(0, 60),
+        Value.Check(shared, value) ? "ran" : "refused",
+      ]);
+    }
+  });
 
   it("executes against the library and returns structured details", async () => {
-    const result = await registerTool("hashes_verify").execute(
+    const result = await (
+      await registerTool("hashes_verify")
+    ).execute(
       "call-1",
       { algorithm: "md5", input: "hello", expected: "5D41402ABC4B2A76B9719D911017C592" },
       undefined,
@@ -175,9 +177,9 @@ describe("omp hashes extension", () => {
     expect(result.details).toMatchObject({ match: true, algorithm: "md5" });
   });
 
-  it("keeps the HMAC key off the status line and sanitizes the input", () => {
+  it("keeps the HMAC key off the status line and sanitizes the input", async () => {
     const text = renderedText(
-      registerTool("hashes_hmac_compute").renderCall?.(
+      (await registerTool("hashes_hmac_compute")).renderCall?.(
         { algorithm: "sha256", input: "\u001B]0;evil\u0007msg\nnext", key: "hunter2" },
         { expanded: false, isPartial: false },
         theme,
@@ -195,9 +197,9 @@ describe("omp hashes extension", () => {
     [true, 3, "frame-1"],
   ] as const)(
     "draws the call status with the host theme (partial=%s, frame=%s)",
-    (isPartial, spinnerFrame, icon) => {
+    async (isPartial, spinnerFrame, icon) => {
       const text = renderedText(
-        registerTool("hashes_algorithms").renderCall?.(
+        (await registerTool("hashes_algorithms")).renderCall?.(
           { category: "password" },
           { expanded: false, isPartial, spinnerFrame },
           theme,
@@ -208,23 +210,23 @@ describe("omp hashes extension", () => {
     },
   );
 
-  it("summarizes a digest, a verdict and a listing, and nothing for an error", () => {
+  it("summarizes a digest, a verdict and a listing, and nothing for an error", async () => {
     const digest = renderedText(
-      registerTool("hashes_compute").renderResult?.(
+      (await registerTool("hashes_compute")).renderResult?.(
         { content: [], details: { algorithm: "sha256", digest: "ab\u001B[31mcd" } },
         { expanded: false, isPartial: false },
         theme,
       ),
     );
     const verdict = renderedText(
-      registerTool("hashes_verify").renderResult?.(
+      (await registerTool("hashes_verify")).renderResult?.(
         { content: [], details: { match: false } },
         { expanded: false, isPartial: false },
         theme,
       ),
     );
     const failed = renderedText(
-      registerTool("hashes_algorithms").renderResult?.(
+      (await registerTool("hashes_algorithms")).renderResult?.(
         { content: [], details: { algorithms: [1, 2] }, isError: true },
         { expanded: false, isPartial: false },
         theme,
