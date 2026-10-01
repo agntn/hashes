@@ -4,7 +4,7 @@ Keep AGENTS.md updated with project status.
 
 ## Scope
 
-`@agntn/hashes`: hash, HMAC, verify and look up 26 hash and key derivation algorithms, including the constructions cryptocurrencies use. Library, CLI (`hashes`), MCP server, AI SDK tools, Pi and OMP extensions. Local computation only: no network, no state, no keys to configure. Formerly `hashhouse` (`~/Projekty/oritwoen/hashhouse`); the rename was a clean cutover without the old `hh` binary. Signing and wallet keys belong to `@agntn/keys`, ciphers to `@agntn/ciphers`.
+`@agntn/hashes`: hash, HMAC, verify and look up 27 hash and key derivation algorithms, including the constructions cryptocurrencies use. Library, CLI (`hashes`), MCP server, AI SDK tools, Pi and OMP extensions. Local computation only: no network, no state, no keys to configure. Formerly `hashhouse` (`~/Projekty/oritwoen/hashhouse`); the rename was a clean cutover without the old `hh` binary. Signing and wallet keys belong to `@agntn/keys`, ciphers to `@agntn/ciphers`.
 
 ## Status
 
@@ -62,7 +62,7 @@ docs/                    - the hashes.agntn.dev site, its own pnpm project, outs
 
 ## Adding an algorithm
 
-1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `BlockHash` for a digest with an HMAC mode (its `Hasher` goes in `src/core/`), `FixedHash` for a fixed-length digest without one, `Hash` for anything else. Its `about` names the `family`, the lineage it comes from (`SHA`, `BLAKE`, `CRC`), and the `category`, what it is fit for (`cryptographic`, `legacy`, `non-cryptographic`, `password`). Nothing under the library entry imports `node:*`. A KDF that draws a random salt declares `SALT_OPTION` in `info()`; its `random: true` makes verify require one, and a registered class sets the same flag on its own option. HKDF declares its own `salt`, since it reads a missing one as zeros (RFC 5869).
+1. Create `src/algorithms/<name>.ts` with a class and a static `key`: extend `BlockHash` for a digest with an HMAC mode (its `Hasher` goes in `src/core/`), `FixedHash` for a fixed-length digest without one, `Hash` for anything else. Its `about` names the `family`, the lineage it comes from (`SHA`, `BLAKE`, `CRC`), and the `category`, what it is fit for (`cryptographic`, `legacy`, `non-cryptographic`, `password`). Nothing under the library entry imports `node:*`. A KDF that draws a random salt declares `SALT_OPTION` in `info()`; its `random: true` makes verify require one, and a registered class sets the same flag on its own option. HKDF declares its own `salt`, since it reads a missing one as zeros (RFC 5869), and so does EVP_BytesToKey, where a missing one means no salt, as `openssl enc -nosalt`.
 2. Add the class to `builtins` in `src/algorithms/index.ts` and its key to `builtinAlgorithms` in `src/core/algorithms.ts`, in the same position.
 3. Update `BUILTIN_ALGORITHMS` (and `HMAC_ALGORITHMS` when it has HMAC, `BUILTIN_FAMILIES` when it starts a new family) in `packages/shared/tool-contract.ts`.
 4. Test it against a vector from outside this package: `node:crypto`, `node:zlib`, a reference library or the spec.
@@ -76,7 +76,7 @@ docs/                    - the hashes.agntn.dev site, its own pnpm project, outs
 - No `as any`, `@ts-ignore`, or `@ts-expect-error`.
 - Every bound a tool schema declares is enforced again in the executor, and every tool argument table in `TOOL_ARGUMENTS` matches its schema keys.
 - Tool schemas are closed (`additionalProperties: false`); an undeclared key is an error on every surface.
-- An algorithm's options besides `encoding` and `key` (salt, seed, KDF costs) reach every surface from one place: `info().options`, checked by `checkedParameters` in `src/core/options.ts`. The CLI turns them into flags, the tools take them as `parameters`, and a name the algorithm does not declare is an error, never dropped. Tool calls also cap KDF costs (`PARAMETER_LIMITS`, `MAX_SCRYPT_MEMORY`); the library leaves them to the caller. omptype ignores `maxProperties`, so the executor enforces `MAX_PARAMETERS` itself.
+- An algorithm's options besides `encoding` and `key` (salt, seed, KDF costs) reach every surface from one place: `info().options`, checked by `checkedParameters` in `src/core/options.ts`. The CLI turns them into flags, the tools take them as `parameters`, and a name the algorithm does not declare is an error, never dropped. Tool calls also cap KDF costs (`PARAMETER_LIMITS`, `MAX_SCRYPT_MEMORY`); the library leaves them to the caller. A capped parameter starts at 1 unless `ZERO_PARAMETERS` lists it, as it does `ivLength`. omptype ignores `maxProperties`, so the executor enforces `MAX_PARAMETERS` itself.
 - An MCP client sees only `content`, so every fact a follow-up call needs (a KDF's salt and cost) is in the text.
 - The CLI prints the digest alone on stdout; a salted digest's parameters go to stderr.
 - `pnpm install` hung in `importing_started` with pnpm 11.26 and the default import method on this machine; `--config.package-import-method=hardlink` works.

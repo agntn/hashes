@@ -83,6 +83,7 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   scrypt: { icon: "i-lucide-hourglass", blurb: "Slow on purpose and hungry for memory" },
   pbkdf2: { icon: "i-lucide-key-round", blurb: "HMAC a few hundred thousand times" },
   hkdf: { icon: "i-lucide-split", blurb: "One strong secret, as many keys as the protocol needs" },
+  "evp-bytestokey": { icon: "i-lucide-lock-keyhole-open", blurb: "Key and IV from a passphrase, the openssl enc way" },
 };
 
 export interface AlgorithmEntry {
@@ -201,4 +202,5 @@ export function securityParts(info: AlgorithmInfo): { short: string; full: strin
 export const SAMPLE_OPTIONS: Partial<Record<BuiltinAlgorithm, Record<string, string | number>>> = {
   scrypt: { salt: "73616c74", N: 1024 },
   pbkdf2: { salt: "73616c74", iterations: 1000 },
+  "evp-bytestokey": { salt: "0102030405060708" },
 };
