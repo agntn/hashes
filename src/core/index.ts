@@ -7,6 +7,7 @@ export type {
   HashResult,
   OutputEncoding,
 } from "./types.ts";
+export type { EvpBytesToKeyOptions } from "../algorithms/evp-bytestokey.ts";
 export type { HkdfOptions } from "../algorithms/hkdf.ts";
 export type { Pbkdf2Options } from "../algorithms/pbkdf2.ts";
 export type { ScryptOptions } from "../algorithms/scrypt.ts";

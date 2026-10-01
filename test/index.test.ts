@@ -47,6 +47,7 @@ import {
   sha512,
   version,
   type HashOptions,
+  type EvpBytesToKeyOptions,
   type HkdfOptions,
   type Pbkdf2Options,
   type ScryptOptions,
@@ -273,6 +274,7 @@ describe("digests", () => {
       "scrypt",
       "pbkdf2",
       "hkdf",
+      "evp-bytestokey",
     ]);
     for (const name of without) {
       expect(() => create(name).hash("message", { key: "secret" })).toThrow(HashError);
@@ -834,7 +836,7 @@ describe("rounds", () => {
       const names = create(name)
         .info()
         .options.map((option) => option.name);
-      const kdf = name === "scrypt" || name === "pbkdf2" || name === "hkdf";
+      const kdf = ["scrypt", "pbkdf2", "hkdf", "evp-bytestokey"].includes(name);
       expect(names.includes("rounds") && names.includes("chain"), name).toBe(!kdf);
     }
   });
@@ -938,6 +940,75 @@ describe("key derivation", () => {
     expect(() => hkdf.hash("x", { digest: "md5" } as HkdfOptions)).toThrow(
       "Invalid option digest=md5",
     );
+  });
+
+  it("derives OpenSSL's key and IV with EVP_BytesToKey for each digest", () => {
+    /** `openssl enc -aes-256-cbc -P -pass pass:password -S 0102030405060708 -md <digest>`. */
+    const vectors = {
+      md5: "e7b0971e52ca5cc8d0539fb3412f6316f7ba2e6ee293d9f3457b99436b51ce028d450e2ed75a84a923d4eac9fe49226b",
+      sha1: "37ebd7b0dda7cbc993a9de9962e1dc2551ef134d19e96e7ce1fa3eadb854dcb504bc65de80fed6862403ff9fbb0c2f43",
+      sha256:
+        "2435177f1410536baad2acc155c0f94783d58384573cb0f72157443606285d3ff96efc044e0f1613bf324245c95e7411",
+    };
+    const evp = create("evp-bytestokey");
+    for (const [digest, expected] of Object.entries(vectors)) {
+      const result = evp.hash("password", {
+        digest,
+        salt: "0102030405060708",
+      } as EvpBytesToKeyOptions);
+      expect(result.digest, digest).toBe(expected);
+      expect(result.options).toEqual({
+        encoding: "hex",
+        digest,
+        iterations: 1,
+        keyLength: 32,
+        ivLength: 16,
+        salt: "0102030405060708",
+      });
+    }
+    /** `openssl enc -aes-128-cbc -P -pass pass:password -nosalt -md md5`. */
+    expect(evp.hash("password", { keyLength: 16 } as EvpBytesToKeyOptions).digest).toBe(
+      "5f4dcc3b5aa765d61d8327deb882cf992b95990a9151374abd8ff8c5a7a0fe08",
+    );
+    /** `openssl enc -des-cbc -P -pass pass:secret -S a1b2c3d4e5f60718 -md sha256`. */
+    const des = { digest: "sha256", salt: "a1b2c3d4e5f60718", keyLength: 8, ivLength: 8 };
+    expect(evp.hash("secret", des as EvpBytesToKeyOptions).digest).toBe(
+      "a7e68756e88549d2d7d6a267f1379051",
+    );
+  });
+
+  it("derives CryptoJS EvpKDF output past one key and past one iteration", () => {
+    const evp = create("evp-bytestokey");
+    const salt = "0102030405060708";
+    /** crypto-js 4.2.0: `EvpKDF.create({ keySize: 36 }).compute("password", salt)`. */
+    expect(evp.hash("password", { salt, keyLength: 128 } as EvpBytesToKeyOptions).digest).toBe(
+      "e7b0971e52ca5cc8d0539fb3412f6316f7ba2e6ee293d9f3457b99436b51ce028d450e2ed75a84a923d4eac9fe49226b19ebc118602201f8c0d0798d321aa279b0cccbdb6f705ffa4b672aa277fc5ea66a5dd99cedc46e0a697eccb3fa3c9176e97d1daa8f75383e402073799c137f7683d06d0838314ba64b3d2576b449433021edd225540e98ba10a6f00cd679611b",
+    );
+    /** crypto-js 4.2.0: `EvpKDF.create({ keySize: 12, iterations: 1000 })` over the same input. */
+    expect(evp.hash("password", { salt, iterations: 1000 } as EvpBytesToKeyOptions).digest).toBe(
+      "2699a412f542751988e26bb58932380585bb8c6bfa9bf3745af25d787fe80d519d89aec48c5a6e415bfd5112f3c8abbb",
+    );
+    expect(evp.hash("password", { salt, ivLength: 0 } as EvpBytesToKeyOptions).digest).toBe(
+      "e7b0971e52ca5cc8d0539fb3412f6316f7ba2e6ee293d9f3457b99436b51ce02",
+    );
+  });
+
+  it("refuses an EVP_BytesToKey salt that is not 8 bytes and a hash OpenSSL enc does not take", () => {
+    const evp = create("evp-bytestokey");
+    const derive = (options: Readonly<EvpBytesToKeyOptions>) => () => evp.hash("x", options);
+    expect(derive({ salt: "01020304" })).toThrow("Invalid option salt=01020304: must be 8 bytes");
+    expect(derive({ digest: "sha512" })).toThrow(
+      "Invalid option digest=sha512: use one of md5, sha1, sha256",
+    );
+    expect(derive({ digest: "constructor" })).toThrow("Invalid option digest=constructor");
+    for (const ivLength of [-1, 1.5, Number.NaN]) {
+      expect(derive({ ivLength })).toThrow(`Invalid option ivLength=${ivLength}`);
+    }
+    for (const value of [0, -1, 1.5]) {
+      expect(derive({ keyLength: value })).toThrow(`Invalid option keyLength=${value}`);
+      expect(derive({ iterations: value })).toThrow(`Invalid option iterations=${value}`);
+    }
+    expect(derive({ rounds: 2 })).toThrow(HashError);
   });
 
   it("draws a fresh 32-byte salt when none is given and names it", () => {

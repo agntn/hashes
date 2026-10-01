@@ -38,6 +38,7 @@ import {
   PARAMETER_NAME_PATTERN,
   SALT_PATTERN,
   TEXT_ENCODINGS,
+  ZERO_PARAMETERS,
 } from "../packages/shared/tool-contract.ts";
 import type { toolSchemas } from "../packages/shared/tool-schemas.ts";
 
@@ -251,8 +252,9 @@ function assertParameterEntries(given: Readonly<Record<string, unknown>>): void 
  */
 function assertWithinLimit(name: string, value: ParameterValue): void {
   const limit = Object.hasOwn(PARAMETER_LIMITS, name) ? PARAMETER_LIMITS[name] : undefined;
-  if (limit !== undefined && typeof value === "number" && (value < 1 || value > limit)) {
-    throw new InvalidOptionError(name, value, `must be 1 to ${limit} in a tool call`);
+  const floor = ZERO_PARAMETERS.includes(name) ? 0 : 1;
+  if (limit !== undefined && typeof value === "number" && (value < floor || value > limit)) {
+    throw new InvalidOptionError(name, value, `must be ${floor} to ${limit} in a tool call`);
   }
 }
 

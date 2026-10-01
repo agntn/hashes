@@ -50,7 +50,9 @@ describe("hashes CLI", () => {
 
     expect(help.stdout).toContain("USAGE hashes hash|hmac|verify|algorithms|info|mcp");
     expect(usage.stdout).toContain("ALGORITHM");
-    expect(usage.stdout).toContain("previous digest (all but scrypt, pbkdf2, hkdf)");
+    expect(usage.stdout).toContain(
+      "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey)",
+    );
     expect(usage.stdout).toContain("Seed value for xxHash (xxhash)");
     for (const output of [help, usage]) {
       expect(output.stdout + output.stderr).not.toContain("\u001B");
@@ -208,6 +210,22 @@ describe("hashes CLI", () => {
     expect(run(["verify", "hkdf", ikm, okm, ...args])).toMatchObject({ code: 0 });
   });
 
+  it("derives OpenSSL's key and IV by its C name, with the parameters on stderr", () => {
+    const keyIv =
+      "2435177f1410536baad2acc155c0f94783d58384573cb0f72157443606285d3ff96efc044e0f1613bf324245c95e7411";
+
+    expect(
+      run(["EVP_BytesToKey", "password", "--salt", "0102030405060708", "--digest", "sha256"]),
+    ).toMatchObject({
+      code: 0,
+      stdout: `${keyIv}\n`,
+      stderr: "digest sha256, iterations 1, keyLength 32, ivLength 16, salt 0102030405060708\n",
+    });
+    expect(
+      run(["evp-bytestokey", "password", "--keyLength", "16", "--ivLength", "0"]),
+    ).toMatchObject({ code: 0, stdout: "5f4dcc3b5aa765d61d8327deb882cf99\n", stderr: "" });
+  });
+
   it("lists one family or category and describes one algorithm", () => {
     const names = (args: readonly string[]): string[] =>
       run(["algorithms", ...args])
@@ -215,7 +233,7 @@ describe("hashes CLI", () => {
         .split("\n")
         .slice(1)
         .map((line) => line.split(/\s+/)[0] ?? "");
-    expect(names(["-c", "password"])).toEqual(["scrypt", "pbkdf2"]);
+    expect(names(["-c", "password"])).toEqual(["scrypt", "pbkdf2", "evp-bytestokey"]);
     expect(names(["-f", "crc"])).toEqual(["crc32", "crc16-xmodem"]);
     expect(names(["-f", "SHA", "-c", "legacy"])).toEqual(["sha1", "sha0"]);
     expect(run(["info", "SHA3_256"]).stdout).toContain("SHA3-256 (sha3-256)");

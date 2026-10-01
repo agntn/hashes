@@ -361,6 +361,33 @@ describe("hashes MCP server", () => {
     expect(verified.text).toMatch(/^MATCH/);
   });
 
+  it("derives an EVP_BytesToKey key without an IV and verifies it without a salt", async () => {
+    const key = "e7b0971e52ca5cc8d0539fb3412f6316f7ba2e6ee293d9f3457b99436b51ce02";
+    const computed = await call("hashes_compute", {
+      algorithm: "evp-bytestokey",
+      input: "password",
+      salt: "0102030405060708",
+      parameters: { ivLength: 0 },
+    });
+    const unsalted = await call("hashes_verify", {
+      algorithm: "evp-bytestokey",
+      input: "password",
+      expected: "5f4dcc3b5aa765d61d8327deb882cf99",
+      parameters: { keyLength: 16, ivLength: 0 },
+    });
+    const wide = await call("hashes_compute", {
+      algorithm: "evp-bytestokey",
+      input: "password",
+      parameters: { ivLength: 1025 },
+    });
+
+    expect(computed.text).toBe(
+      `${key}\nevp-bytestokey, hex, 32 bytes, digest md5, iterations 1, keyLength 32, ivLength 0, salt 0102030405060708`,
+    );
+    expect(unsalted.text).toMatch(/^MATCH/);
+    expect(wide.text).toContain("Invalid option ivLength=1025: must be 0 to 1024 in a tool call");
+  });
+
   it("refuses a salt for an algorithm that takes none", async () => {
     const answer = await call("hashes_compute", { algorithm: "sha256", input: "x", salt: "00" });
 
@@ -373,7 +400,7 @@ describe("hashes MCP server", () => {
     const blake = await call("hashes_algorithms", { family: "blake" });
     const scrypt = await call("hashes_algorithms", { algorithm: "scrypt" });
 
-    expect(password.text).toContain("2 algorithms, listing order:");
+    expect(password.text).toContain("3 algorithms, listing order:");
     expect(password.text).toContain("scrypt [scrypt, password] variable, HMAC no: scrypt");
     expect(blake.text).toContain("6 algorithms, listing order:");
     expect(blake.text).toContain("blake3 [BLAKE, cryptographic] 256-bit, HMAC no: BLAKE3");

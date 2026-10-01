@@ -7,6 +7,7 @@ import { Blake2s } from "./blake2s.ts";
 import { Blake3 } from "./blake3.ts";
 import { Crc16Xmodem } from "./crc16-xmodem.ts";
 import { Crc32 } from "./crc32.ts";
+import { EvpBytesToKey } from "./evp-bytestokey.ts";
 import { Fnv1a } from "./fnv1a.ts";
 import { Hash160 } from "./hash160.ts";
 import { Hash256 } from "./hash256.ts";
@@ -57,6 +58,7 @@ export const builtins: readonly HashConstructor[] = [
   Scrypt,
   Pbkdf2,
   Hkdf,
+  EvpBytesToKey,
 ];
 
 export {
@@ -68,6 +70,7 @@ export {
   Blake3,
   Crc16Xmodem,
   Crc32,
+  EvpBytesToKey,
   Fnv1a,
   Hash160,
   Hash256,
