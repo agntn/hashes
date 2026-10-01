@@ -75,6 +75,10 @@
     "./hmac": {
       "types": "./dist/hmac.d.mts",
       "import": "./dist/hmac.mjs"
+    },
+    "./evp": {
+      "types": "./dist/evp.d.mts",
+      "import": "./dist/evp.mjs"
     }
   },
   "publishConfig": {

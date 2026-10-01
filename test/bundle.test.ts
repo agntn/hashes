@@ -103,6 +103,7 @@ describe("one byte function subpath in plain Node", () => {
     ["ripemd160", []],
     ["crc", []],
     ["hmac", []],
+    ["evp", []],
     ["keccak", ["_chunks/keccak.mjs"]],
     ["blake2b", ["_chunks/blake2b.mjs"]],
     ["blake256", ["_chunks/blake256.mjs"]],

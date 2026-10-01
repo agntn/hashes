@@ -9,6 +9,7 @@ import {
   type SaltOptions,
 } from "../core/digest.ts";
 import { InvalidOptionError } from "../core/errors.ts";
+import { evpBytesToKey } from "../core/evp.ts";
 import { Hash } from "../core/hash.ts";
 import type { Hasher } from "../core/hasher.ts";
 import { Md5Hasher } from "../core/md5.ts";
@@ -69,38 +70,6 @@ function saltOf(options?: Readonly<SaltOptions>): Uint8Array | undefined {
     throw new InvalidOptionError("salt", salt.toHex(), `must be ${SALT_LENGTH} bytes`);
   }
   return salt;
-}
-
-/**
- * Derives bytes the way OpenSSL's EVP_BytesToKey does: each block hashes the one before it, the
- * password and the salt, then hashes itself again until it has had `iterations` passes.
- *
- * @param create - Creates a fresh hasher of the digest.
- * @param password - The password.
- * @param salt - The salt, empty for none.
- * @param iterations - Hash passes per block.
- * @param length - Bytes to derive.
- * @returns {Uint8Array} The derived bytes.
- */
-function evpBytesToKey(
-  create: () => Hasher,
-  password: Uint8Array,
-  salt: Uint8Array,
-  iterations: number,
-  length: number,
-): Uint8Array {
-  const fresh = create();
-  const hasher = create();
-  const block = new Uint8Array(hasher.outputLength);
-  const out = new Uint8Array(length);
-  for (let offset = 0; offset < length; offset += block.length) {
-    hasher.load(fresh);
-    if (offset > 0) hasher.update(block);
-    hasher.update(password).update(salt).digestInto(block);
-    for (let i = 1; i < iterations; i++) hasher.load(fresh).update(block).digestInto(block);
-    out.set(block.subarray(0, Math.min(block.length, length - offset)), offset);
-  }
-  return out;
 }
 
 export class EvpBytesToKey extends Hash {
