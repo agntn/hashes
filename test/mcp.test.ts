@@ -407,6 +407,33 @@ describe("hashes MCP server", () => {
     expect(scrypt.text).toContain("N (number, default 16384)");
   });
 
+  it("describes encoding and key the way the tools take them", async () => {
+    const sha256 = await call("hashes_algorithms", { algorithm: "sha256" });
+
+    expect(sha256.text).toContain(
+      "encoding (string, default hex): Output encoding: hex, base64, base64url\n",
+    );
+    expect(sha256.text).toContain(
+      "key (string, default none): HMAC key; pass it to hashes_hmac_compute",
+    );
+    expect(sha256.text).toContain("rounds (number, default 1)");
+  });
+
+  it("sends a key or an encoding passed as parameters to the argument that takes it", async () => {
+    const compute = (algorithm: string, parameters: Readonly<Record<string, unknown>>) =>
+      call("hashes_compute", { algorithm, input: "abc", parameters });
+
+    expect((await compute("sha256", { key: "secret" })).text).toBe(
+      "hashes_compute failed: Invalid option parameters=key: pass the key to hashes_hmac_compute",
+    );
+    expect((await compute("sha256", { encoding: "base64" })).text).toBe(
+      "hashes_compute failed: Invalid option parameters=encoding: pass the encoding as the encoding argument",
+    );
+    expect((await compute("crc32", { key: "secret" })).text).toBe(
+      "hashes_compute failed: Invalid option key=secret: crc32 takes rounds, chain",
+    );
+  });
+
   it("names an unknown key, every other failure and the allowed values in one answer", async () => {
     const answer = await call("hashes_compute", {
       algorithm: "sha256",
