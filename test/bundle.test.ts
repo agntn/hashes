@@ -87,6 +87,7 @@ describe("one byte function bundled with esbuild", () => {
     ["blake2b", 3, 8_000],
     ["crc32", 0, 1_500],
     ["scrypt", 2, 8_000],
+    ["argon2id", 4, 12_000],
   ])("%s leaves the other algorithms out", async (name, tables, limit) => {
     const code = await bundle(name);
     expect(code.match(/new (?:Int32|Uint32|Uint8)Array\(\[/g)?.length ?? 0).toBe(tables);
@@ -109,6 +110,7 @@ describe("one byte function subpath in plain Node", () => {
     ["keccak", ["_chunks/keccak.mjs"]],
     ["blake2b", ["_chunks/blake2b.mjs"]],
     ["blake256", ["_chunks/blake256.mjs"]],
+    ["argon2", ["_chunks/argon2.mjs", "_chunks/blake2b.mjs"]],
   ])("%s loads the digests chunk and nothing of the registry", (name, own) => {
     const script = `
       import { registerHooks } from "node:module";

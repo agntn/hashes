@@ -1,6 +1,6 @@
 import { defineBuildConfig } from "obuild/config";
 
-/** Byte function subpaths, so plain Node loads one digest without the other 24 algorithms. */
+/** Byte function subpaths, so plain Node loads one digest without the registry. */
 const byteEntries = [
   "sha1",
   "md5",
@@ -13,6 +13,7 @@ const byteEntries = [
   "hmac",
   "evp",
   "scrypt",
+  "argon2",
 ] as const;
 
 /** The small digests share one chunk, since every file Node loads costs more than its bytes. */

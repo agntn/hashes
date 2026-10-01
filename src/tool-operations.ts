@@ -33,6 +33,7 @@ import {
   MAX_KEY_LENGTH,
   MAX_PARAMETER_LENGTH,
   MAX_PARAMETERS,
+  MAX_ARGON2_WORK,
   MAX_SCRYPT_MEMORY,
   PARAMETER_LIMITS,
   PARAMETER_NAME_PATTERN,
@@ -296,6 +297,7 @@ function algorithmOptions(
   const options = checkedParameters(algorithm, given);
   for (const [name, value] of Object.entries(options)) assertWithinLimit(name, value);
   assertScryptMemory(algorithm, options);
+  assertArgon2Work(algorithm, options);
   return options;
 }
 
@@ -321,6 +323,32 @@ function assertScryptMemory(
       "N",
       cost("N"),
       `with r=${cost("r")} needs ${memory} bytes of blocks, over ${MAX_SCRYPT_MEMORY} in a tool call`,
+    );
+  }
+}
+
+/**
+ * Keeps an Argon2 call within `MAX_ARGON2_WORK`, since its time grows with memory times passes,
+ * reading the costs the call leaves out from the algorithm's declared defaults.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The checked options.
+ */
+function assertArgon2Work(
+  algorithm: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+): void {
+  const defaults = Object.fromEntries(
+    parameterOptions(algorithm).map((option) => [option.name, option.default]),
+  );
+  if (!("memory" in defaults && "iterations" in defaults)) return;
+  const cost = (name: string): number => Number(options[name] ?? defaults[name]);
+  const work = cost("memory") * cost("iterations");
+  if (work > MAX_ARGON2_WORK) {
+    throw new InvalidOptionError(
+      "iterations",
+      cost("iterations"),
+      `with memory=${cost("memory")} fills ${work} KiB, over ${MAX_ARGON2_WORK} in a tool call`,
     );
   }
 }
