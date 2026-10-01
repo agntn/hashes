@@ -29,7 +29,6 @@ export default defineConfig({
               ],
             },
             { from: "lib", name: ["DataView", "Int32Array", "Uint32Array", "Uint8Array"] },
-            { from: "package", name: "TLocalizedValidationError", package: "typebox" },
             {
               from: "package",
               name: ["ExtensionAPI", "ToolDefinition"],

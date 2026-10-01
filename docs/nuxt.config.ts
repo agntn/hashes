@@ -10,14 +10,11 @@ export default defineNuxtConfig({
   workspaceDir: import.meta.dirname,
   alias: {
     "@agntn/hashes": resolve(librarySource, "index.ts"),
-    /** The text the agent tools answer with; besides the library it imports only typebox, a dependency here. */
+    /** The text the agent tools answer with; it imports nothing beyond the library. */
     "#tool-operations": resolve(librarySource, "tool-operations.ts"),
   },
   vite: {
     build: { target: "es2024" },
-    /** `../src` resolves bare imports from the repo root upward, never from docs/node_modules, unless deduped. */
-    resolve: { dedupe: ["typebox"] },
-    optimizeDeps: { include: ["typebox"] },
     server: {
       /** Dev serves the library from outside the workspace, which Vite refuses without this. */
       fs: { allow: [librarySource] },

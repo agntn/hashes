@@ -1,12 +1,5 @@
 import { defineBuildConfig } from "obuild/config";
 
-/**
- * typebox stays inline, so the CLI and the MCP server never resolve it from node_modules.
- * @param id - Module specifier.
- * @returns {boolean} Whether it names typebox or one of its subpaths.
- */
-const isTypebox = (id: string): boolean => /^typebox(?:\/|$)/u.test(id);
-
 /** Byte function subpaths, so plain Node loads one digest without the other 24 algorithms. */
 const byteEntries = [
   "sha1",
@@ -34,10 +27,9 @@ export default defineBuildConfig({
         "./src/cli.ts",
         "./src/ai.ts",
         "./src/mcp.ts",
-        "./src/tool-operations.ts",
+        "./src/tools.ts",
         ...byteEntries.map((name) => `./src/${name}.ts`),
       ],
-      minifyLibs: ["typebox"],
     },
   ],
   hooks: {
@@ -51,18 +43,6 @@ export default defineBuildConfig({
         ...(config.codeSplitting.groups ?? []),
         { name: "digests", test: smallDigests },
       ];
-    },
-    /**
-     * obuild marks the typebox peer external by name and by subpath pattern, and both have to go.
-     * @param config - Rolldown input options obuild built.
-     */
-    rolldownConfig(config) {
-      if (!Array.isArray(config.external)) return;
-      config.external = config.external.filter((entry) =>
-        typeof entry === "string"
-          ? !isTypebox(entry)
-          : !(entry instanceof RegExp && entry.test("typebox/value")),
-      );
     },
   },
 });

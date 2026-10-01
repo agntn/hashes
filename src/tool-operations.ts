@@ -7,7 +7,7 @@
  * enforced here again, because a host is free to skip schema validation.
  */
 
-import type { Static } from "typebox";
+import type { Static } from "@agntn/tools";
 import { decodeInput, parameterText } from "./core/digest.ts";
 import { shown } from "./core/errors.ts";
 import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";

@@ -1,6 +1,5 @@
 import { createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createMcpServer } from "../src/mcp.ts";
 import { Pbkdf2 } from "../src/algorithms/index.ts";

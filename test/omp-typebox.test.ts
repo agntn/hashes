@@ -18,7 +18,7 @@ describe("omp hashes extension under the host TypeBox shim", () => {
     ],
     ["hashes_algorithms", { family: "SHA" }, /sha256/],
   ] as const)("runs %s", async (name, params, answer) => {
-    const tool = registerOmpExtension(hashesExtension).tool(name);
+    const tool = (await registerOmpExtension(hashesExtension)).tool(name);
     const result = await tool.execute("call-1", params, undefined, undefined, ompToolContext);
 
     const [part] = result.content;
@@ -26,7 +26,7 @@ describe("omp hashes extension under the host TypeBox shim", () => {
   });
 
   it("still rejects an argument the tool does not take", async () => {
-    const tool = registerOmpExtension(hashesExtension).tool("hashes_compute");
+    const tool = (await registerOmpExtension(hashesExtension)).tool("hashes_compute");
 
     await expect(
       tool.execute(
@@ -36,6 +36,8 @@ describe("omp hashes extension under the host TypeBox shim", () => {
         undefined,
         ompToolContext,
       ),
-    ).rejects.toThrow(/takes only algorithm, input, inputEncoding, encoding, salt, parameters/);
+    ).rejects.toThrow(
+      'unknown property "saltHex"; takes algorithm, input, inputEncoding, encoding, salt, parameters',
+    );
   });
 });

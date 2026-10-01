@@ -50,3 +50,4 @@ minimumReleaseAgeExclude:
   - "@voidzero-dev/vite-plus-win32-x64-msvc@1.0.0"
   - vite-plus@1.0.0
   - obuild@0.4.43
+  - "@agntn/tools@0.0.0"
