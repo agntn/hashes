@@ -1,4 +1,7 @@
-/** XXH64 in plain TypeScript, after the xxHash specification by Yann Collet. */
+/**
+ * XXH64 in plain TypeScript, after the xxHash specification by Yann Collet. Each 64-bit word is a
+ * high and a low half in a `Uint32Array`, since BigInt ran it ten times slower.
+ */
 import { InvalidOptionError } from "../core/errors.ts";
 import { FixedHash } from "../core/fixed-hash.ts";
 import type { HashOptions } from "../core/types.ts";
@@ -9,70 +12,163 @@ export interface XxhashOptions extends HashOptions {
   seed?: number | bigint | string;
 }
 
-const PRIME64_1 = 0x9e3779b185ebca87n;
-const PRIME64_2 = 0xc2b2ae3d27d4eb4fn;
-const PRIME64_3 = 0x165667b19e3779f9n;
-const PRIME64_4 = 0x85ebca77c2b2ae63n;
-const PRIME64_5 = 0x27d4eb2f165667c5n;
+const PRIME64_1_HIGH = 0x9e3779b1;
+const PRIME64_1_LOW = 0x85ebca87;
+const PRIME64_2_HIGH = 0xc2b2ae3d;
+const PRIME64_2_LOW = 0x27d4eb4f;
+const PRIME64_3_HIGH = 0x165667b1;
+const PRIME64_3_LOW = 0x9e3779f9;
+const PRIME64_4_HIGH = 0x85ebca77;
+const PRIME64_4_LOW = 0xc2b2ae63;
+const PRIME64_5_HIGH = 0x27d4eb2f;
+const PRIME64_5_LOW = 0x165667c5;
+/** 2^64 - PRIME64_1, so adding it subtracts PRIME64_1. */
+const MINUS_PRIME64_1_HIGH = 0x61c8864e;
+const MINUS_PRIME64_1_LOW = 0x7a143579;
 const MASK64 = 0xffffffffffffffffn;
 
+/** Where the state keeps the four stripe accumulators, the hash and a scratch word. */
+const HASH = 8;
+const SCRATCH = 10;
+
 /**
- * Rotates a 64-bit value left.
+ * The top 32 bits of a 64-bit product, from 16-bit pieces that stay exact in a double.
  *
- * @param value - Unsigned 64-bit value.
- * @param bits - Bits to rotate by, 1 to 63.
- * @returns {bigint} The rotated value.
+ * @param a - Unsigned 32-bit value.
+ * @param b - Unsigned 32-bit value.
+ * @returns {number} The top 32 bits of `a * b`.
  */
-function rotl64(value: bigint, bits: bigint): bigint {
-  return ((value << bits) | (value >> (64n - bits))) & MASK64;
+function multiplyHigh(a: number, b: number): number {
+  const a0 = a & 0xffff;
+  const a1 = a >>> 16;
+  const b0 = b & 0xffff;
+  const b1 = b >>> 16;
+  const low = a0 * b1;
+  const high = a1 * b0;
+  const carry = ((a0 * b0) >>> 16) + (low & 0xffff) + (high & 0xffff);
+  return a1 * b1 + (low >>> 16) + (high >>> 16) + (carry >>> 16);
 }
 
 /**
- * Mixes one 64-bit lane of input into an accumulator (`XXH64_round`).
+ * Multiplies the word at `i` by a prime; the `Uint32Array` store drops what overflows 2^64.
  *
- * @param accumulator - Current accumulator.
- * @param lane - Eight input bytes, little-endian.
- * @returns {bigint} The new accumulator.
+ * @param s - The state.
+ * @param i - Index of the word's high half.
+ * @param high - The prime's high half.
+ * @param low - The prime's low half.
  */
-function round(accumulator: bigint, lane: bigint): bigint {
-  return (rotl64((accumulator + lane * PRIME64_2) & MASK64, 31n) * PRIME64_1) & MASK64;
+function multiply(s: Uint32Array, i: number, high: number, low: number): void {
+  const h = s[i]!;
+  const l = s[i + 1]!;
+  s[i] = multiplyHigh(l, low) + Math.imul(h, low) + Math.imul(l, high);
+  s[i + 1] = Math.imul(l, low);
 }
 
 /**
- * Folds one stripe accumulator into the hash (`XXH64_mergeRound`).
+ * Adds an unsigned 64-bit value to the word at `i`, modulo 2^64.
  *
- * @param hash - Current hash.
- * @param accumulator - A stripe accumulator.
- * @returns {bigint} The new hash.
+ * @param s - The state.
+ * @param i - Index of the word's high half.
+ * @param high - High half of the value.
+ * @param low - Low half of the value.
  */
-function mergeRound(hash: bigint, accumulator: bigint): bigint {
-  return ((hash ^ round(0n, accumulator)) * PRIME64_1 + PRIME64_4) & MASK64;
+function add(s: Uint32Array, i: number, high: number, low: number): void {
+  const sum = s[i + 1]! + low;
+  s[i] = s[i]! + high + (sum > 0xffffffff ? 1 : 0);
+  s[i + 1] = sum;
 }
 
 /**
- * Hashes the 32-byte stripes and merges their four accumulators.
+ * XORs a 64-bit value into the word at `i`.
  *
+ * @param s - The state.
+ * @param i - Index of the word's high half.
+ * @param high - High half of the value.
+ * @param low - Low half of the value.
+ */
+function xor(s: Uint32Array, i: number, high: number, low: number): void {
+  s[i] = s[i]! ^ high;
+  s[i + 1] = s[i + 1]! ^ low;
+}
+
+/**
+ * Rotates the word at `i` left.
+ *
+ * @param s - The state.
+ * @param i - Index of the word's high half.
+ * @param bits - Bits to rotate by, 1 to 31.
+ */
+function rotate(s: Uint32Array, i: number, bits: number): void {
+  const h = s[i]!;
+  const l = s[i + 1]!;
+  s[i] = (h << bits) | (l >>> (32 - bits));
+  s[i + 1] = (l << bits) | (h >>> (32 - bits));
+}
+
+/**
+ * Mixes the scratch word into the accumulator at `i` (`XXH64_round`), and spends the scratch.
+ *
+ * @param s - The state.
+ * @param i - Index of the accumulator's high half.
+ */
+function round(s: Uint32Array, i: number): void {
+  multiply(s, SCRATCH, PRIME64_2_HIGH, PRIME64_2_LOW);
+  add(s, i, s[SCRATCH]!, s[SCRATCH + 1]!);
+  rotate(s, i, 31);
+  multiply(s, i, PRIME64_1_HIGH, PRIME64_1_LOW);
+}
+
+/**
+ * Runs `XXH64_round` on the scratch word from a zero accumulator and XORs it into the hash.
+ *
+ * @param s - The state.
+ */
+function mixScratch(s: Uint32Array): void {
+  multiply(s, SCRATCH, PRIME64_2_HIGH, PRIME64_2_LOW);
+  rotate(s, SCRATCH, 31);
+  multiply(s, SCRATCH, PRIME64_1_HIGH, PRIME64_1_LOW);
+  xor(s, HASH, s[SCRATCH]!, s[SCRATCH + 1]!);
+}
+
+/**
+ * Hashes the 32-byte stripes and merges their four accumulators into the hash.
+ *
+ * @param s - The state, with the seed in every accumulator.
  * @param view - The input.
- * @param seed - Unsigned 64-bit seed.
  * @param end - Offset after the last whole stripe.
- * @returns {bigint} The hash before the length and tail are mixed in.
  */
-function stripes(view: DataView, seed: bigint, end: number): bigint {
-  const lanes = [
-    (seed + PRIME64_1 + PRIME64_2) & MASK64,
-    (seed + PRIME64_2) & MASK64,
-    seed,
-    (seed - PRIME64_1) & MASK64,
-  ];
+function stripes(s: Uint32Array, view: DataView, end: number): void {
+  add(s, 0, PRIME64_1_HIGH, PRIME64_1_LOW);
+  add(s, 0, PRIME64_2_HIGH, PRIME64_2_LOW);
+  add(s, 2, PRIME64_2_HIGH, PRIME64_2_LOW);
+  add(s, 6, MINUS_PRIME64_1_HIGH, MINUS_PRIME64_1_LOW);
   for (let offset = 0; offset < end; offset += 32) {
-    for (let lane = 0; lane < 4; lane++) {
-      lanes[lane] = round(lanes[lane]!, view.getBigUint64(offset + lane * 8, true));
+    for (let lane = 0; lane < 8; lane += 2) {
+      s[SCRATCH] = view.getUint32(offset + lane * 4 + 4, true);
+      s[SCRATCH + 1] = view.getUint32(offset + lane * 4, true);
+      round(s, lane);
     }
   }
-  const [v1, v2, v3, v4] = lanes as [bigint, bigint, bigint, bigint];
-  let hash = (rotl64(v1, 1n) + rotl64(v2, 7n) + rotl64(v3, 12n) + rotl64(v4, 18n)) & MASK64;
-  for (const lane of lanes) hash = mergeRound(hash, lane);
-  return hash;
+  s[HASH] = 0;
+  s[HASH + 1] = 0;
+  for (const [lane, bits] of [
+    [0, 1],
+    [2, 7],
+    [4, 12],
+    [6, 18],
+  ] as const) {
+    s[SCRATCH] = s[lane]!;
+    s[SCRATCH + 1] = s[lane + 1]!;
+    rotate(s, SCRATCH, bits);
+    add(s, HASH, s[SCRATCH]!, s[SCRATCH + 1]!);
+  }
+  for (let lane = 0; lane < 8; lane += 2) {
+    s[SCRATCH] = s[lane]!;
+    s[SCRATCH + 1] = s[lane + 1]!;
+    mixScratch(s);
+    multiply(s, HASH, PRIME64_1_HIGH, PRIME64_1_LOW);
+    add(s, HASH, PRIME64_4_HIGH, PRIME64_4_LOW);
+  }
 }
 
 /**
@@ -80,32 +176,66 @@ function stripes(view: DataView, seed: bigint, end: number): bigint {
  *
  * @param data - Bytes to hash.
  * @param seed - Unsigned 64-bit seed.
- * @returns {bigint} The unsigned 64-bit hash.
+ * @returns {Uint8Array} The hash, big-endian.
  */
-function xxh64(data: Uint8Array, seed: bigint): bigint {
+function xxh64(data: Uint8Array, seed: bigint): Uint8Array {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const seedHigh = Number(seed >> 32n);
+  const seedLow = Number(seed & 0xffffffffn);
+  const s = new Uint32Array(12);
   const stripeEnd = data.length - (data.length % 32);
-  let hash = data.length >= 32 ? stripes(view, seed, stripeEnd) : (seed + PRIME64_5) & MASK64;
-  hash = (hash + BigInt(data.length)) & MASK64;
+  if (data.length >= 32) {
+    for (let lane = 0; lane < 8; lane += 2) {
+      s[lane] = seedHigh;
+      s[lane + 1] = seedLow;
+    }
+    stripes(s, view, stripeEnd);
+  } else {
+    s[HASH] = seedHigh;
+    s[HASH + 1] = seedLow;
+    add(s, HASH, PRIME64_5_HIGH, PRIME64_5_LOW);
+  }
+  add(s, HASH, Math.floor(data.length / 0x1_0000_0000), data.length >>> 0);
 
   let offset = stripeEnd;
   for (; offset + 8 <= data.length; offset += 8) {
-    hash ^= round(0n, view.getBigUint64(offset, true));
-    hash = (rotl64(hash, 27n) * PRIME64_1 + PRIME64_4) & MASK64;
+    s[SCRATCH] = view.getUint32(offset + 4, true);
+    s[SCRATCH + 1] = view.getUint32(offset, true);
+    mixScratch(s);
+    rotate(s, HASH, 27);
+    multiply(s, HASH, PRIME64_1_HIGH, PRIME64_1_LOW);
+    add(s, HASH, PRIME64_4_HIGH, PRIME64_4_LOW);
   }
   if (offset + 4 <= data.length) {
-    hash ^= (BigInt(view.getUint32(offset, true)) * PRIME64_1) & MASK64;
-    hash = (rotl64(hash, 23n) * PRIME64_2 + PRIME64_3) & MASK64;
+    s[SCRATCH] = 0;
+    s[SCRATCH + 1] = view.getUint32(offset, true);
+    multiply(s, SCRATCH, PRIME64_1_HIGH, PRIME64_1_LOW);
+    xor(s, HASH, s[SCRATCH]!, s[SCRATCH + 1]!);
+    rotate(s, HASH, 23);
+    multiply(s, HASH, PRIME64_2_HIGH, PRIME64_2_LOW);
+    add(s, HASH, PRIME64_3_HIGH, PRIME64_3_LOW);
     offset += 4;
   }
   for (; offset < data.length; offset++) {
-    hash ^= (BigInt(data[offset]!) * PRIME64_5) & MASK64;
-    hash = (rotl64(hash, 11n) * PRIME64_1) & MASK64;
+    s[SCRATCH] = 0;
+    s[SCRATCH + 1] = data[offset]!;
+    multiply(s, SCRATCH, PRIME64_5_HIGH, PRIME64_5_LOW);
+    xor(s, HASH, s[SCRATCH]!, s[SCRATCH + 1]!);
+    rotate(s, HASH, 11);
+    multiply(s, HASH, PRIME64_1_HIGH, PRIME64_1_LOW);
   }
 
-  hash = ((hash ^ (hash >> 33n)) * PRIME64_2) & MASK64;
-  hash = ((hash ^ (hash >> 29n)) * PRIME64_3) & MASK64;
-  return hash ^ (hash >> 32n);
+  xor(s, HASH, 0, s[HASH]! >>> 1);
+  multiply(s, HASH, PRIME64_2_HIGH, PRIME64_2_LOW);
+  xor(s, HASH, s[HASH]! >>> 29, (s[HASH + 1]! >>> 29) | (s[HASH]! << 3));
+  multiply(s, HASH, PRIME64_3_HIGH, PRIME64_3_LOW);
+  xor(s, HASH, 0, s[HASH]!);
+
+  const digest = new Uint8Array(8);
+  const out = new DataView(digest.buffer);
+  out.setUint32(0, s[HASH]!);
+  out.setUint32(4, s[HASH + 1]!);
+  return digest;
 }
 
 /**
@@ -154,9 +284,7 @@ export class Xxhash extends FixedHash<XxhashOptions> {
    * @returns {Uint8Array} The hash, big-endian.
    */
   protected digest(bytes: Uint8Array, options?: Readonly<XxhashOptions>): Uint8Array {
-    const digest = new Uint8Array(8);
-    new DataView(digest.buffer).setBigUint64(0, xxh64(bytes, seedValue(options?.seed)));
-    return digest;
+    return xxh64(bytes, seedValue(options?.seed));
   }
 
   /**

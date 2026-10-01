@@ -359,6 +359,19 @@ describe("digests", () => {
     );
   });
 
+  it("matches the reference XXH64 on every tail and stripe up to 100 bytes", () => {
+    /** SHA-256 of the 303 digests the reference xxhash-wasm 1.1.0 gives for these inputs. */
+    const reference = "a6f10f37e9ac5e3ec29e2987daddb3feb430b9afec342fa1dda286a4f94fd17d";
+    const digests = createHash("sha256");
+    for (const seed of [0, 4294967297, "18446744073709551615"]) {
+      for (let length = 0; length <= 100; length++) {
+        const input = new Uint8Array(length).map((_, index) => (index * 37 + length) & 0xff);
+        digests.update(create("xxhash").hash(input, { seed } as XxhashOptions).digest);
+      }
+    }
+    expect(digests.digest("hex")).toBe(reference);
+  });
+
   it("matches the published FNV-1a 64 vectors", () => {
     expect(create("fnv1a").hash("").digest).toBe("cbf29ce484222325");
     expect(create("fnv1a").hash("a").digest).toBe("af63dc4c8601ec8c");
