@@ -15,7 +15,9 @@ import {
   MissingOptionError,
   UnknownAlgorithmError,
   Blake2bHasher,
+  Md5Hasher,
   Ripemd160Hasher,
+  Sha1Hasher,
   Sha256Hasher,
   Sha512Hasher,
   algorithms,
@@ -26,6 +28,7 @@ import {
   crc32,
   create,
   digestMatches,
+  evpBytesToKey,
   has,
   hash160,
   hash256,
@@ -605,6 +608,84 @@ describe("byte functions", () => {
     }
   });
 
+  it("derive EVP_BytesToKey over an exported hasher as OpenSSL does", () => {
+    const hashers = {
+      md5: () => new Md5Hasher(),
+      sha1: () => new Sha1Hasher(),
+      sha256: () => new Sha256Hasher(),
+    };
+    /** `openssl enc -aes-256-cbc -P -pass pass:password -S 0102030405060708 -md <digest>`. */
+    const vectors = {
+      md5: "e7b0971e52ca5cc8d0539fb3412f6316f7ba2e6ee293d9f3457b99436b51ce028d450e2ed75a84a923d4eac9fe49226b",
+      sha1: "37ebd7b0dda7cbc993a9de9962e1dc2551ef134d19e96e7ce1fa3eadb854dcb504bc65de80fed6862403ff9fbb0c2f43",
+      sha256:
+        "2435177f1410536baad2acc155c0f94783d58384573cb0f72157443606285d3ff96efc044e0f1613bf324245c95e7411",
+    };
+    const password = new TextEncoder().encode("password");
+    const salt = Uint8Array.fromHex("0102030405060708");
+    for (const [name, create] of Object.entries(hashers)) {
+      expect(evpBytesToKey(create, password, salt, 1, 48).toHex(), name).toBe(
+        vectors[name as keyof typeof vectors],
+      );
+    }
+  });
+
+  it("derive EVP_BytesToKey like a loop over Node's digests for any salt, cost and length", () => {
+    /* Each block is the digest of the last block, the password and the salt, rehashed per pass. */
+    function nodeEvp(
+      name: string,
+      password: Uint8Array,
+      salt: Uint8Array,
+      passes: number,
+      length: number,
+    ) {
+      const out: number[] = [];
+      let block = Buffer.alloc(0);
+      while (out.length < length) {
+        block = createHash(name).update(block).update(password).update(salt).digest();
+        for (let i = 1; i < passes; i++) block = createHash(name).update(block).digest();
+        out.push(...block);
+      }
+      return Buffer.from(out.slice(0, length)).toString("hex");
+    }
+    const hashers = {
+      md5: () => new Md5Hasher(),
+      sha1: () => new Sha1Hasher(),
+      sha256: () => new Sha256Hasher(),
+    };
+    const password = new TextEncoder().encode("correct horse");
+    for (const [name, create] of Object.entries(hashers)) {
+      for (const salt of [
+        new Uint8Array(0),
+        new Uint8Array(8).fill(7),
+        new Uint8Array(13).fill(9),
+      ]) {
+        for (const passes of [1, 3]) {
+          for (const length of [1, 16, 31, 32, 33, 100]) {
+            expect(evpBytesToKey(create, password, salt, passes, length).toHex()).toBe(
+              nodeEvp(name, password, salt, passes, length),
+            );
+          }
+        }
+      }
+    }
+  });
+
+  it("refuse EVP_BytesToKey costs and lengths that are not positive integers", () => {
+    const derive = (iterations: number, length: number) =>
+      evpBytesToKey(
+        () => new Md5Hasher(),
+        new Uint8Array(1),
+        new Uint8Array(0),
+        iterations,
+        length,
+      );
+    for (const bad of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => derive(bad, 32)).toThrow(`Invalid option iterations=${bad}`);
+      expect(() => derive(1, bad)).toThrow(`Invalid option length=${bad}`);
+    }
+  });
+
   it("refuse anything but bytes instead of hashing it as something else", () => {
     const loose = (value: unknown) => value as Uint8Array;
     expect(() => sha256(loose("abc"))).toThrow(
@@ -639,6 +720,9 @@ describe("byte functions", () => {
     expect(() =>
       hkdf(() => new Sha256Hasher(), new Uint8Array(1), new Uint8Array(0), loose("info"), 32),
     ).toThrow(new HashError("info must be a Uint8Array, not string"));
+    expect(() =>
+      evpBytesToKey(() => new Md5Hasher(), loose("password"), new Uint8Array(0), 1, 32),
+    ).toThrow(new HashError("password must be a Uint8Array, not string"));
   });
 
   it("build SHA-512 at 64 bytes and SHA-384 at 48, nothing in between", () => {
@@ -753,8 +837,8 @@ describe("byte functions", () => {
 
 describe("byte function subpaths", () => {
   const SUBPATHS = {
-    sha1: ["sha1"],
-    md5: ["md5"],
+    sha1: ["Sha1Hasher", "sha1"],
+    md5: ["Md5Hasher", "md5"],
     sha2: ["Sha256Hasher", "Sha512Hasher", "hash256", "sha256", "sha512"],
     ripemd160: ["Ripemd160Hasher", "hash160", "ripemd160"],
     keccak: ["keccak256", "sha3_256"],
@@ -762,6 +846,7 @@ describe("byte function subpaths", () => {
     blake256: ["blake256"],
     crc: ["crc16Xmodem", "crc32"],
     hmac: ["hkdf", "hkdfExpand", "hkdfExtract", "hmac", "pbkdf2"],
+    evp: ["evpBytesToKey"],
   } as const;
   const names = Object.keys(SUBPATHS);
 
