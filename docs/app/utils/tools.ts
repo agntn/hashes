@@ -1,4 +1,5 @@
 import {
+  TOOL_ARGUMENTS,
   hashAlgorithms,
   hashCompute,
   hashHmac,
@@ -7,12 +8,11 @@ import {
   type HashComputeParams,
   type HashHmacParams,
   type HashVerifyParams,
+  type ToolName,
 } from "#tool-operations";
 
-/** The agent tools the playground runs. Same names over MCP, Pi, OMP and the AI SDK. */
-export const TOOLS = ["hashes_compute", "hashes_hmac_compute", "hashes_verify", "hashes_algorithms"] as const;
-
-export type ToolName = (typeof TOOLS)[number];
+/** Every agent tool. Same names over MCP, Pi, OMP and the AI SDK. */
+export const TOOLS = Object.keys(TOOL_ARGUMENTS) as ToolName[];
 
 /**
  * The text `hashes_compute` hands a model, from the executor the tools run.

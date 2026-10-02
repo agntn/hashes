@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   HashError,
+  extendableAlgorithms,
   hashCategories,
   type AlgorithmInfo,
   type HashCategory,
@@ -8,11 +9,18 @@ import {
 import {
   INPUT_ENCODINGS,
   TEXT_ENCODINGS,
+  TOOL_ARGUMENTS,
   hashAlgorithms,
   hashCompute,
+  hashDigestExtend,
+  hashDigestIdentify,
   hashHmac,
   hashVerify,
+  type DigestCandidate,
   type DigestDetails,
+  type DigestIdentity,
+  type ExtendDetails,
+  type ToolName,
   type VerifyDetails,
 } from "#tool-operations";
 import {
@@ -27,9 +35,9 @@ import {
 import { optionFlags, shellArg } from "../../utils/format";
 import { jsonTokens, shellTokens } from "../../utils/tokens";
 
-type Operation = "hash" | "hmac" | "verify" | "algorithms";
+type Operation = "hash" | "hmac" | "verify" | "extend" | "identify" | "algorithms";
 
-const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: string; about: string }> = [
+const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: ToolName; about: string }> = [
   {
     key: "hash",
     label: "Hash",
@@ -47,6 +55,18 @@ const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: string; a
     label: "Verify",
     tool: "hashes_verify",
     about: "Hash the input and compare every byte with an expected digest. Hex ignores case, base64 doesn't.",
+  },
+  {
+    key: "extend",
+    label: "Extend",
+    tool: "hashes_digest_extend",
+    about: "Forge the digest of a longer message from a known one and the secret's length. The secret itself never shows up.",
+  },
+  {
+    key: "identify",
+    label: "Identify",
+    tool: "hashes_digest_identify",
+    about: "Guess what made a hash from its prefix or its length. A guess, so verify takes it from there.",
   },
   {
     key: "algorithms",
@@ -68,11 +88,53 @@ const key = ref("secret");
 const keyEncoding = ref<(typeof INPUT_ENCODINGS)[number]>("utf8");
 const expected = ref("");
 const salt = ref("");
-const values = reactive<Record<string, string>>({});
+const values = reactive<Record<string, string | number>>({});
 /** `hashes_algorithms` lists everything when both are empty, and describes one algorithm when one is picked. */
 const family = ref("");
 const category = ref<HashCategory | "">("");
 const describe = ref("");
+/** The guide's attack: the server signs `user=guest` as `md5("key" + message)`. */
+const EXTEND_SECRET = "key";
+const EXTEND_MESSAGE = "user=guest";
+const knownDigest = ref("f7e20fd66ebbe27bcdb0fa8ef25023fb");
+const message = ref(EXTEND_MESSAGE);
+const messageEncoding = ref<(typeof INPUT_ENCODINGS)[number]>("utf8");
+const suffix = ref("&admin=true");
+const suffixEncoding = ref<(typeof INPUT_ENCODINGS)[number]>("utf8");
+const secretLength = ref<string | number>("3");
+const secretLengthMax = ref<string | number>("");
+const EXTENDABLE = new Set(extendableAlgorithms());
+
+/** Every sample is `password`, written by this library or by the tool that owns the format. */
+const IDENTIFY_INPUT = "password";
+const IDENTIFY_SAMPLES: ReadonlyArray<{ label: string; digest: string }> = [
+  { label: "32 hex", digest: hashCompute({ algorithm: "md5", input: IDENTIFY_INPUT }).details.digest },
+  {
+    label: "0x",
+    digest: `0x${hashCompute({ algorithm: "keccak256", input: IDENTIFY_INPUT }).details.digest}`,
+  },
+  {
+    label: "base64",
+    digest: hashCompute({ algorithm: "sha256", input: IDENTIFY_INPUT, encoding: "base64" }).details.digest,
+  },
+  {
+    label: "$argon2id$",
+    digest: "$argon2id$v=19$m=1024,t=2,p=2$c29tZXNhbHRzYWx0$8mkYn4qtK5HHJtQQI+FNQKE4UECfkb5diD560/y7mZs",
+  },
+  {
+    label: "$scrypt$",
+    digest: "$scrypt$ln=10,r=8,p=1$c2FsdHNhbHQ$AOLXEESCcPmf2DxU3D47ZJxp5ZTcHC0S2Mb2eFXc4tI",
+  },
+  { label: "pbkdf2_sha256$", digest: "pbkdf2_sha256$1000$saltsalt$E196ZhRPzw+wA84EjzHwJO1cv/MFJdO6C/sxmUeTYqY=" },
+  { label: "*mysql", digest: "*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19" },
+  { label: "$2b$", digest: "$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy" },
+  {
+    label: "$6$",
+    digest:
+      "$6$saltsalt$qFmFH.bQmmtXzyBY0s9v7Oicd2z4XSIecDzlB5KiA2/jctKu9YterLp8wwnSq.qc.eoxqOmSuNp2xS0ktL3nh/",
+  },
+];
+const unknownDigest = ref(IDENTIFY_SAMPLES[0]!.digest);
 
 const entry = computed(() => algorithmEntry(algorithmName.value) ?? ALGORITHMS[0]!);
 const saltOption = computed(() => entry.value.info.options.find((option) => option.name === "salt"));
@@ -83,8 +145,24 @@ const parameterFields = computed(() =>
 );
 const usesParameters = computed(() => operation.value === "hash" || operation.value === "verify");
 
+/**
+ * Whether the operation can run the algorithm: HMAC needs a key mode, extension a whole state.
+ *
+ * @param {Operation} op - The operation.
+ * @param {AlgorithmInfo} info - The algorithm.
+ * @returns {boolean} `true` when the tool takes it.
+ */
+function runs(op: Operation, info: AlgorithmInfo): boolean {
+  if (op === "hmac") return info.hmac;
+  if (op === "extend") return EXTENDABLE.has(info.name);
+  return true;
+}
+const chipAlgorithms = computed(() =>
+  ALGORITHMS.filter((algorithm) => runs(operation.value, algorithm.info)),
+);
+
 const algorithmItems = computed(() =>
-  ALGORITHMS.filter((algorithm) => operation.value !== "hmac" || algorithm.info.hmac).map(
+  chipAlgorithms.value.map(
     (algorithm) => ({
       label: `${algorithm.info.label} · ${algorithm.slug}`,
       value: algorithm.slug,
@@ -118,13 +196,35 @@ const encodingItems = TEXT_ENCODINGS.map((value) => ({ label: value, value }));
 const parameters = computed<Record<string, string | number>>(() => {
   const out: Record<string, string | number> = {};
   for (const field of parameterFields.value) {
-    const raw = values[field.name]?.trim() ?? "";
+    const raw = fieldText(values[field.name]);
     if (raw === "") continue;
     const number = Number(raw);
     out[field.name] = field.type === "number" && Number.isSafeInteger(number) ? number : raw;
   }
   return out;
 });
+
+/**
+ * A field's text. `UInput type="number"` hands back a number once something is typed in it.
+ *
+ * @param {string | number | undefined} value - The field's model.
+ * @returns {string} The text, trimmed.
+ */
+function fieldText(value: string | number | undefined): string {
+  return String(value ?? "").trim();
+}
+
+/**
+ * A length as the tool takes it. Other text goes through for the executor to refuse.
+ *
+ * @param {string | number} value - The field's model.
+ * @returns {number | string} The number, or the text.
+ */
+function wholeNumber(value: string | number): number | string {
+  const raw = fieldText(value);
+  const number = Number(raw);
+  return raw !== "" && Number.isSafeInteger(number) ? number : raw;
+}
 
 /** The arguments exactly as a tool call would carry them; defaults are left out, like a model would. */
 const toolArgs = computed((): Record<string, unknown> => {
@@ -133,6 +233,19 @@ const toolArgs = computed((): Record<string, unknown> => {
     return {
       ...(family.value ? { family: family.value } : {}),
       ...(category.value ? { category: category.value } : {}),
+    };
+  }
+  if (operation.value === "identify") return { digest: unknownDigest.value };
+  if (operation.value === "extend") {
+    return {
+      algorithm: entry.value.slug,
+      digest: knownDigest.value.trim(),
+      message: message.value,
+      ...(messageEncoding.value === "utf8" ? {} : { messageEncoding: messageEncoding.value }),
+      suffix: suffix.value,
+      ...(suffixEncoding.value === "utf8" ? {} : { suffixEncoding: suffixEncoding.value }),
+      secretLength: wholeNumber(secretLength.value),
+      ...(fieldText(secretLengthMax.value) ? { secretLengthMax: wholeNumber(secretLengthMax.value) } : {}),
     };
   }
   const args: Record<string, unknown> = { algorithm: entry.value.slug, input: input.value };
@@ -170,13 +283,30 @@ interface DescribeAnswer {
   info: AlgorithmInfo;
   text: string;
 }
+interface ExtendAnswer {
+  kind: "extend";
+  details: ExtendDetails;
+  text: string;
+}
+interface IdentifyAnswer {
+  kind: "identify";
+  details: DigestIdentity;
+  text: string;
+}
 interface ErrorAnswer {
   kind: "error";
   name: string;
   message: string;
   text: string;
 }
-type Answer = DigestAnswer | VerifyAnswer | ListAnswer | DescribeAnswer | ErrorAnswer;
+type Answer =
+  | DigestAnswer
+  | VerifyAnswer
+  | ExtendAnswer
+  | IdentifyAnswer
+  | ListAnswer
+  | DescribeAnswer
+  | ErrorAnswer;
 
 const current = computed(() => OPERATIONS.find((row) => row.key === operation.value)!);
 const position = computed(() => OPERATIONS.findIndex((row) => row.key === operation.value) + 1);
@@ -202,6 +332,14 @@ function run(op: Operation, args: Record<string, unknown>): Answer {
     if (op === "verify") {
       const result = hashVerify(args as Parameters<typeof hashVerify>[0]);
       return { kind: "verify", details: result.details, text: result.content[0]!.text };
+    }
+    if (op === "extend") {
+      const result = hashDigestExtend(args as Parameters<typeof hashDigestExtend>[0]);
+      return { kind: "extend", details: result.details, text: result.content[0]!.text };
+    }
+    if (op === "identify") {
+      const result = hashDigestIdentify(args as Parameters<typeof hashDigestIdentify>[0]);
+      return { kind: "identify", details: result.details, text: result.content[0]!.text };
     }
     const result =
       op === "hmac"
@@ -249,6 +387,20 @@ const cliLine = computed(() => {
     ].filter(Boolean);
     return ["hashes algorithms", ...filters].join(" ");
   }
+  if (operation.value === "identify") return `hashes identify ${shellArg(unknownDigest.value)}`;
+  if (operation.value === "extend") {
+    return [
+      `hashes extend ${entry.value.slug} ${shellArg(String(args.digest))}`,
+      message.value ? `--message ${shellArg(message.value)}` : "",
+      messageEncoding.value === "utf8" ? "" : `--message-encoding ${messageEncoding.value}`,
+      `--suffix ${shellArg(suffix.value)}`,
+      suffixEncoding.value === "utf8" ? "" : `--suffix-encoding ${suffixEncoding.value}`,
+      `--secret-length ${String(args.secretLength)}`,
+      args.secretLengthMax === undefined ? "" : `--secret-length-max ${String(args.secretLengthMax)}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
   const flags = [
     inputEncoding.value !== "utf8" ? `--input-encoding ${inputEncoding.value}` : "",
     typeof args.keyEncoding === "string" ? `--key-encoding ${args.keyEncoding}` : "",
@@ -281,6 +433,10 @@ const call = computed(() => {
     const target = args.algorithm ?? args.family ?? args.category;
     return `${answered.value.tool}(${target ? `"${String(target)}"` : ""})`;
   }
+  if (request.value.op === "identify") return `${answered.value.tool}("${String(args.digest)}")`;
+  if (request.value.op === "extend") {
+    return `${answered.value.tool}("${String(args.algorithm)}", "${String(args.digest)}")`;
+  }
   return `${answered.value.tool}("${String(args.algorithm)}", "${String(args.input)}")`;
 });
 const responseTitle = computed(
@@ -308,6 +464,41 @@ function parameterLine(options: Record<string, unknown>): string {
     .map(([name, value]) => `${name} ${String(value)}`)
     .join(", ");
 }
+
+/**
+ * The secret lengths an extension tried.
+ *
+ * @param {ExtendDetails} details - The tool's details.
+ * @returns {string} `3 bytes` or `2 to 4 bytes`.
+ */
+function secretRange(details: ExtendDetails): string {
+  const first = details.extensions[0]!.secretLength;
+  const last = details.extensions.at(-1)!.secretLength;
+  return first === last ? `${first} bytes` : `${first} to ${last} bytes`;
+}
+
+/**
+ * How identify read the string.
+ *
+ * @param {DigestIdentity} found - The tool's details.
+ * @returns {string} `its prefix`, `16 bytes of hex`, or `nothing`.
+ */
+function readingLabel(found: DigestIdentity): string {
+  if (found.reading === "format") return "its prefix";
+  if (found.reading === "unknown") return "nothing";
+  return `${found.length ?? 0} bytes of ${found.reading}`;
+}
+
+/** What the failed call takes: the algorithm's options, or the tool's own arguments. */
+const takes = computed(() => {
+  const tool = answered.value.tool;
+  if (tool === "hashes_digest_extend" || tool === "hashes_digest_identify") {
+    return TOOL_ARGUMENTS[tool].join(", ");
+  }
+  return answeredEntry.value.info.options
+    .map((field) => field.name + (field.required ? "" : "?"))
+    .join(", ");
+});
 
 /** The cursor and the scan run once per answer, not once per keystroke that changes nothing. */
 const scan = ref(0);
@@ -341,8 +532,12 @@ function selectAlgorithm(slug: string) {
  * @param {string} slug - A built-in key.
  */
 function loadSample(slug: string) {
+  if (operation.value === "extend") {
+    loadExtendSample(slug);
+    return;
+  }
   selectAlgorithm(slug);
-  if (operation.value === "algorithms") operation.value = "hash";
+  if (operation.value === "algorithms" || operation.value === "identify") operation.value = "hash";
   if (operation.value === "hmac" && !entry.value.info.hmac) operation.value = "hash";
   input.value = "hello world";
   inputEncoding.value = "utf8";
@@ -353,10 +548,72 @@ function loadSample(slug: string) {
   }
 }
 
+/**
+ * The guide's attack with another algorithm: the digest the server signed, the message, the suffix.
+ *
+ * @param {string} slug - An algorithm whose digest is its whole state.
+ */
+function loadExtendSample(slug: string) {
+  selectAlgorithm(slug);
+  const signed = hashCompute({ algorithm: slug, input: EXTEND_SECRET + EXTEND_MESSAGE });
+  knownDigest.value = signed.details.digest;
+  message.value = EXTEND_MESSAGE;
+  messageEncoding.value = "utf8";
+  suffix.value = "&admin=true";
+  suffixEncoding.value = "utf8";
+  secretLength.value = String(EXTEND_SECRET.length);
+  secretLengthMax.value = "";
+}
+
+/**
+ * Hands a candidate to verify with the salt, costs and digest identify read out of the string.
+ *
+ * @param {DigestCandidate} candidate - A candidate this package computes.
+ * @param {DigestIdentity} found - The identification it came from.
+ */
+function verifyCandidate(candidate: DigestCandidate, found: DigestIdentity) {
+  if (!candidate.algorithm) return;
+  operation.value = "verify";
+  selectAlgorithm(candidate.algorithm);
+  salt.value = candidate.salt ?? "";
+  for (const [name, value] of Object.entries(candidate.parameters ?? {})) {
+    values[name] = String(value);
+  }
+  encoding.value = "hex";
+  inputEncoding.value = "utf8";
+  expected.value = candidate.expected ?? found.hex ?? "";
+}
+
+/**
+ * A shape to identify, with its plaintext ready for verify.
+ *
+ * @param {string} digest - One of the samples.
+ */
+function loadIdentifySample(digest: string) {
+  unknownDigest.value = digest;
+  input.value = IDENTIFY_INPUT;
+  inputEncoding.value = "utf8";
+}
+
 /** An HMAC needs an algorithm that has one; switching to it moves off one that doesn't. */
 watch(operation, (op) => {
   if (op === "hmac" && !entry.value.info.hmac) selectAlgorithm("sha256");
 });
+
+/**
+ * Picks an operation on click, so the extension sample fills in without overwriting a deep link.
+ *
+ * @param {Operation} op - The operation picked.
+ */
+function selectOperation(op: Operation) {
+  operation.value = op;
+  if (op !== "extend") return;
+  const slug = EXTENDABLE.has(entry.value.slug) ? entry.value.slug : "md5";
+  const length = (algorithmEntry(slug)?.info.digestLength ?? 0) * 2;
+  if (slug !== entry.value.slug || knownDigest.value.trim().length !== length) {
+    loadExtendSample(slug);
+  }
+}
 
 const { copied, copy } = useCopied();
 
@@ -382,6 +639,23 @@ function readQuery(query: Record<string, unknown>) {
   }
   if (typeof query.category === "string" && (hashCategories as readonly string[]).includes(query.category)) {
     category.value = query.category as HashCategory;
+  }
+  if (typeof query.digest === "string") {
+    if (op === "identify") unknownDigest.value = query.digest;
+    else knownDigest.value = query.digest;
+  }
+  if (typeof query.message === "string") message.value = query.message;
+  if (typeof query.suffix === "string") suffix.value = query.suffix;
+  if (typeof query.secretLength === "string") secretLength.value = query.secretLength;
+  if (typeof query.secretLengthMax === "string") secretLengthMax.value = query.secretLengthMax;
+  for (const [name, target] of [
+    ["messageEncoding", messageEncoding],
+    ["suffixEncoding", suffixEncoding],
+  ] as const) {
+    const value = String(query[name] ?? "");
+    if ((INPUT_ENCODINGS as readonly string[]).includes(value)) {
+      target.value = value as (typeof INPUT_ENCODINGS)[number];
+    }
   }
   if (typeof query.input === "string") input.value = query.input;
   if (typeof query.key === "string") key.value = query.key;
@@ -485,7 +759,7 @@ const shareLink = computed(() => {
               type="button"
               class="console-lead"
               :aria-pressed="operation === row.key"
-              @click="operation = row.key"
+              @click="selectOperation(row.key)"
             >
               <span class="console-tag">{{ row.label }}</span>
               <span>{{ row.tool }}</span>
@@ -502,7 +776,8 @@ const shareLink = computed(() => {
         <div class="playground-column">
           <p class="console-label console-rule-title">
             <span
-              >Input <span aria-hidden="true">[ {{ Object.keys(toolArgs).length || "no" }} arguments ]</span></span
+              >Input <span aria-hidden="true">[ {{ Object.keys(toolArgs).length || "no" }}
+                {{ Object.keys(toolArgs).length === 1 ? "argument" : "arguments" }} ]</span></span
             >
             <span class="console-mark" aria-hidden="true" />
           </p>
@@ -548,6 +823,145 @@ const shareLink = computed(() => {
                     :items="describeItems"
                     value-key="value"
                     variant="none"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+            </dl>
+            <dl v-else-if="operation === 'identify'" class="console-readout-rows">
+              <div>
+                <dt><label for="playground-unknown">digest</label></dt>
+                <dd>
+                  <UTextarea
+                    id="playground-unknown"
+                    v-model="unknownDigest"
+                    variant="none"
+                    :rows="1"
+                    autoresize
+                    :maxrows="6"
+                    placeholder="a hash as you found it"
+                    spellcheck="false"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+            </dl>
+            <dl v-else-if="operation === 'extend'" class="console-readout-rows">
+              <div>
+                <dt><label for="playground-extend-algorithm">algorithm</label></dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-extend-algorithm"
+                    :model-value="entry.slug"
+                    :items="algorithmItems"
+                    value-key="value"
+                    variant="none"
+                    :icon="entry.icon"
+                    class="w-full"
+                    @update:model-value="loadExtendSample($event as string)"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-known">digest</label></dt>
+                <dd>
+                  <UInput
+                    id="playground-known"
+                    v-model="knownDigest"
+                    variant="none"
+                    placeholder="the signature you saw, in hex"
+                    spellcheck="false"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-message">message</label></dt>
+                <dd>
+                  <UTextarea
+                    id="playground-message"
+                    v-model="message"
+                    variant="none"
+                    :rows="1"
+                    autoresize
+                    :maxrows="6"
+                    spellcheck="false"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-message-encoding">messageEncoding</label></dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-message-encoding"
+                    v-model="messageEncoding"
+                    :items="inputEncodingItems"
+                    value-key="value"
+                    variant="none"
+                    :search-input="false"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-suffix">suffix</label></dt>
+                <dd>
+                  <UInput
+                    id="playground-suffix"
+                    v-model="suffix"
+                    variant="none"
+                    spellcheck="false"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-suffix-encoding">suffixEncoding</label></dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-suffix-encoding"
+                    v-model="suffixEncoding"
+                    :items="inputEncodingItems"
+                    value-key="value"
+                    variant="none"
+                    :search-input="false"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-secret-length">secretLength</label></dt>
+                <dd>
+                  <UInput
+                    id="playground-secret-length"
+                    v-model.number="secretLength"
+                    variant="none"
+                    type="number"
+                    placeholder="bytes of the secret"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <label for="playground-secret-length-max"
+                    >secretLengthMax<span class="playground-optional">?</span></label
+                  >
+                </dt>
+                <dd>
+                  <UInput
+                    id="playground-secret-length-max"
+                    v-model.number="secretLengthMax"
+                    variant="none"
+                    type="number"
+                    placeholder="try every length up to this one"
+                    autocomplete="off"
                     class="w-full"
                   />
                 </dd>
@@ -698,13 +1112,30 @@ const shareLink = computed(() => {
           </div>
 
           <div
-            v-if="operation !== 'algorithms'"
+            v-if="operation === 'identify'"
+            class="playground-chips"
+            role="group"
+            aria-label="Sample hashes"
+          >
+            <UButton
+              v-for="sample in IDENTIFY_SAMPLES"
+              :key="sample.label"
+              :color="unknownDigest === sample.digest ? 'primary' : 'neutral'"
+              variant="chip"
+              icon="i-lucide-fingerprint"
+              :label="sample.label"
+              :aria-pressed="unknownDigest === sample.digest"
+              @click="loadIdentifySample(sample.digest)"
+            />
+          </div>
+          <div
+            v-else-if="operation !== 'algorithms'"
             class="playground-chips"
             role="group"
             aria-label="Sample algorithms"
           >
             <UButton
-              v-for="algorithm in ALGORITHMS.filter((row) => operation !== 'hmac' || row.info.hmac)"
+              v-for="algorithm in chipAlgorithms"
               :key="algorithm.slug"
               :color="entry.slug === algorithm.slug ? 'primary' : 'neutral'"
               variant="chip"
@@ -719,6 +1150,15 @@ const shareLink = computed(() => {
             <template v-if="operation === 'verify'"
               >A chip fills in the digest that matches. Change one character of it, or switch to
               base64 and lowercase it, and watch the verdict flip.</template
+            >
+            <template v-else-if="operation === 'extend'"
+              >A chip signs <code>user=guest</code> with a three-byte secret, the way the guide's
+              server does. Unsure of the length? Give a range and watch every guess in the same
+              block land on one digest.</template
+            >
+            <template v-else-if="operation === 'identify'"
+              >Every sample is the word <code>password</code>. Verify a candidate and the salt,
+              costs and digest come along, read out of the string.</template
             >
             <template v-else-if="operation === 'algorithms'"
               >Pick an algorithm to see its options the way a model sees them before its first
@@ -802,6 +1242,13 @@ const shareLink = computed(() => {
         </UTooltip>
         <span v-if="answer.kind === 'digest' || answer.kind === 'verify'" class="console-meta"
           >{{ answer.details.digestLength }} bytes · {{ answer.details.encoding }}</span
+        >
+        <span v-else-if="answer.kind === 'extend'" class="console-meta"
+          >{{ answer.details.extensions.length }}
+          {{ answer.details.extensions.length === 1 ? "length" : "lengths" }} · hex</span
+        >
+        <span v-else-if="answer.kind === 'identify'" class="console-meta"
+          >{{ answer.details.candidates.length }} candidates · {{ answer.details.reading }}</span
         >
         <span v-else-if="answer.kind === 'list'" class="console-meta"
           >{{ answer.algorithms.length }} algorithms · listing order</span
@@ -945,6 +1392,166 @@ const shareLink = computed(() => {
         </div>
       </template>
 
+      <template v-else-if="answer.kind === 'extend'">
+        <div class="console-band console-subject-band">
+          <div :key="scan" class="console-scan" aria-hidden="true" />
+          <div class="console-identity-block">
+            <ConsoleReticle :key="answeredEntry.slug" :icon="answeredEntry.icon" />
+            <div class="console-name">
+              <span class="console-label"
+                >Forgery / <span class="console-label-key">{{ answeredEntry.slug }}</span></span
+              >
+              <h3>{{ answeredEntry.info.label }}</h3>
+              <p class="console-about">
+                Send the message with this digest. The server puts its secret in front and gets
+                the same one.
+              </p>
+            </div>
+          </div>
+          <div class="console-readout">
+            <svg class="console-link" viewBox="0 0 32 40" fill="none" aria-hidden="true">
+              <circle cx="3" cy="12" r="2.5" />
+              <path d="M5.5 12H14L22 20H32" />
+            </svg>
+            <dl :key="scan" class="console-readout-rows console-animate">
+              <div>
+                <dt>Digest</dt>
+                <dd class="console-accent">
+                  <UTooltip :text="answer.details.extensions[0]!.digest">
+                    <span class="playground-line" tabindex="0">{{
+                      answer.details.extensions[0]!.digest
+                    }}</span>
+                  </UTooltip>
+                </dd>
+              </div>
+              <div>
+                <dt>Secret</dt>
+                <dd>{{ secretRange(answer.details) }}</dd>
+              </div>
+              <div>
+                <dt>Message</dt>
+                <dd>{{ answer.details.extensions[0]!.message.length / 2 }} bytes</dd>
+              </div>
+              <div>
+                <dt>Padding</dt>
+                <dd>{{ answer.details.extensions[0]!.padding.length / 2 }} bytes, in the middle</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <ol
+          v-if="answer.details.extensions.length > 1"
+          :key="scan"
+          class="console-rows console-animate playground-forgeries"
+        >
+          <li
+            v-for="(extension, index) in answer.details.extensions"
+            :key="extension.secretLength"
+            :style="{ animationDelay: `${Math.min(index * 30, 600)}ms` }"
+          >
+            <span class="playground-none">secret {{ extension.secretLength }}</span>
+            <span class="playground-line">{{ extension.digest }}</span>
+            <span>{{ extension.message.length / 2 }} bytes</span>
+          </li>
+        </ol>
+        <div class="console-band">
+          <p class="console-label console-rule-title">
+            <span
+              >Message
+              <span aria-hidden="true"
+                >[ secret of {{ answer.details.extensions[0]!.secretLength }} bytes, hex ]</span
+              ></span
+            >
+            <span class="console-mark" aria-hidden="true" />
+            <UButton
+              color="neutral"
+              variant="subtle"
+              :icon="copied === 'out' ? 'i-lucide-check' : 'i-lucide-copy'"
+              :label="copied === 'out' ? 'copied' : 'copy'"
+              :aria-label="copied === 'out' ? 'Copied' : 'Copy the forged message'"
+              @click="copy('out', answer.details.extensions[0]!.message)"
+            />
+          </p>
+          <pre :key="scan" class="console-snippet playground-output"><code>{{ answer.details.extensions[0]!.message }}</code></pre>
+        </div>
+      </template>
+
+      <template v-else-if="answer.kind === 'identify'">
+        <div class="console-band console-subject-band">
+          <div :key="scan" class="console-scan" aria-hidden="true" />
+          <div class="console-identity-block">
+            <ConsoleReticle :key="answer.details.reading" icon="i-lucide-fingerprint" />
+            <div class="console-name">
+              <span class="console-label"
+                >Identity / <span class="console-label-key">{{ answer.details.reading }}</span></span
+              >
+              <h3 :class="{ 'playground-invalid': answer.details.candidates.length === 0 }">
+                {{
+                  answer.details.candidates.length === 0
+                    ? "Nothing fits"
+                    : answer.details.candidates[0]!.label
+                }}
+              </h3>
+              <p class="console-about">
+                {{ answer.details.note ?? "A guess from the shape alone. Only a MATCH settles it." }}
+              </p>
+            </div>
+          </div>
+          <div class="console-readout">
+            <svg class="console-link" viewBox="0 0 32 40" fill="none" aria-hidden="true">
+              <circle cx="3" cy="12" r="2.5" />
+              <path d="M5.5 12H14L22 20H32" />
+            </svg>
+            <dl :key="scan" class="console-readout-rows console-animate">
+              <div>
+                <dt>Read as</dt>
+                <dd class="console-accent">{{ readingLabel(answer.details) }}</dd>
+              </div>
+              <div>
+                <dt>Candidates</dt>
+                <dd>{{ answer.details.candidates.length }}</dd>
+              </div>
+              <div>
+                <dt>Computed here</dt>
+                <dd>
+                  {{ answer.details.candidates.filter((candidate) => candidate.algorithm).length }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <ol
+          v-if="answer.details.candidates.length > 0"
+          :key="scan"
+          class="console-rows console-animate playground-candidates"
+        >
+          <li
+            v-for="(candidate, index) in answer.details.candidates"
+            :key="candidate.name"
+            :style="{ animationDelay: `${Math.min(index * 30, 600)}ms` }"
+          >
+            <NuxtLink
+              v-if="candidate.algorithm"
+              :to="`/algorithms/${candidate.algorithm}`"
+              class="playground-list-name"
+              >{{ candidate.name }}</NuxtLink
+            >
+            <span v-else class="playground-list-name">{{ candidate.name }}</span>
+            <span class="playground-line playground-none">{{ candidate.label }}</span>
+            <UButton
+              v-if="candidate.algorithm"
+              color="neutral"
+              variant="subtle"
+              trailing-icon="i-lucide-arrow-right"
+              label="verify"
+              :aria-label="`Verify with ${candidate.algorithm}`"
+              @click="verifyCandidate(candidate, answer.details)"
+            />
+            <span v-else class="playground-none">not here</span>
+          </li>
+        </ol>
+      </template>
+
       <ol
         v-else-if="answer.kind === 'list'"
         :key="scan"
@@ -1030,9 +1637,7 @@ const shareLink = computed(() => {
             <div>
               <dt>Takes</dt>
               <dd>
-                <span class="playground-line">{{
-                  answeredEntry.info.options.map((field) => field.name + (field.required ? "" : "?")).join(", ")
-                }}</span>
+                <span class="playground-line">{{ takes }}</span>
               </dd>
             </div>
           </dl>
@@ -1043,7 +1648,7 @@ const shareLink = computed(() => {
 
       <footer class="console-footer console-footer-plain">
         <ul class="console-links">
-          <li v-if="answer.kind !== 'list'">
+          <li v-if="answer.kind !== 'list' && answered.key !== 'identify'">
             <NuxtLink :to="answeredEntry.to"
               ><span aria-hidden="true">→ </span>{{ answeredEntry.info.label }}</NuxtLink
             >
@@ -1053,9 +1658,11 @@ const shareLink = computed(() => {
               :to="
                 answered.key === 'verify' || answered.key === 'hmac'
                   ? '/guide/verify'
-                  : answeredEntry.info.category === 'password'
-                    ? '/guide/kdf'
-                    : '/guide/hashing'
+                  : answered.key === 'extend' || answered.key === 'identify'
+                    ? `/guide/${answered.key}`
+                    : answeredEntry.info.category === 'password'
+                      ? '/guide/kdf'
+                      : '/guide/hashing'
               "
               ><span aria-hidden="true">→ </span>How it works</NuxtLink
             >
@@ -1213,6 +1820,15 @@ const shareLink = computed(() => {
 .playground-list-name:hover {
   color: var(--console-accent);
 }
+/* One row per secret length: the length, the digest, the message's size. */
+.playground-forgeries li {
+  grid-template-columns: 6rem minmax(0, 1fr) 6rem;
+}
+/* One row per candidate: the name, what it is, verify or not here. */
+.playground-candidates li {
+  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto;
+  align-items: center;
+}
 /* One row per option of `hashes_algorithms` with a name: the name, whether it is required, what it does. */
 .playground-options li {
   grid-template-columns: 9rem 8rem minmax(0, 1fr);
@@ -1237,6 +1853,18 @@ const shareLink = computed(() => {
     grid-template-columns: minmax(0, 1fr) auto;
   }
   .playground-list li > span:nth-of-type(1) {
+    display: none;
+  }
+  .playground-forgeries li {
+    grid-template-columns: 5rem minmax(0, 1fr);
+  }
+  .playground-forgeries li > span:last-child {
+    display: none;
+  }
+  .playground-candidates li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .playground-candidates li > .playground-line {
     display: none;
   }
 }
