@@ -1099,7 +1099,7 @@ const shareLink = computed(() => {
                       :id="`playground-option-${field.name}`"
                       v-model="values[field.name]"
                       variant="none"
-                      :type="field.type === 'number' ? 'number' : 'text'"
+                      :inputmode="field.type === 'number' ? 'numeric' : undefined"
                       :placeholder="field.default !== undefined && field.default !== '' ? `default ${field.default}` : field.description"
                       spellcheck="false"
                       autocomplete="off"
