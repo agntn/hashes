@@ -20,7 +20,9 @@ export default defineConfig({
               from: "file",
               name: [
                 "AlgorithmInfo",
+                "DigestCandidate",
                 "DigestDetails",
+                "DigestIdentity",
                 "Hash",
                 "HashInput",
                 "HashOptions",

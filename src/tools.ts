@@ -11,6 +11,7 @@ import {
   hashAlgorithmsSchema,
   hashComputeSchema,
   hashDigestExtendSchema,
+  hashDigestIdentifySchema,
   hashHmacSchema,
   hashVerifySchema,
 } from "../packages/shared/tool-schemas.ts";
@@ -79,6 +80,19 @@ export const digestExtendTool = defineTool({
   execute: async (params) => (await loadOperations()).hashDigestExtend(params),
 });
 
+export const digestIdentifyTool = defineTool({
+  name: "hashes_digest_identify",
+  title: TOOL_TITLES.hashes_digest_identify,
+  description: TOOL_DESCRIPTIONS.hashes_digest_identify,
+  snippet: "Use hashes_digest_identify on a hash nobody named before guessing its algorithm.",
+  guidelines: [
+    "The candidates come from the shape alone. Confirm one with hashes_verify on a known input.",
+  ],
+  effect: "read",
+  input: hashDigestIdentifySchema,
+  execute: async (params) => (await loadOperations()).hashDigestIdentify(params),
+});
+
 export const algorithmsTool = defineTool({
   name: "hashes_algorithms",
   title: TOOL_TITLES.hashes_algorithms,
@@ -99,5 +113,6 @@ export const hashesTools: readonly ToolDefinition[] = [
   hmacComputeTool,
   verifyTool,
   digestExtendTool,
+  digestIdentifyTool,
   algorithmsTool,
 ];

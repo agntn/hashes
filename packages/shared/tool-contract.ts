@@ -74,6 +74,8 @@ export const TOOL_DESCRIPTIONS = {
     "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt, pbkdf2 and argon2 need the salt the expected digest was made with.",
   hashes_digest_extend:
     "Forge a digest by length extension: from H(secret || message) and the secret's length, the digest of secret || message || padding || suffix, without the secret. The answer is the message to send in hex, the padding inside it and the new digest, once per secret length tried.",
+  hashes_digest_identify:
+    "Guess which algorithms a hash may come from by its shape: a prefix such as $2b$, $argon2id$ or $6$, or the byte length of its hex or base64. Each candidate says whether this package computes it; for a format it computes, the salt, costs and digest read out of the string are in the answer, ready for hashes_verify. A guess, not proof.",
   hashes_algorithms:
     "List the registered algorithms with family, category, digest size and HMAC support, or describe one algorithm with its options.",
 } as const;
@@ -84,6 +86,7 @@ export const TOOL_TITLES = {
   hashes_hmac_compute: "Hash HMAC",
   hashes_verify: "Hash Verify",
   hashes_digest_extend: "Hash Extend",
+  hashes_digest_identify: "Hash Identify",
   hashes_algorithms: "Hash Algorithms",
 } as const;
 
@@ -120,6 +123,8 @@ function parameterDescriptions() {
     suffixEncoding: "How to read suffix (default utf8): utf8, or hex and base64 for bytes",
     secretLength: "Length of the secret in bytes",
     secretLengthMax: `Try every secret length from secretLength up to this one, at most ${MAX_SECRET_LENGTHS} lengths. Omit to try secretLength alone`,
+    unknownDigest:
+      "The hash to identify, as found: hex (a 0x prefix allowed), base64, or a string with a prefix such as $2b$ or $argon2id$",
     category: "Category to list. Omit to list every category",
     family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
     describe: "Registered algorithm to describe with its options. Omit to list",

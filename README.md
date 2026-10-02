@@ -28,6 +28,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
 - 🔁 **Ten thousand rounds, one call.** `--rounds 10000 --chain hex` hashes each digest again. Bytes or hex in between? Puzzles use both, so you pick.
 - ✂️ **Length extension.** Got `md5(secret + message)` and the secret's length? `hashes extend` signs a longer message. No secret needed.
+- 🔎 **No name on the digest?** `hashes identify` lists what fits its length or its `$2b$` prefix. Argon2, scrypt and PBKDF2 strings come apart into salt, costs and digest.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share the same tools and the code behind them.
 - 🧩 **Bring your own.** Extend `FixedHash`, or `BlockHash` if you want HMAC too, and `register()` the class.
 
@@ -88,6 +89,7 @@ Same letters, other bytes. The second one exits with 1.
 | `hmac`       | Keyed digest                                       | `hashes hmac sha256 "message" "secret"`                               |
 | `verify`     | Compare with an expected digest, exit 1 if not     | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592`            |
 | `extend`     | Length extension, one line per secret length       | `hashes extend md5 <digest> --message m --suffix x --secret-length 3` |
+| `identify`   | Candidates for a hash, by prefix or length         | `hashes identify 5d41402abc4b2a76b9719d911017c592`                    |
 | `algorithms` | The list, `-f` keeps one family, `-c` one category | `hashes algorithms -f sha`                                            |
 | `info`       | One algorithm with its options                     | `hashes info pbkdf2`                                                  |
 | `mcp`        | The MCP server on stdio                            | `hashes mcp`                                                          |
@@ -142,7 +144,7 @@ omp install @agntn/hashes
 }
 ```
 
-The tools: `hashes_compute`, `hashes_hmac_compute`, `hashes_verify`, `hashes_digest_extend` and `hashes_algorithms`. The same ones in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding` and `keyEncoding`, same as the CLI flags. A model that isn't sure calls `hashes_algorithms` first.
+The tools: `hashes_compute`, `hashes_hmac_compute`, `hashes_verify`, `hashes_digest_extend`, `hashes_digest_identify` and `hashes_algorithms`. The same ones in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding` and `keyEncoding`, same as the CLI flags. A model that isn't sure calls `hashes_algorithms` first.
 
 ## 🚫 What this does not do
 

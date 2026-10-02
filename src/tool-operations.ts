@@ -13,6 +13,7 @@ import { shown } from "./core/errors.ts";
 import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";
 import { algorithmInfos } from "./core/resolve.ts";
 import { extendDigest, secretLengths } from "./core/extend.ts";
+import { identifyDigest, identityText, type DigestIdentity } from "./core/identify.ts";
 import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
 import {
   InvalidOptionError,
@@ -49,6 +50,7 @@ import {
 import type { toolSchemas } from "../packages/shared/tool-schemas.ts";
 
 export * from "../packages/shared/tool-contract.ts";
+export type { DigestCandidate, DigestIdentity } from "./core/identify.ts";
 
 /** Text for the model plus details for the harness, shared by every tool surface. */
 export interface ToolResult<Details> {
@@ -87,6 +89,7 @@ export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
     "secretLength",
     "secretLengthMax",
   ],
+  hashes_digest_identify: ["digest"],
   hashes_algorithms: ["category", "family", "algorithm"],
 };
 
@@ -98,6 +101,7 @@ export type HashComputeParams = Arguments<Static<typeof toolSchemas.hashes_compu
 export type HashHmacParams = Arguments<Static<typeof toolSchemas.hashes_hmac_compute>>;
 export type HashVerifyParams = Arguments<Static<typeof toolSchemas.hashes_verify>>;
 export type HashDigestExtendParams = Arguments<Static<typeof toolSchemas.hashes_digest_extend>>;
+export type HashDigestIdentifyParams = Arguments<Static<typeof toolSchemas.hashes_digest_identify>>;
 export type HashAlgorithmsParams = Arguments<Static<typeof toolSchemas.hashes_algorithms>>;
 
 export interface DigestDetails {
@@ -579,6 +583,27 @@ export function hashDigestExtend(params: HashDigestExtendParams): ToolResult<Ext
     ...blocks,
   ].join("\n\n");
   return { content: [{ type: "text", text }], details: { algorithm: name, extensions } };
+}
+
+/**
+ * Lists the algorithms a hash may come from, with the next call for each one this package computes.
+ *
+ * @param params - The hash as found.
+ * @returns {ToolResult<DigestIdentity>} How it was read and the candidates, most likely first.
+ */
+export function hashDigestIdentify(params: HashDigestIdentifyParams): ToolResult<DigestIdentity> {
+  assertArguments("hashes_digest_identify", params);
+  const found = identifyDigest(textArgument("digest", params.digest, MAX_EXPECTED_LENGTH));
+  const { heading, lines } = identityText(found);
+  const next = found.candidates.some((candidate) => candidate.algorithm !== undefined)
+    ? [
+        found.reading === "format"
+          ? "Next: hashes_verify a guessed input with that algorithm, salt, parameters and expected."
+          : "Next: hashes_verify a known input with each computable candidate. Only a MATCH settles it.",
+      ]
+    : [];
+  const text = [heading, ...lines, ...next].join("\n");
+  return { content: [{ type: "text", text }], details: found };
 }
 
 /**

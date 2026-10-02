@@ -113,6 +113,7 @@ const main = defineCommand({
     hmac: () => command(() => import("./commands/hmac.ts")),
     verify: () => command(() => import("./commands/verify.ts")),
     extend: () => command(() => import("./commands/extend.ts")),
+    identify: () => command(() => import("./commands/identify.ts")),
     algorithms: () => command(() => import("./commands/algorithms.ts")),
     info: () => command(() => import("./commands/info.ts")),
     mcp: () => command(loadMcpCommand),

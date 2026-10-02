@@ -20,6 +20,7 @@ import hashesExtension, { preview } from "../packages/omp/extensions/hashes.ts";
 import {
   hashAlgorithmsSchema,
   hashDigestExtendSchema,
+  hashDigestIdentifySchema,
   hashComputeSchema,
   hashHmacSchema,
   hashVerifySchema,
@@ -48,6 +49,7 @@ const sharedSchemas = {
   hashes_hmac_compute: hashHmacSchema,
   hashes_verify: hashVerifySchema,
   hashes_digest_extend: hashDigestExtendSchema,
+  hashes_digest_identify: hashDigestIdentifySchema,
   hashes_algorithms: hashAlgorithmsSchema,
 };
 
@@ -119,6 +121,14 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
       secretLength: 1,
     },
     { algorithm: "sha256", digest: "00".repeat(32), message: "m", secretLength: 1 },
+  ],
+  hashes_digest_identify: [
+    { digest: "00".repeat(16) },
+    { digest: "$2b$05$x" },
+    { digest: "" },
+    { digest: "a".repeat(1_025) },
+    { digest: 16 },
+    {},
   ],
   hashes_verify: [
     { algorithm: "sha256", input: "x", expected: "ab" },
