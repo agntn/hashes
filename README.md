@@ -148,7 +148,7 @@ The tools: `hashes_compute`, `hashes_hmac_compute`, `hashes_verify`, `hashes_dig
 
 ## 🚫 What this does not do
 
-Password storage for your app. scrypt, Argon2 and PBKDF2 are here so you can reproduce and check a digest, not to run your login. Signing and wallet keys live in [@agntn/keys](https://github.com/agntn/keys), ciphers in [@agntn/ciphers](https://github.com/agntn/ciphers).
+Password storage for your app. scrypt, Argon2 and PBKDF2 are here so you can reproduce and check a digest, not to run your login. Signing and wallet keys live in [@agntn/keys](https://github.com/agntn/keys), ciphers in [@agntn/ciphers](https://github.com/agntn/ciphers). Hex and base64 are here for digests only, base58, bech32 and the rest are [@agntn/encodings](https://github.com/agntn/encodings).
 
 ## 🧩 Adding an algorithm
 
