@@ -1,6 +1,28 @@
 # Changelog
 
 
+## v0.6.3
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.6.2...v0.6.3)
+
+### 🚀 Enhancements
+
+- Hash passwords with bcrypt ([#118](https://github.com/agntn/hashes/pull/118))
+
+### 🩹 Fixes
+
+- **docs:** Keep a typed xxHash seed exact ([#115](https://github.com/agntn/hashes/pull/115))
+- **docs:** Add vue-tsc for the .vue type check ([#117](https://github.com/agntn/hashes/pull/117))
+
+### 📖 Documentation
+
+- Point base encodings at @agntn/encodings ([#114](https://github.com/agntn/hashes/pull/114))
+
+### ❤️ Contributors
+
+- Ori ([@oritwoen](https://github.com/oritwoen))
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+
 ## v0.6.2
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.6.1...v0.6.2)
