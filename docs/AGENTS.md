@@ -32,13 +32,14 @@ pnpm install          # from docs/, the repo root needs no install or build firs
 pnpm dev              # http://localhost:3000
 pnpm build            # Cloudflare Workers output in .output/, content routes prerendered
 pnpm deploy           # build, then wrangler deploy to hashes.agntn.dev
+pnpm exec nuxt prepare --extends docus && pnpm exec vue-tsc --noEmit -p .nuxt/tsconfig.app.json   # type check, .vue files included
 ```
 
 Deployment: Workers Builds with root directory `docs`. It installs `docs/` and nothing else, and that's enough, because the library comes from `../src` (next paragraph). Nitro preset `cloudflare_module`. Nuxt Content wants a D1 binding named `DB`. `wrangler.jsonc` carries it plus the `NUXT_SITE_URL` var. The database `agntn-hashes` lives in the EU jurisdiction, which is set at creation; the binding names it by id alone. No KV binding. Nothing is fetched, so nothing is cached.
 
 `@agntn/hashes` is an alias in `nuxt.config.ts` for `../src/index.ts`, and `#tool-operations` for `../src/tool-operations.ts`. Vite bundles the checkout's sources for the browser and Nitro gets the same alias for the prerender, so `dist/` and the root `node_modules` are never touched. That works because nothing under `src/index.ts` or `src/tool-operations.ts` imports `node:*` or npm; the executors take only types from `@agntn/tools`. A new npm import under `src/core`, `src/algorithms` or `packages/shared` needs three entries here or it breaks the deploy: a dependency pinned to the root's version, plus `vite.resolve.dedupe` and `vite.optimizeDeps.include`, since Vite resolves a bare import in `../src` from the repo root upward, never from `docs/node_modules`.
 
-The library needs `Uint8Array` with native hex and base64 (`toHex`, `fromHex`, `fromBase64`), in the browser as on Node 26. A browser without them can't run the playground. The TypeScript that Docus brings (5.9) has no types for them yet, so `vue-tsc -p .nuxt/tsconfig.app.json` reports them in `../src`. Those lines are the library's, checked by the root `tsc`; count only errors under `app/`.
+The library needs `Uint8Array` with native hex and base64 (`toHex`, `fromHex`, `fromBase64`), in the browser as on Node 26. A browser without them can't run the playground. The TypeScript that Docus brings (5.9) has no types for them yet, so the type check under Commands reports them in `../src`. Those lines are the library's, checked by the root `tsc`; count only errors under `app/`.
 
 Two resolution traps, both because the repo root is its own pnpm workspace:
 
