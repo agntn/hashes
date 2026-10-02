@@ -14,11 +14,12 @@ const byteEntries = [
   "evp",
   "scrypt",
   "argon2",
+  "bcrypt",
 ] as const;
 
 /** The small digests share one chunk, since every file Node loads costs more than its bytes. */
 const smallDigests =
-  /\/src\/core\/(?:errors|hasher|sha1|md5|sha2|ripemd160|hmac|evp|crc|scrypt)\.ts$/u;
+  /\/src\/core\/(?:errors|hasher|sha1|md5|sha2|ripemd160|hmac|evp|crc|scrypt|bcrypt)\.ts$/u;
 
 export default defineBuildConfig({
   entries: [

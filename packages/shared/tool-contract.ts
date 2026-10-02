@@ -31,6 +31,7 @@ export const PARAMETER_LIMITS: Readonly<Record<string, number>> = {
   ivLength: 1_024,
   rounds: 1_000_000,
   memory: 262_144,
+  cost: 16,
 };
 /** Parameters that may be 0 under their tool limit: no IV for a cipher without one. */
 export const ZERO_PARAMETERS: readonly string[] = ["ivLength"];
@@ -56,9 +57,9 @@ export const HASH_CATEGORIES = [
   "password",
 ] as const;
 export const BUILTIN_FAMILIES =
-  "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2";
+  "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2, bcrypt";
 export const BUILTIN_ALGORITHMS =
-  "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, md5, md4, ntlm, sha1, sha0, ripemd128, ripemd256, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d";
+  "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, md5, md4, ntlm, sha1, sha0, ripemd128, ripemd256, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt";
 export const EXTENDABLE_ALGORITHMS =
   "sha256, sha512, ripemd160, ripemd320, md5, md4, sha1, sha0, ripemd128, ripemd256";
 export const HMAC_ALGORITHMS =
@@ -71,7 +72,7 @@ export const TOOL_DESCRIPTIONS = {
   hashes_hmac_compute:
     "Compute an HMAC of text or bytes with a key, using an algorithm that has an HMAC mode.",
   hashes_verify:
-    "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt, pbkdf2 and argon2 need the salt the expected digest was made with.",
+    "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt, pbkdf2, argon2 and bcrypt need the salt the expected digest was made with.",
   hashes_digest_extend:
     "Forge a digest by length extension: from H(secret || message) and the secret's length, the digest of secret || message || padding || suffix, without the secret. The answer is the message to send in hex, the padding inside it and the new digest, once per secret length tried.",
   hashes_digest_identify:
@@ -107,14 +108,14 @@ function parameterDescriptions() {
     keyEncoding:
       "How to read key (default utf8). hex and base64 give a binary key, such as a BIP32 chain code. hex takes no 0x prefix",
     encoding: "Digest encoding (default hex)",
-    salt: "KDFs only (scrypt, pbkdf2, argon2id, argon2i, argon2d, hkdf, evp-bytestokey): salt in hex. Omitted, scrypt, pbkdf2 and argon2 draw a random 32-byte salt and the answer names it, hashes_verify needs it. hkdf reads a missing salt as zeros, evp-bytestokey as none. argon2 takes at least 8 bytes, evp-bytestokey exactly 8",
+    salt: "KDFs only (scrypt, pbkdf2, argon2id, argon2i, argon2d, bcrypt, hkdf, evp-bytestokey): salt in hex. Omitted, scrypt, pbkdf2 and argon2 draw a random 32-byte salt, bcrypt a 16-byte one, and the answer names it, hashes_verify needs it. hkdf reads a missing salt as zeros, evp-bytestokey as none. argon2 takes at least 8 bytes, bcrypt exactly 16, evp-bytestokey exactly 8",
     expected:
       "Expected digest. Hex ignores case and takes no 0x prefix, base64 and base64url keep case",
     expectedEncoding: "Encoding of the expected digest (default hex)",
     verifySalt:
-      "KDFs only (scrypt, pbkdf2, argon2id, argon2i, argon2d, hkdf, evp-bytestokey): the salt in hex the expected digest was made with, required for scrypt, pbkdf2 and argon2",
+      "KDFs only (scrypt, pbkdf2, argon2id, argon2i, argon2d, bcrypt, hkdf, evp-bytestokey): the salt in hex the expected digest was made with, required for scrypt, pbkdf2, argon2 and bcrypt",
     parameters:
-      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but the KDFs, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2, info (hex), digest and keyLength for hkdf, digest, iterations, keyLength and ivLength for evp-bytestokey, memory (KiB), iterations, parallelism, keyLength, secret (hex) and associatedData (hex) for argon2id, argon2i and argon2d",
+      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but the KDFs, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2, info (hex), digest and keyLength for hkdf, digest, iterations, keyLength and ivLength for evp-bytestokey, memory (KiB), iterations, parallelism, keyLength, secret (hex) and associatedData (hex) for argon2id, argon2i and argon2d, cost (4 to 31) for bcrypt",
     extendAlgorithm: `Merkle-Damgard algorithm whose digest is its whole state: ${EXTENDABLE_ALGORITHMS}`,
     knownDigest: "The known digest of the secret followed by message, in hex without a 0x prefix",
     message: "The message that followed the secret, read as messageEncoding says",

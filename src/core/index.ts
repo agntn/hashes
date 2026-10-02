@@ -8,6 +8,7 @@ export type {
   OutputEncoding,
 } from "./types.ts";
 export type { Argon2Options } from "../algorithms/argon2id.ts";
+export type { BcryptOptions } from "../algorithms/bcrypt.ts";
 export type { EvpBytesToKeyOptions } from "../algorithms/evp-bytestokey.ts";
 export type { HkdfOptions } from "../algorithms/hkdf.ts";
 export type { Pbkdf2Options } from "../algorithms/pbkdf2.ts";
@@ -26,6 +27,7 @@ export { FixedHash } from "./fixed-hash.ts";
 export { BlockHash } from "./block-hash.ts";
 export { Hasher } from "./hasher.ts";
 export { argon2d, argon2i, argon2id, type Argon2Parameters } from "./argon2.ts";
+export { bcrypt, bcryptString } from "./bcrypt.ts";
 export { Blake2bHasher, blake2b } from "./blake2b.ts";
 export { blake256 } from "./blake256.ts";
 export { crc16Xmodem, crc32 } from "./crc.ts";
