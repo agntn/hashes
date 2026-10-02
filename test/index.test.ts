@@ -1984,6 +1984,12 @@ describe("bcrypt", () => {
     expect(() => bcryptString(Uint8Array.fromHex(salt), cost, new Uint8Array(24))).toThrow(
       "must be 23 bytes",
     );
+    expect(() => bcryptString(Uint8Array.fromHex(salt), cost, "b".repeat(23) as never)).toThrow(
+      HashError,
+    );
+    expect(() => bcryptString("a".repeat(16) as never, cost, Uint8Array.fromHex(digest))).toThrow(
+      HashError,
+    );
   });
 
   it("draws 16 bytes of salt and defaults to cost 12", () => {

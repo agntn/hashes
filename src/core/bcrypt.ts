@@ -206,6 +206,8 @@ function base64(bytes: Uint8Array): string {
  * @returns {string} `$2b$`, the cost in two digits, then 22 digits of salt and 31 of digest.
  */
 export function bcryptString(salt: Uint8Array, cost: number, digest: Uint8Array): string {
+  assertBytes(salt, "salt");
+  assertBytes(digest, "digest");
   assertParameters(salt, cost);
   if (digest.length !== OUTPUT_LENGTH) {
     throw new InvalidOptionError("digest", digest.length, `must be ${OUTPUT_LENGTH} bytes`);
