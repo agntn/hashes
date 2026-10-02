@@ -1,5 +1,13 @@
 /** Subcommands the CLI dispatches; any other first word is an algorithm name for `hash`. */
-export const SUBCOMMANDS = ["hash", "hmac", "verify", "algorithms", "info", "mcp"] as const;
+export const SUBCOMMANDS = [
+  "hash",
+  "hmac",
+  "verify",
+  "extend",
+  "algorithms",
+  "info",
+  "mcp",
+] as const;
 
 /**
  * Makes `hash` the default subcommand: `hashes sha256 hello` runs `hashes hash sha256 hello`.

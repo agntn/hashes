@@ -1,11 +1,12 @@
 /**
- * Argument schemas of the hash tools, one declaration of every parameter for all four surfaces.
+ * Argument schemas of the hash tools, one declaration of every parameter for every surface.
  * `Type` comes from `@agntn/tools`, never a bare `typebox` import, which OMP rewrites to its own
  * facade (#58).
  */
 
 import { Type, type TObject, type TProperties } from "@agntn/tools";
 import {
+  DIGEST_PATTERN,
   HASH_CATEGORIES,
   INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
@@ -15,6 +16,7 @@ import {
   MAX_KEY_LENGTH,
   MAX_PARAMETER_LENGTH,
   MAX_PARAMETERS,
+  MAX_SECRET_LENGTH,
   PARAMETER_NAME_PATTERN,
   PARAMETER_DESCRIPTIONS,
   SALT_PATTERN,
@@ -86,6 +88,23 @@ export const hashVerifySchema = closed({
   parameters,
 });
 
+const secretLength = { minimum: 0, maximum: MAX_SECRET_LENGTH } as const;
+
+export const hashDigestExtendSchema = closed({
+  algorithm: Type.String({
+    minLength: 1,
+    maxLength: MAX_ALGORITHM_LENGTH,
+    description: d.extendAlgorithm,
+  }),
+  digest: Type.String({ pattern: DIGEST_PATTERN, description: d.knownDigest }),
+  message: Type.String({ maxLength: MAX_INPUT_LENGTH, description: d.message }),
+  messageEncoding: Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.messageEncoding })),
+  suffix: Type.String({ maxLength: MAX_INPUT_LENGTH, description: d.suffix }),
+  suffixEncoding: Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.suffixEncoding })),
+  secretLength: Type.Integer({ ...secretLength, description: d.secretLength }),
+  secretLengthMax: Type.Optional(Type.Integer({ ...secretLength, description: d.secretLengthMax })),
+});
+
 export const hashAlgorithmsSchema = closed({
   category: Type.Optional(Type.Enum(HASH_CATEGORIES, { description: d.category })),
   family: Type.Optional(
@@ -96,10 +115,11 @@ export const hashAlgorithmsSchema = closed({
   ),
 });
 
-/** The four tool schemas, keyed by tool name, in listing order. */
+/** The tool schemas, keyed by tool name, in listing order. */
 export const toolSchemas = {
   hashes_compute: hashComputeSchema,
   hashes_hmac_compute: hashHmacSchema,
   hashes_verify: hashVerifySchema,
+  hashes_digest_extend: hashDigestExtendSchema,
   hashes_algorithms: hashAlgorithmsSchema,
 };

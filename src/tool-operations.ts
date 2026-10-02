@@ -8,10 +8,11 @@
  */
 
 import type { Static } from "@agntn/tools";
-import { decodeInput, parameterText } from "./core/digest.ts";
+import { decodeInput, parameterText, toBytes } from "./core/digest.ts";
 import { shown } from "./core/errors.ts";
 import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";
 import { algorithmInfos } from "./core/resolve.ts";
+import { extendDigest, secretLengths } from "./core/extend.ts";
 import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
 import {
   InvalidOptionError,
@@ -25,6 +26,7 @@ import {
   type HashResult,
 } from "./index.ts";
 import {
+  DIGEST_PATTERN,
   INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
   MAX_EXPECTED_LENGTH,
@@ -34,6 +36,9 @@ import {
   MAX_PARAMETER_LENGTH,
   MAX_PARAMETERS,
   MAX_ARGON2_WORK,
+  MAX_FORGED_LENGTH,
+  MAX_SECRET_LENGTH,
+  MAX_SECRET_LENGTHS,
   MAX_SCRYPT_MEMORY,
   PARAMETER_LIMITS,
   PARAMETER_NAME_PATTERN,
@@ -72,6 +77,16 @@ export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
     "salt",
     "parameters",
   ],
+  hashes_digest_extend: [
+    "algorithm",
+    "digest",
+    "message",
+    "messageEncoding",
+    "suffix",
+    "suffixEncoding",
+    "secretLength",
+    "secretLengthMax",
+  ],
   hashes_algorithms: ["category", "family", "algorithm"],
 };
 
@@ -82,6 +97,7 @@ type Arguments<T> = { readonly [K in keyof T]: ReadonlyValue<T[K]> };
 export type HashComputeParams = Arguments<Static<typeof toolSchemas.hashes_compute>>;
 export type HashHmacParams = Arguments<Static<typeof toolSchemas.hashes_hmac_compute>>;
 export type HashVerifyParams = Arguments<Static<typeof toolSchemas.hashes_verify>>;
+export type HashDigestExtendParams = Arguments<Static<typeof toolSchemas.hashes_digest_extend>>;
 export type HashAlgorithmsParams = Arguments<Static<typeof toolSchemas.hashes_algorithms>>;
 
 export interface DigestDetails {
@@ -98,11 +114,25 @@ export interface VerifyDetails extends DigestDetails {
   expected: string;
 }
 
+/** One forged message, its bytes in hex. */
+export interface Extension {
+  secretLength: number;
+  digest: string;
+  message: string;
+  padding: string;
+}
+
+export interface ExtendDetails {
+  algorithm: string;
+  extensions: Extension[];
+}
+
 export interface AlgorithmsDetails {
   algorithms: AlgorithmInfo[];
 }
 
 const saltPattern = new RegExp(SALT_PATTERN);
+const digestPattern = new RegExp(DIGEST_PATTERN);
 const parameterName = new RegExp(PARAMETER_NAME_PATTERN);
 
 /**
@@ -457,6 +487,98 @@ export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> 
     ? `MATCH: ${algorithm.name()} digest equals the expected value\n${details.digest}`
     : `MISMATCH: ${algorithm.name()} digest differs\nexpected ${shown(expected)}\nactual   ${details.digest}`;
   return { content: [{ type: "text", text }], details: { ...details, match } };
+}
+
+/**
+ * Checks a secret length against the tool limit.
+ *
+ * @param name - The argument, for the error.
+ * @param value - The value as passed.
+ * @returns {number} The length.
+ */
+function secretLengthArgument(name: string, value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new InvalidOptionError(name, value, "must be a whole number");
+  }
+  if (value < 0 || value > MAX_SECRET_LENGTH) {
+    throw new InvalidOptionError(name, value, `must be 0 to ${MAX_SECRET_LENGTH} in a tool call`);
+  }
+  return value;
+}
+
+/**
+ * Forges a digest per secret length, the message in hex since its padding is binary.
+ *
+ * @param params - Algorithm, known digest, message, suffix with their encodings, secret lengths.
+ * @returns {ToolResult<ExtendDetails>} One forged message per secret length.
+ */
+export function hashDigestExtend(params: HashDigestExtendParams): ToolResult<ExtendDetails> {
+  assertArguments("hashes_digest_extend", params);
+  const hex = textArgument("digest", params.digest, MAX_EXPECTED_LENGTH).trim();
+  if (!digestPattern.test(hex)) {
+    throw new InvalidOptionError(
+      "digest",
+      hex,
+      "must be 16 to 64 bytes in hex, without a 0x prefix",
+    );
+  }
+  const message = toBytes(
+    decodedArgument(
+      "message",
+      textArgument("message", params.message, MAX_INPUT_LENGTH),
+      "messageEncoding",
+      params.messageEncoding,
+    ),
+  );
+  const suffix = toBytes(
+    decodedArgument(
+      "suffix",
+      textArgument("suffix", params.suffix, MAX_INPUT_LENGTH),
+      "suffixEncoding",
+      params.suffixEncoding,
+    ),
+  );
+  const first = secretLengthArgument("secretLength", params.secretLength);
+  const last =
+    params.secretLengthMax === undefined
+      ? undefined
+      : secretLengthArgument("secretLengthMax", params.secretLengthMax);
+  const lengths = secretLengths(first, last, MAX_SECRET_LENGTHS);
+  const algorithm = textArgument("algorithm", params.algorithm, MAX_ALGORITHM_LENGTH);
+  const digest = Uint8Array.fromHex(hex);
+  const extensions: Extension[] = [];
+  let forgedLength = 0;
+  for (const secretLength of lengths) {
+    const forged = extendDigest({ algorithm, digest, message, secretLength, suffix });
+    forgedLength += forged.message.length * 2;
+    if (forgedLength > MAX_FORGED_LENGTH) {
+      throw new InvalidOptionError(
+        lengths.length > 1 ? "secretLengthMax" : "message",
+        lengths.length > 1 ? lengths.at(-1) : `${message.length} bytes`,
+        `the forged messages run past ${MAX_FORGED_LENGTH} hex digits in a tool call. Try fewer lengths, or a shorter message or suffix`,
+      );
+    }
+    extensions.push({
+      secretLength,
+      digest: forged.digest.toHex(),
+      message: forged.message.toHex(),
+      padding: forged.padding.toHex(),
+    });
+  }
+  const name = resolveAlgorithm(algorithm).name();
+  const blocks = extensions.map((extension) =>
+    [
+      `${name}, secret of ${extension.secretLength} bytes`,
+      `digest  ${extension.digest}`,
+      `message ${extension.message}`,
+      `padding ${extension.padding}`,
+    ].join("\n"),
+  );
+  const text = [
+    "Send message (the original, the padding, the suffix) with digest. The server prepends the secret.",
+    ...blocks,
+  ].join("\n\n");
+  return { content: [{ type: "text", text }], details: { algorithm: name, extensions } };
 }
 
 /**

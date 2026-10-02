@@ -42,3 +42,9 @@ export { normalizeAlgorithmName, resolveAlgorithm } from "./resolve.ts";
 export { builtinAlgorithms, hashCategories, type BuiltinAlgorithm } from "./algorithms.ts";
 export { digestMatches } from "./verify.ts";
 export { checkedParameters, parameterOptions, type ParameterValue } from "./options.ts";
+export {
+  extendDigest,
+  extendableAlgorithms,
+  type ExtendDigestOptions,
+  type ExtendedDigest,
+} from "./extend.ts";

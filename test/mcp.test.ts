@@ -11,11 +11,13 @@ import {
   type HashResult,
   builtinAlgorithms,
   create,
+  extendableAlgorithms,
   register,
 } from "../src/index.ts";
 import {
   BUILTIN_ALGORITHMS,
   BUILTIN_FAMILIES,
+  EXTENDABLE_ALGORITHMS,
   HMAC_ALGORITHMS,
   MAX_INPUT_LENGTH,
   TOOL_ARGUMENTS,
@@ -27,6 +29,7 @@ import {
 import {
   hashAlgorithmsSchema,
   hashComputeSchema,
+  hashDigestExtendSchema,
   hashHmacSchema,
   hashVerifySchema,
 } from "../packages/shared/tool-schemas.ts";
@@ -64,6 +67,7 @@ describe("tool contract", () => {
     expect(HMAC_ALGORITHMS).toBe(
       builtinAlgorithms.filter((name) => create(name).info().hmac).join(", "),
     );
+    expect(EXTENDABLE_ALGORITHMS).toBe(extendableAlgorithms().join(", "));
   });
 
   it("declares in each schema exactly the arguments its executor takes", () => {
@@ -71,6 +75,7 @@ describe("tool contract", () => {
       hashes_compute: hashComputeSchema,
       hashes_hmac_compute: hashHmacSchema,
       hashes_verify: hashVerifySchema,
+      hashes_digest_extend: hashDigestExtendSchema,
       hashes_algorithms: hashAlgorithmsSchema,
     };
     for (const [tool, schema] of Object.entries(schemas)) {
@@ -83,7 +88,7 @@ describe("tool contract", () => {
 });
 
 describe("hashes MCP server", () => {
-  it("advertises four read-only tools with closed schemas", async () => {
+  it("advertises read-only tools with closed schemas", async () => {
     const client = await connectTestClient();
 
     const { tools } = await client.listTools();
@@ -92,6 +97,7 @@ describe("hashes MCP server", () => {
       "hashes_compute",
       "hashes_hmac_compute",
       "hashes_verify",
+      "hashes_digest_extend",
       "hashes_algorithms",
     ]);
     for (const tool of tools) {
@@ -669,8 +675,79 @@ describe("hashes MCP server", () => {
       hashes_compute: false,
       hashes_hmac_compute: true,
       hashes_verify: true,
+      hashes_digest_extend: true,
       hashes_algorithms: true,
     });
+  });
+
+  it("forges a digest by length extension with the message to send in hex", async () => {
+    const answer = await call("hashes_digest_extend", {
+      algorithm: "SHA256",
+      digest: "CA2C6FE0B879F58A8AFEA413FEF7202C94A5156CCFB5D22C4EF690AF5117A081",
+      message: "data",
+      suffix: "append",
+      secretLength: 6,
+    });
+    const padding = `80${"00".repeat(45)}0000000000000050`;
+
+    expect(answer).toEqual({
+      isError: false,
+      text: [
+        "Send message (the original, the padding, the suffix) with digest. The server prepends the secret.",
+        "",
+        "sha256, secret of 6 bytes",
+        "digest  5e6f4311f409a57a899e8e36fc5c9d27bc5fd5d5f797ad693004d34815a81214",
+        `message 64617461${padding}617070656e64`,
+        `padding ${padding}`,
+      ].join("\n"),
+    });
+  });
+
+  it("tries each secret length in a range, shortest first", async () => {
+    const digest = createHash("md5").update("keydata").digest("hex");
+    const answer = await call("hashes_digest_extend", {
+      algorithm: "md5",
+      digest,
+      message: "64617461",
+      messageEncoding: "hex",
+      suffix: "eA==",
+      suffixEncoding: "base64",
+      secretLength: 1,
+      secretLengthMax: 4,
+    });
+    const blocks = answer.text.split("\n\n").slice(1);
+
+    expect(blocks.map((block) => block.split("\n")[0])).toEqual(
+      [1, 2, 3, 4].map((length) => `md5, secret of ${length} bytes`),
+    );
+    const third = blocks[2]!.split("\n");
+    const forged = Buffer.from(third[2]!.slice("message ".length), "hex");
+    expect(third[1]).toBe(
+      `digest  ${createHash("md5")
+        .update(Buffer.concat([Buffer.from("key"), forged]))
+        .digest("hex")}`,
+    );
+  });
+
+  it.each([
+    [{ algorithm: "sha384", digest: "00".repeat(48) }, "cannot be extended, use one of sha256"],
+    [{ digest: "00".repeat(31) }, "sha256 digests are 32 bytes"],
+    [{ digest: "0x".padEnd(64, "0") }, "digest"],
+    [{ secretLength: 5, secretLengthMax: 4 }, "secretLengthMax=4: must be a whole number from 5"],
+    [{ secretLength: 0, secretLengthMax: 64 }, "tries 65 lengths, at most 64 in one call"],
+    [{ message: "x".repeat(MAX_INPUT_LENGTH) }, "run past 1000000 hex digits"],
+  ])("refuses %o", async (args, message) => {
+    const answer = await call("hashes_digest_extend", {
+      algorithm: "sha256",
+      digest: "00".repeat(32),
+      message: "",
+      suffix: "s",
+      secretLength: 6,
+      ...args,
+    });
+
+    expect(answer.isError).toBe(true);
+    expect(answer.text).toContain(message);
   });
 
   it("rejects prototype property names as unknown tools", async () => {

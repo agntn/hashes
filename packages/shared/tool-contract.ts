@@ -39,6 +39,14 @@ export const MAX_SCRYPT_MEMORY = 256 * 1024 * 1024;
 /** Most KiB an Argon2 call may fill over all its passes, memory * iterations: about 5 s. */
 export const MAX_ARGON2_WORK = 1_048_576;
 
+/** A digest to extend in hex: 16 to 64 bytes, MD4 to SHA-512. */
+export const DIGEST_PATTERN = "^(?:[0-9A-Fa-f]{2}){16,64}$";
+/** Longest secret, and most secret lengths, one length extension call tries. */
+export const MAX_SECRET_LENGTH = 1_000_000;
+export const MAX_SECRET_LENGTHS = 64;
+/** Most hex digits of forged messages one length extension call returns. */
+export const MAX_FORGED_LENGTH = 1_000_000;
+
 export const TEXT_ENCODINGS = ["hex", "base64", "base64url"] as const;
 export const INPUT_ENCODINGS = ["utf8", "hex", "base64"] as const;
 export const HASH_CATEGORIES = [
@@ -51,6 +59,8 @@ export const BUILTIN_FAMILIES =
   "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2";
 export const BUILTIN_ALGORITHMS =
   "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, md5, md4, ntlm, sha1, sha0, ripemd128, ripemd256, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d";
+export const EXTENDABLE_ALGORITHMS =
+  "sha256, sha512, ripemd160, ripemd320, md5, md4, sha1, sha0, ripemd128, ripemd256";
 export const HMAC_ALGORITHMS =
   "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha3-256, sha3-512, keccak256, blake2b, blake2s, ripemd160, ripemd320, md5, md4, sha1, sha0, ripemd128, ripemd256";
 
@@ -62,6 +72,8 @@ export const TOOL_DESCRIPTIONS = {
     "Compute an HMAC of text or bytes with a key, using an algorithm that has an HMAC mode.",
   hashes_verify:
     "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt, pbkdf2 and argon2 need the salt the expected digest was made with.",
+  hashes_digest_extend:
+    "Forge a digest by length extension: from H(secret || message) and the secret's length, the digest of secret || message || padding || suffix, without the secret. The answer is the message to send in hex, the padding inside it and the new digest, once per secret length tried.",
   hashes_algorithms:
     "List the registered algorithms with family, category, digest size and HMAC support, or describe one algorithm with its options.",
 } as const;
@@ -71,6 +83,7 @@ export const TOOL_TITLES = {
   hashes_compute: "Hash Compute",
   hashes_hmac_compute: "Hash HMAC",
   hashes_verify: "Hash Verify",
+  hashes_digest_extend: "Hash Extend",
   hashes_algorithms: "Hash Algorithms",
 } as const;
 
@@ -99,6 +112,14 @@ function parameterDescriptions() {
       "KDFs only (scrypt, pbkdf2, argon2id, argon2i, argon2d, hkdf, evp-bytestokey): the salt in hex the expected digest was made with, required for scrypt, pbkdf2 and argon2",
     parameters:
       "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but the KDFs, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2, info (hex), digest and keyLength for hkdf, digest, iterations, keyLength and ivLength for evp-bytestokey, memory (KiB), iterations, parallelism, keyLength, secret (hex) and associatedData (hex) for argon2id, argon2i and argon2d",
+    extendAlgorithm: `Merkle-Damgard algorithm whose digest is its whole state: ${EXTENDABLE_ALGORITHMS}`,
+    knownDigest: "The known digest of the secret followed by message, in hex without a 0x prefix",
+    message: "The message that followed the secret, read as messageEncoding says",
+    messageEncoding: "How to read message (default utf8): utf8, or hex and base64 for bytes",
+    suffix: "What to append after the padding, read as suffixEncoding says",
+    suffixEncoding: "How to read suffix (default utf8): utf8, or hex and base64 for bytes",
+    secretLength: "Length of the secret in bytes",
+    secretLengthMax: `Try every secret length from secretLength up to this one, at most ${MAX_SECRET_LENGTHS} lengths. Omit to try secretLength alone`,
     category: "Category to list. Omit to list every category",
     family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
     describe: "Registered algorithm to describe with its options. Omit to list",

@@ -94,6 +94,27 @@ export function wordsToBytes(
 }
 
 /**
+ * Writes a byte count as the 64-bit bit length that ends the padding, in the last 8 bytes before
+ * `end`. A wider length field only ever holds zeros above them here.
+ *
+ * @param view - The block or padding being written.
+ * @param end - Where the length field ends.
+ * @param length - Bytes hashed.
+ * @param littleEndian - Byte order of the field.
+ */
+export function writeBitLength(
+  view: DataView,
+  end: number,
+  length: number,
+  littleEndian: boolean,
+): void {
+  const high = Math.floor(length / 0x2000_0000);
+  const low = (length % 0x2000_0000) * 8;
+  view.setUint32(end - 8, littleEndian ? low : high, littleEndian);
+  view.setUint32(end - 4, littleEndian ? high : low, littleEndian);
+}
+
+/**
  * Merkle-Damgard hashing: MD5, SHA-1, SHA-2 and RIPEMD-160. Blocks go to `compress`, the last one
  * padded with 0x80, zeros and the message length in bits; the digest is the state's words.
  */
@@ -103,7 +124,7 @@ export abstract class MerkleDamgard extends Hasher {
   readonly blockLength: number;
   readonly outputLength: number;
   /** Byte order of the words, the length and the digest. */
-  private readonly littleEndian: boolean;
+  readonly littleEndian: boolean;
   /** The partial block not compressed yet. */
   private readonly buffer: Uint8Array;
   private readonly bufferView: DataView;
@@ -171,15 +192,42 @@ export abstract class MerkleDamgard extends Hasher {
       this.compress(view, 0);
       position = 0;
     }
-    // A length field wider than 8 bytes only ever holds zeros above them here.
     while (position < block - 8) buffer[position++] = 0;
     this.position = position;
-    const high = Math.floor(length / 0x2000_0000);
-    const low = (length * 8) >>> 0;
-    view.setUint32(block - 8, littleEndian ? low : high, littleEndian);
-    view.setUint32(block - 4, littleEndian ? high : low, littleEndian);
+    writeBitLength(view, block, length, littleEndian);
     this.compress(view, 0);
     wordsToBytes(state, out, this.outputLength, littleEndian);
+  }
+
+  /**
+   * Bytes of the chaining value. Only a digest this long lets the hash resume from it.
+   *
+   * @returns {number} The state's size in bytes.
+   */
+  get stateLength(): number {
+    return this.state.length * 4;
+  }
+
+  /**
+   * Picks up from a digest as if `length` bytes, padding included, had been hashed into it.
+   *
+   * @param digest - A digest of `stateLength` bytes.
+   * @param length - Bytes hashed with the padding, a multiple of the block length.
+   * @returns {this} The same hasher, ready for `update`.
+   */
+  resume(digest: Uint8Array, length: number): this {
+    assertBytes(digest, "digest");
+    const { state, littleEndian } = this;
+    if (digest.length !== state.length * 4 || !(length >= 0 && length % this.blockLength === 0)) {
+      throw new HashError(
+        `resume takes a ${state.length * 4}-byte digest and a multiple of ${this.blockLength} bytes`,
+      );
+    }
+    const view = viewOf(digest);
+    for (let i = 0; i < state.length; i++) state[i] = view.getInt32(i * 4, littleEndian);
+    this.position = 0;
+    this.length = length;
+    return this;
   }
 
   load(source: this): this {

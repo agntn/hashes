@@ -122,7 +122,7 @@ export function parseEncoding(value: string | undefined): OutputEncoding {
  * @param value - The flag as given.
  * @returns {InputEncoding} The encoding, `utf8` when omitted.
  */
-function parseInputEncoding(flag: string, value: string | undefined): InputEncoding {
+export function parseInputEncoding(flag: string, value: string | undefined): InputEncoding {
   const encoding = value ?? "utf8";
   if ((INPUT_ENCODINGS as readonly string[]).includes(encoding)) return encoding as InputEncoding;
   throw new InvalidOptionError(flag, encoding, `use one of ${INPUT_ENCODINGS.join(", ")}`);
