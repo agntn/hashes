@@ -105,6 +105,14 @@ export const hashDigestExtendSchema = closed({
   secretLengthMax: Type.Optional(Type.Integer({ ...secretLength, description: d.secretLengthMax })),
 });
 
+export const hashDigestIdentifySchema = closed({
+  digest: Type.String({
+    minLength: 1,
+    maxLength: MAX_EXPECTED_LENGTH,
+    description: d.unknownDigest,
+  }),
+});
+
 export const hashAlgorithmsSchema = closed({
   category: Type.Optional(Type.Enum(HASH_CATEGORIES, { description: d.category })),
   family: Type.Optional(
@@ -121,5 +129,6 @@ export const toolSchemas = {
   hashes_hmac_compute: hashHmacSchema,
   hashes_verify: hashVerifySchema,
   hashes_digest_extend: hashDigestExtendSchema,
+  hashes_digest_identify: hashDigestIdentifySchema,
   hashes_algorithms: hashAlgorithmsSchema,
 };

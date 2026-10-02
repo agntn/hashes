@@ -21,7 +21,7 @@ docs/
 ├── server/routes/sitemap.xml.ts   # Docus sitemap plus the Vue pages it cannot see
 ├── public/                        # fonts, favicon.svg and the icons and manifest cut from it
 ├── content/index.md               # landing
-├── content/1.guide/               # getting started, hashing, HMAC and verify, KDFs, CLI, agents, custom, playground
+├── content/1.guide/               # getting started, hashing, HMAC and verify, KDFs, length extension, identify, CLI, agents, custom, playground
 └── content/2.algorithms/          # overview, one page per algorithm in listing order
 ```
 
@@ -73,5 +73,6 @@ Two resolution traps, both because the repo root is its own pnpm workspace:
 ## Constraints
 
 - Text a visitor types into the playground is rendered as text, through interpolation or a `<pre>`. Never `v-html`, never evaluate.
+- The sidebar takes a guide page's icon from `NAV_ICONS` in `app/composables/useSubNavigation.ts`, not from its frontmatter, so a new page goes there too.
 - Every vector quoted in `content/` came out of the library in `src/`. Check a new one the same way, and against an outside reference where one exists.
 - The site makes no network request for its own work and stays that way. The footer says so.

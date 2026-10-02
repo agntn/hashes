@@ -4,6 +4,7 @@ export const SUBCOMMANDS = [
   "hmac",
   "verify",
   "extend",
+  "identify",
   "algorithms",
   "info",
   "mcp",

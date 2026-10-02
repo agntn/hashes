@@ -28,6 +28,7 @@ import {
   blake256,
   extendDigest,
   extendableAlgorithms,
+  identifyDigest,
   blake2b,
   builtinAlgorithms,
   crc16Xmodem,
@@ -1624,6 +1625,233 @@ describe("extendDigest", () => {
     expect(() => new Sha224Hasher().resume(new Uint8Array(28), 64)).toThrow(HashError);
     expect(() => new Sha256Hasher().resume("x".repeat(32) as unknown as Uint8Array, 64)).toThrow(
       "digest must be a Uint8Array",
+    );
+  });
+});
+
+describe("identifyDigest", () => {
+  /** `password` as mkpasswd, openssl passwd, htpasswd, argon2, passlib and Django wrote it. */
+  const FORMATS: readonly (readonly [string, string, string | undefined])[] = [
+    ["$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy", "bcrypt", undefined],
+    ["$2y$10$ohjdIMwX4ixMxLrzKd3ruuMwvA1nrvwq5Fg7NGIxz7jR3vsgR93wa", "bcrypt", undefined],
+    [
+      "$6$saltsalt$qFmFH.bQmmtXzyBY0s9v7Oicd2z4XSIecDzlB5KiA2/jctKu9YterLp8wwnSq.qc.eoxqOmSuNp2xS0ktL3nh/",
+      "sha512crypt",
+      undefined,
+    ],
+    ["$5$saltsalt$gOjOtoMpVhru2uyjeJSEc/JaLQWOXMNmlOnj6T4AtC.", "sha256crypt", undefined],
+    ["$1$saltsalt$qjXMvbEw8oaL.CzflDtaK/", "md5crypt", undefined],
+    ["$apr1$saltsalt$yAAkm4libquA.ZWLHbSBq/", "apr1", undefined],
+    [
+      "$y$j9T$SvJBRoE0tLcBbw6qYN7MW/$yz2D1Q1DrXJRuWn9pNp.BYmXW7f//xLYS0HAxdTklDD",
+      "yescrypt",
+      undefined,
+    ],
+    [
+      "$7$CU..../....6C.kkSqZ9FAxB678v8JRN1$qC9lVMZO0da0sYoJTQxB6OdqgtB6ihPGgjCMzm8a4H5",
+      "scrypt-crypt",
+      undefined,
+    ],
+    [
+      "$argon2id$v=19$m=1024,t=2,p=2$c29tZXNhbHRzYWx0$8mkYn4qtK5HHJtQQI+FNQKE4UECfkb5diD560/y7mZs",
+      "argon2id",
+      "argon2id",
+    ],
+    [
+      "$scrypt$ln=10,r=8,p=1$c2FsdHNhbHQ$AOLXEESCcPmf2DxU3D47ZJxp5ZTcHC0S2Mb2eFXc4tI",
+      "scrypt",
+      "scrypt",
+    ],
+    [
+      "$pbkdf2-sha256$1000$c2FsdHNhbHQ$E196ZhRPzw.wA84EjzHwJO1cv/MFJdO6C/sxmUeTYqY",
+      "pbkdf2-sha256",
+      "pbkdf2",
+    ],
+    [
+      "$pbkdf2-sha512$1000$c2FsdHNhbHQ$Q6v4xwJ8a9nWPp2BeEoAYYhHSo2xRmPWART17vTpSxt2q6iNp7BOozW557qqa95eNjUO4gKs0CyvJbYGGku1tA",
+      "pbkdf2-sha512",
+      "pbkdf2",
+    ],
+    ["$pbkdf2$1000$c2FsdHNhbHQ$6f6/9Uv85mj94wGsyFVjzJ3HHvY", "pbkdf2-sha1", undefined],
+    [
+      "pbkdf2_sha256$1000$saltsalt$E196ZhRPzw+wA84EjzHwJO1cv/MFJdO6C/sxmUeTYqY=",
+      "django-pbkdf2",
+      "pbkdf2",
+    ],
+    ["*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19", "mysql41", "sha1"],
+  ];
+
+  it.each(FORMATS)("names %s by its prefix", (text, name, algorithm) => {
+    const found = identifyDigest(`  ${text}\n`);
+
+    expect(found.reading).toBe("format");
+    expect(found.candidates).toHaveLength(1);
+    expect(found.candidates[0]).toMatchObject({ name, fit: "format" });
+    expect(found.candidates[0]!.algorithm).toBe(algorithm);
+  });
+
+  it.each(FORMATS.filter(([, , algorithm]) => algorithm !== undefined))(
+    "reads the salt, costs and digest out of %s so hashing the password matches",
+    (text) => {
+      const [candidate] = identifyDigest(text).candidates;
+      const { algorithm, expected, parameters, salt } = candidate!;
+      const result = create(algorithm!).hash("password", {
+        ...parameters,
+        ...(salt === undefined ? {} : { salt: Uint8Array.fromHex(salt) }),
+      } as HashOptions);
+
+      expect(result.digest).toBe(expected);
+    },
+  );
+
+  it("reads MySQL 4.1 as SHA-1 over the SHA-1 bytes", () => {
+    const inner = createHash("sha1").update("password").digest();
+    const mysql = `*${createHash("sha1").update(inner).digest("hex").toUpperCase()}`;
+
+    expect(identifyDigest(mysql).candidates[0]).toMatchObject({
+      algorithm: "sha1",
+      parameters: { rounds: 2 },
+      expected: createHash("sha1").update(inner).digest("hex"),
+    });
+  });
+
+  it("keeps a format this package cannot compute without the call", () => {
+    const [bcrypt] = identifyDigest(FORMATS[0]![0]).candidates;
+    const [sha1] = identifyDigest(
+      "$pbkdf2$1000$c2FsdHNhbHQ$6f6/9Uv85mj94wGsyFVjzJ3HHvY",
+    ).candidates;
+    const legacy =
+      "$argon2i$v=16$m=65536,t=2,p=1$c29tZXNhbHQ$9sTbSlTio3Biev89thdrlKKiCaYsjjYVJxGAL3swxpQ";
+    const [old] = identifyDigest(legacy).candidates;
+
+    expect(bcrypt).toEqual({ name: "bcrypt", label: "bcrypt", fit: "format", note: "cost 5" });
+    expect(sha1!.algorithm).toBeUndefined();
+    expect(sha1!.note).toContain("over sha1, while pbkdf2 here takes sha256");
+    expect(old).toMatchObject({
+      name: "argon2i",
+      fit: "format",
+      note: "version 16, while this package runs 19",
+    });
+    expect(old!.algorithm).toBeUndefined();
+    expect(identifyDigest(legacy.replace("v=16$", "")).candidates[0]!.note).toBe(old!.note);
+  });
+
+  it.each([
+    "$pbkdf2-sha256$1000$A$E196ZhRPzw.wA84EjzHwJO1cv/MFJdO6C/sxmUeTYqY",
+    "$argon2id$v=19$m=1,t=1,p=1$A$c29tZXNhbHQ",
+  ])("takes %s, whose salt is not base64, for its prefix alone", (text) => {
+    expect(identifyDigest(text).candidates[0]!.fit).toBe("prefix");
+  });
+
+  it("takes a cost past ten digits for a broken layout, not Infinity", () => {
+    const huge = `$argon2id$v=19$m=${"9".repeat(400)},t=2,p=2$c29tZXNhbHQ$c29tZXNhbHQ`;
+
+    expect(identifyDigest(huge).candidates).toEqual([
+      { name: "argon2id", label: "Argon2id, PHC string", fit: "prefix" },
+    ]);
+  });
+
+  it("names a format by its prefix when the rest does not fit", () => {
+    expect(identifyDigest("$2b$05$truncated").candidates).toEqual([
+      { name: "bcrypt", label: "bcrypt", fit: "prefix" },
+    ]);
+    expect(identifyDigest("$argon2id$v=19$m=1024").candidates[0]).toEqual({
+      name: "argon2id",
+      label: "Argon2id, PHC string",
+      fit: "prefix",
+    });
+  });
+
+  it("lists the fixed digests of that length, then those this package lacks, then the KDFs", () => {
+    const md5 = createHash("md5").update("hello").digest();
+    const found = identifyDigest(md5.toString("hex").toUpperCase());
+
+    expect(found).toMatchObject({ reading: "hex", length: 16, hex: md5.toString("hex") });
+    expect(
+      found.candidates.map((candidate) => [candidate.name, candidate.fit, candidate.algorithm]),
+    ).toEqual([
+      ["md5", "length", "md5"],
+      ["md4", "length", "md4"],
+      ["ntlm", "length", "ntlm"],
+      ["ripemd128", "length", "ripemd128"],
+      ["md2", "length", undefined],
+      ["lm", "length", undefined],
+      ...["scrypt", "pbkdf2", "hkdf", "evp-bytestokey", "argon2id", "argon2i", "argon2d"].map(
+        (name) => [name, "keyLength", name],
+      ),
+    ]);
+    expect(found.candidates.at(-1)!.parameters).toEqual({ keyLength: 16 });
+  });
+
+  it("reads base64 in either alphabet, padded or not, after hex fails", () => {
+    const digest = createHash("sha256").update("abc").digest();
+    for (const text of [digest.toString("base64"), digest.toString("base64url")]) {
+      expect(identifyDigest(text)).toMatchObject({
+        reading: "base64",
+        length: 32,
+        hex: digest.toString("hex"),
+      });
+    }
+    expect(identifyDigest(digest.toString("base64").replace(/=+$/, "")).length).toBe(32);
+  });
+
+  it("puts keccak256 first after 0x and leaves KDFs out below 16 bytes", () => {
+    const prefixed = identifyDigest(`0x${"ab".repeat(32)}`);
+    const crc = identifyDigest("cbf43926");
+
+    expect(prefixed.candidates[0]).toMatchObject({
+      name: "keccak256",
+      note: "0x is how Ethereum writes Keccak-256",
+    });
+    expect(prefixed.candidates[1]!.name).toBe("sha256");
+    expect(identifyDigest("ab".repeat(32)).candidates[0]!.name).toBe("sha256");
+    expect(crc.candidates.map((candidate) => candidate.name)).toEqual([
+      "crc32",
+      "adler32",
+      "crc32c",
+    ]);
+  });
+
+  it("counts a registered algorithm as computable in place of the one it replaces", () => {
+    class Sha3_384 extends FixedHash {
+      static readonly key = "sha3-384";
+      protected readonly about = {
+        label: "SHA3-384",
+        description: "SHA-3 family 384-bit hash",
+        family: "SHA",
+        category: "cryptographic",
+        digestLength: 48,
+      } as const;
+
+      protected digest(bytes: Uint8Array): Uint8Array {
+        return createHash("sha3-384").update(bytes).digest();
+      }
+    }
+    register(Sha3_384);
+
+    const names = identifyDigest("00".repeat(48)).candidates.filter(
+      (candidate) => candidate.fit === "length",
+    );
+    expect(names.map((candidate) => [candidate.name, candidate.algorithm])).toEqual([
+      ["sha384", "sha384"],
+      ["sha3-384", "sha3-384"],
+    ]);
+  });
+
+  it.each([
+    ["abc", "an odd number of hex digits"],
+    ["$zz$abc$def", "a $ prefix no known format uses"],
+    ["$zz\nmd5: MD5, computable", "a $ prefix no known format uses"],
+    ["hello world", "neither hex, base64 nor a known format"],
+    ["00".repeat(7), "nothing known here makes 7 bytes"],
+  ])("finds no candidate for %j", (text, note) => {
+    expect(identifyDigest(text)).toMatchObject({ candidates: [], note });
+  });
+
+  it("refuses an empty string and anything but a string", () => {
+    expect(() => identifyDigest(" \n")).toThrow("Invalid option digest=(empty): must not be empty");
+    expect(() => identifyDigest(new Uint8Array(16) as unknown as string)).toThrow(
+      "Invalid option digest=object: must be a string",
     );
   });
 });

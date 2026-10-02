@@ -19,6 +19,7 @@ import {
   BUILTIN_FAMILIES,
   EXTENDABLE_ALGORITHMS,
   HMAC_ALGORITHMS,
+  MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   TOOL_ARGUMENTS,
   hashAlgorithms,
@@ -30,6 +31,7 @@ import {
   hashAlgorithmsSchema,
   hashComputeSchema,
   hashDigestExtendSchema,
+  hashDigestIdentifySchema,
   hashHmacSchema,
   hashVerifySchema,
 } from "../packages/shared/tool-schemas.ts";
@@ -76,6 +78,7 @@ describe("tool contract", () => {
       hashes_hmac_compute: hashHmacSchema,
       hashes_verify: hashVerifySchema,
       hashes_digest_extend: hashDigestExtendSchema,
+      hashes_digest_identify: hashDigestIdentifySchema,
       hashes_algorithms: hashAlgorithmsSchema,
     };
     for (const [tool, schema] of Object.entries(schemas)) {
@@ -98,6 +101,7 @@ describe("hashes MCP server", () => {
       "hashes_hmac_compute",
       "hashes_verify",
       "hashes_digest_extend",
+      "hashes_digest_identify",
       "hashes_algorithms",
     ]);
     for (const tool of tools) {
@@ -676,8 +680,94 @@ describe("hashes MCP server", () => {
       hashes_hmac_compute: true,
       hashes_verify: true,
       hashes_digest_extend: true,
+      hashes_digest_identify: true,
       hashes_algorithms: true,
     });
+  });
+
+  it("lists what a hash may come from by its length, computable ones first", async () => {
+    const answer = await call("hashes_digest_identify", {
+      digest: createHash("md5").update("hello").digest("base64"),
+    });
+
+    expect(answer).toEqual({
+      isError: false,
+      text: [
+        "16 bytes in base64. Candidates from the shape alone, most likely first:",
+        "hex 5d41402abc4b2a76b9719d911017c592",
+        "md5: MD5, computable",
+        "md4: MD4, computable",
+        "ntlm: NTLM, computable",
+        "ripemd128: RIPEMD-128, computable",
+        "md2: MD2, not in this package",
+        "lm: LM, not in this package",
+        "Any length: scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, with keyLength 16",
+        "Next: hashes_verify a known input with each computable candidate. Only a MATCH settles it.",
+      ].join("\n"),
+    });
+  });
+
+  it("reads a format into the hashes_verify call that matches it", async () => {
+    const salt = Buffer.from("somesaltsalt");
+    const key = argon2Sync("argon2id", {
+      message: "password",
+      nonce: salt,
+      memory: 1024,
+      passes: 2,
+      parallelism: 2,
+      tagLength: 32,
+    });
+    const phc = `$argon2id$v=19$m=1024,t=2,p=2$${salt.toString("base64").replace(/=+$/, "")}$${key.toString("base64").replace(/=+$/, "")}`;
+    const answer = await call("hashes_digest_identify", { digest: phc });
+    const verified = await call("hashes_verify", {
+      algorithm: "argon2id",
+      input: "password",
+      salt: salt.toString("hex"),
+      parameters: { memory: 1024, iterations: 2, parallelism: 2, keyLength: 32 },
+      expected: key.toString("hex"),
+    });
+
+    expect(answer.text.split("\n")).toEqual([
+      "Read by its prefix. Candidates from the shape alone, most likely first:",
+      `argon2id: Argon2id, PHC string, computable, salt ${salt.toString("hex")}, memory 1024, iterations 2, parallelism 2, keyLength 32, expected ${key.toString("hex")}`,
+      "Next: hashes_verify a guessed input with that algorithm, salt, parameters and expected.",
+    ]);
+    expect(verified.text).toMatch(/^MATCH/);
+  });
+
+  it("answers without a next step when nothing computable fits", async () => {
+    const bcrypt = await call("hashes_digest_identify", {
+      digest: "$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy",
+    });
+    const none = await call("hashes_digest_identify", { digest: "00".repeat(7) });
+    const truncated = await call("hashes_digest_identify", { digest: "$argon2id$v=19$m=1" });
+
+    expect(bcrypt).toEqual({
+      isError: false,
+      text: [
+        "Read by its prefix. Candidates from the shape alone, most likely first:",
+        "bcrypt: bcrypt, cost 5, not in this package",
+      ].join("\n"),
+    });
+    expect(none).toEqual({
+      isError: false,
+      text: "7 bytes in hex: nothing known here makes 7 bytes.",
+    });
+    expect(truncated.text.split("\n")).toEqual([
+      "Read by its prefix. Candidates from the shape alone, most likely first:",
+      "argon2id: Argon2id, PHC string, the prefix fits, the rest does not",
+    ]);
+  });
+
+  it.each([
+    [{ digest: "" }, "digest"],
+    [{ digest: "a".repeat(MAX_EXPECTED_LENGTH + 1) }, "digest"],
+    [{ digest: "00", algorithm: "md5" }, "algorithm"],
+  ])("refuses %o", async (args, message) => {
+    const answer = await call("hashes_digest_identify", args);
+
+    expect(answer.isError).toBe(true);
+    expect(answer.text).toContain(message);
   });
 
   it("forges a digest by length extension with the message to send in hex", async () => {

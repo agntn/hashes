@@ -48,7 +48,9 @@ describe("hashes CLI", () => {
     const help = run(["--help"]);
     const usage = run(["hash", "--help"]);
 
-    expect(help.stdout).toContain("USAGE hashes hash|hmac|verify|extend|algorithms|info|mcp");
+    expect(help.stdout).toContain(
+      "USAGE hashes hash|hmac|verify|extend|identify|algorithms|info|mcp",
+    );
     expect(usage.stdout).toContain("ALGORITHM");
     expect(usage.stdout).toContain(
       "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d)",
@@ -128,6 +130,29 @@ describe("hashes CLI", () => {
     const lowered = run(["verify", "sha256", "abc", base64.toLowerCase(), "-e", "base64"]);
     expect(lowered.code).toBe(1);
     expect(lowered.stdout).toMatch(/^MISMATCH/);
+  });
+
+  it("identifies a hash with the candidates on stdout and exits 1 when none fits", () => {
+    const found = run(["identify", createHash("sha1").update("abc").digest("hex")]);
+    const none = run(["identify", "00".repeat(7)]);
+
+    expect(found).toEqual({
+      code: 0,
+      stderr: "20 bytes in hex. Candidates from the shape alone, most likely first:\n",
+      stdout: [
+        "sha1: SHA-1, computable",
+        "ripemd160: RIPEMD-160, computable",
+        "hash160: HASH160, computable",
+        "sha0: SHA-0, computable",
+        "Any length: scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, with keyLength 20",
+        "",
+      ].join("\n"),
+    });
+    expect(none).toEqual({
+      code: 1,
+      stderr: "7 bytes in hex: nothing known here makes 7 bytes.\n",
+      stdout: "",
+    });
   });
 
   it("refuses an expected digest that is not valid in its encoding instead of a mismatch", () => {

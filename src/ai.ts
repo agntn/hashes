@@ -5,10 +5,12 @@ import type { Tool } from "ai";
 import type {
   AlgorithmsDetails,
   DigestDetails,
+  DigestIdentity,
   ExtendDetails,
   HashAlgorithmsParams,
   HashComputeParams,
   HashDigestExtendParams,
+  HashDigestIdentifyParams,
   HashHmacParams,
   HashVerifyParams,
   VerifyDetails,
@@ -17,6 +19,7 @@ import {
   algorithmsTool,
   computeTool,
   digestExtendTool,
+  digestIdentifyTool,
   hmacComputeTool,
   verifyTool,
 } from "./tools.ts";
@@ -38,6 +41,11 @@ export const hashDigestExtendTool: Tool<
   AiToolOutput<ExtendDetails>
 > = toAiTool(digestExtendTool);
 
+export const hashDigestIdentifyTool: Tool<
+  HashDigestIdentifyParams,
+  AiToolOutput<DigestIdentity>
+> = toAiTool(digestIdentifyTool);
+
 export const hashAlgorithmsTool: Tool<
   HashAlgorithmsParams,
   AiToolOutput<AlgorithmsDetails>
@@ -49,5 +57,6 @@ export const hashTools = {
   hashes_hmac_compute: hashHmacTool,
   hashes_verify: hashVerifyTool,
   hashes_digest_extend: hashDigestExtendTool,
+  hashes_digest_identify: hashDigestIdentifyTool,
   hashes_algorithms: hashAlgorithmsTool,
 };

@@ -48,3 +48,9 @@ export {
   type ExtendDigestOptions,
   type ExtendedDigest,
 } from "./extend.ts";
+export {
+  identifyDigest,
+  type DigestCandidate,
+  type DigestFit,
+  type DigestIdentity,
+} from "./identify.ts";
