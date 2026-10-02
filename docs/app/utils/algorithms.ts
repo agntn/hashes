@@ -109,6 +109,7 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   argon2id: { icon: "i-lucide-memory-stick", blurb: "The Argon2 that RFC 9106 tells you to pick" },
   argon2i: { icon: "i-lucide-eye-off", blurb: "Argon2 whose reads never depend on the password" },
   argon2d: { icon: "i-lucide-pickaxe", blurb: "Argon2 whose reads follow the data, fit for proof of work" },
+  bcrypt: { icon: "i-lucide-fish", blurb: "Blowfish's key setup, run a few thousand times on purpose" },
 };
 
 export interface AlgorithmEntry {
@@ -234,4 +235,5 @@ export const SAMPLE_OPTIONS: Partial<Record<BuiltinAlgorithm, Record<string, str
   argon2id: ARGON2_SAMPLE,
   argon2i: ARGON2_SAMPLE,
   argon2d: ARGON2_SAMPLE,
+  bcrypt: { salt: "73616c7473616c7473616c7473616c74", cost: 4 },
 };

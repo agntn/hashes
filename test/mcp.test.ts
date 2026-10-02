@@ -436,7 +436,7 @@ describe("hashes MCP server", () => {
     const blake = await call("hashes_algorithms", { family: "blake" });
     const scrypt = await call("hashes_algorithms", { algorithm: "scrypt" });
 
-    expect(password.text).toContain("6 algorithms, listing order:");
+    expect(password.text).toContain("7 algorithms, listing order:");
     expect(password.text).toContain("scrypt [scrypt, password] variable, HMAC no: scrypt");
     expect(blake.text).toContain("6 algorithms, listing order:");
     expect(blake.text).toContain("blake3 [BLAKE, cryptographic] 256-bit, HMAC no: BLAKE3");
@@ -583,6 +583,38 @@ describe("hashes MCP server", () => {
     );
     expect(byDefault.text).toContain("with memory=65536 fills 1114112 KiB");
     expect(tiny.isError).toBe(false);
+  });
+
+  it("names the bcrypt salt, cost and $2b$ string, and refuses what bcrypt would cut", async () => {
+    const salt = "2e7ed086ccb9791c5c5d9bcb0bbc6451";
+    const digest = "137363bf774cbe38a775f466f5975c593234fa503f2d77";
+    const input = "correct horse battery staple";
+    const answer = await call("hashes_compute", {
+      algorithm: "bcrypt",
+      input,
+      salt,
+      parameters: { cost: 5 },
+    });
+    const verified = await call("hashes_verify", {
+      algorithm: "bcrypt",
+      input,
+      expected: digest,
+      salt,
+      parameters: { cost: 5 },
+    });
+    const long = await call("hashes_compute", { algorithm: "bcrypt", input: "y".repeat(73) });
+    const costly = await call("hashes_compute", {
+      algorithm: "bcrypt",
+      input,
+      parameters: { cost: 17 },
+    });
+
+    expect(answer.text).toBe(
+      `${digest}\nbcrypt, hex, 23 bytes, cost 5, salt ${salt}, crypt $2b$05$Jl5Ofqw3cPvaVXtJA5viSOC1Lht1bKthglbdPk7XbaURGy8j.9JVa`,
+    );
+    expect(verified.text).toMatch(/^MATCH/);
+    expect(long.text).toContain("password=73 bytes: bcrypt reads at most 72 bytes");
+    expect(costly.text).toContain("cost=17: must be 1 to 16 in a tool call");
   });
 
   it("hashes many rounds in one call and names the rounds and chain to repeat it", async () => {

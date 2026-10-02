@@ -25,6 +25,8 @@ import {
   argon2d,
   argon2i,
   argon2id,
+  bcrypt,
+  bcryptString,
   blake256,
   extendDigest,
   extendableAlgorithms,
@@ -59,6 +61,7 @@ import {
   version,
   type HashOptions,
   type Argon2Options,
+  type BcryptOptions,
   type EvpBytesToKeyOptions,
   type HkdfOptions,
   type Pbkdf2Options,
@@ -297,6 +300,7 @@ describe("digests", () => {
       "argon2id",
       "argon2i",
       "argon2d",
+      "bcrypt",
     ]);
     for (const name of without) {
       expect(() => create(name).hash("message", { key: "secret" })).toThrow(HashError);
@@ -1094,6 +1098,7 @@ describe("byte function subpaths", () => {
     evp: ["evpBytesToKey"],
     scrypt: ["scrypt"],
     argon2: ["argon2d", "argon2i", "argon2id"],
+    bcrypt: ["bcrypt", "bcryptString"],
   } as const;
   const names = Object.keys(SUBPATHS);
 
@@ -1919,6 +1924,108 @@ describe("errors", () => {
   });
 });
 
+describe("bcrypt", () => {
+  /* Password, cost, salt and digest in hex, and the string Python's bcrypt 5.0 or htpasswd wrote. */
+  const vectors = [
+    [
+      "",
+      4,
+      "8a64bcb03836ac9de3f650e56173a9ae",
+      "e3e4c4f9a900a39c8c22133636aae317835d8234c652f1",
+      "$2b$04$gkQ6qBe0pH1h7jBjWVMnpe28RC8Yi.m3wKGfK0LophD2LbehREStC",
+    ],
+    [
+      "correct horse battery staple",
+      5,
+      "2e7ed086ccb9791c5c5d9bcb0bbc6451",
+      "137363bf774cbe38a775f466f5975c593234fa503f2d77",
+      "$2b$05$Jl5Ofqw3cPvaVXtJA5viSOC1Lht1bKthglbdPk7XbaURGy8j.9JVa",
+    ],
+    [
+      "zażółć gęślą jaźń",
+      4,
+      "1f7bd8f4f8118335cc9d9100b0667590",
+      "d19062c66bc987d2637d69b2484838f4ac1849312775ab",
+      "$2b$04$F1tW7NePexVKlXC.qEXzi.yX/gvktHf7HhdUkwQCe27IuWQRClbYq",
+    ],
+    [
+      "x".repeat(72),
+      4,
+      "eacf682dc42a966054c59bdeb1e39646",
+      "18a9c15e00992b432868be8df9f111d42cb7fef9155e6e",
+      "$2b$04$4q7mJaOojk/SvXtcqcMUPeEIl/VeAXIyKmYJ4L8dCPzAw19tiTVk2",
+    ],
+    [
+      "ProbablyFine-2026",
+      4,
+      "6789a16455a136b8a4b2add0ec3b3cd4",
+      "1a3468800371d3214970cdd239fdf82d8ac06665a92aaf",
+      "$2y$04$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6",
+    ],
+  ] as const;
+
+  it.each(vectors)(
+    "hashes %j at cost %i as the reference does",
+    (password, cost, salt, digest, crypt) => {
+      const result = create("bcrypt").hash(password, { salt, cost } as BcryptOptions);
+
+      expect(result.digest).toBe(digest);
+      expect(result.options["crypt"]).toBe(`$2b$${crypt.slice(4)}`);
+      expect(
+        bcrypt(new TextEncoder().encode(password), Uint8Array.fromHex(salt), cost).toHex(),
+      ).toBe(digest);
+    },
+  );
+
+  it("writes the $2b$ string from the salt, cost and digest", () => {
+    const [, cost, salt, digest, crypt] = vectors[1];
+
+    expect(bcryptString(Uint8Array.fromHex(salt), cost, Uint8Array.fromHex(digest))).toBe(crypt);
+    expect(() => bcryptString(Uint8Array.fromHex(salt), cost, new Uint8Array(24))).toThrow(
+      "must be 23 bytes",
+    );
+  });
+
+  it("draws 16 bytes of salt and defaults to cost 12", () => {
+    const result = create("bcrypt").hash("pw", { cost: 4 } as BcryptOptions);
+
+    expect(String(result.options["salt"])).toMatch(/^[0-9a-f]{32}$/u);
+    expect(
+      create("bcrypt")
+        .info()
+        .options.find((option) => option.name === "cost")?.default,
+    ).toBe(12);
+  });
+
+  it("refuses a password past 72 bytes instead of ignoring the rest", () => {
+    const salt = new Uint8Array(16);
+
+    expect(bcrypt(new Uint8Array(72), salt, 4)).toHaveLength(23);
+    expect(() => bcrypt(new Uint8Array(73), salt, 4)).toThrow(
+      "Invalid option password=73 bytes: bcrypt reads at most 72 bytes and would ignore the rest",
+    );
+    expect(() => create("bcrypt").hash("ż".repeat(37), { cost: 4 } as BcryptOptions)).toThrow(
+      "password=74 bytes",
+    );
+  });
+
+  it("refuses a salt that is not 16 bytes and a cost outside 4 to 31", () => {
+    const salt = "00".repeat(16);
+
+    expect(() => create("bcrypt").hash("pw", { salt: "00".repeat(15) } as BcryptOptions)).toThrow(
+      "Invalid option salt=000000000000000000000000000000: must be 16 bytes",
+    );
+    for (const cost of [3, 32, 4.5]) {
+      expect(() => create("bcrypt").hash("pw", { salt, cost } as BcryptOptions)).toThrow(
+        "must be an integer from 4 to 31",
+      );
+    }
+    expect(() =>
+      create("bcrypt").hash("pw", { salt, cost: 4, rounds: 2 } as BcryptOptions),
+    ).toThrow("bcrypt sets its cost with its own parameter");
+  });
+});
+
 describe("runtime", () => {
   it("imports the library and runs every algorithm with node:* blocked", () => {
     const entry = new URL("../src/index.ts", import.meta.url).href;
@@ -1945,6 +2052,7 @@ describe("runtime", () => {
         argon2id: argon2,
         argon2i: argon2,
         argon2d: argon2,
+        bcrypt: { cost: 4 },
       };
       for (const name of algorithms()) {
         const hash = create(name);

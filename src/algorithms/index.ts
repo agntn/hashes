@@ -2,6 +2,7 @@ import type { HashConstructor } from "../core/hash.ts";
 import { Argon2d } from "./argon2d.ts";
 import { Argon2i } from "./argon2i.ts";
 import { Argon2id } from "./argon2id.ts";
+import { Bcrypt } from "./bcrypt.ts";
 import { Blake256 } from "./blake256.ts";
 import { Blake2b } from "./blake2b.ts";
 import { Blake2b224 } from "./blake2b-224.ts";
@@ -81,6 +82,7 @@ export const builtins: readonly HashConstructor[] = [
   Argon2id,
   Argon2i,
   Argon2d,
+  Bcrypt,
 ];
 
 export {

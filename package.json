@@ -86,6 +86,10 @@
     "./argon2": {
       "types": "./dist/argon2.d.mts",
       "import": "./dist/argon2.mjs"
+    },
+    "./bcrypt": {
+      "types": "./dist/bcrypt.d.mts",
+      "import": "./dist/bcrypt.mjs"
     }
   },
   "publishConfig": {

@@ -47,6 +47,7 @@ export const builtinAlgorithms = [
   "argon2id",
   "argon2i",
   "argon2d",
+  "bcrypt",
 ] as const;
 
 export type BuiltinAlgorithm = (typeof builtinAlgorithms)[number];
