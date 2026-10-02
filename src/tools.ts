@@ -10,6 +10,7 @@ import {
 import {
   hashAlgorithmsSchema,
   hashComputeSchema,
+  hashDigestExtendSchema,
   hashHmacSchema,
   hashVerifySchema,
 } from "../packages/shared/tool-schemas.ts";
@@ -64,6 +65,20 @@ export const verifyTool = defineTool({
   execute: async (params) => (await loadOperations()).hashVerify(params),
 });
 
+export const digestExtendTool = defineTool({
+  name: "hashes_digest_extend",
+  title: TOOL_TITLES.hashes_digest_extend,
+  description: TOOL_DESCRIPTIONS.hashes_digest_extend,
+  snippet: "Use hashes_digest_extend for a length extension attack on H(secret || message).",
+  guidelines: [
+    "It needs the secret's length, not the secret. Unsure? Pass secretLengthMax to try a range.",
+    "Send the forged message as its bytes: the padding in it is binary.",
+  ],
+  effect: "read",
+  input: hashDigestExtendSchema,
+  execute: async (params) => (await loadOperations()).hashDigestExtend(params),
+});
+
 export const algorithmsTool = defineTool({
   name: "hashes_algorithms",
   title: TOOL_TITLES.hashes_algorithms,
@@ -78,10 +93,11 @@ export const algorithmsTool = defineTool({
   execute: async (params) => (await loadOperations()).hashAlgorithms(params),
 });
 
-/** The four hash tools, in the order every surface lists them. */
+/** The hash tools, in the order every surface lists them. */
 export const hashesTools: readonly ToolDefinition[] = [
   computeTool,
   hmacComputeTool,
   verifyTool,
+  digestExtendTool,
   algorithmsTool,
 ];

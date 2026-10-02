@@ -112,6 +112,7 @@ const main = defineCommand({
     hash: () => command(() => import("./commands/hash.ts")),
     hmac: () => command(() => import("./commands/hmac.ts")),
     verify: () => command(() => import("./commands/verify.ts")),
+    extend: () => command(() => import("./commands/extend.ts")),
     algorithms: () => command(() => import("./commands/algorithms.ts")),
     info: () => command(() => import("./commands/info.ts")),
     mcp: () => command(loadMcpCommand),

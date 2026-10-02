@@ -9,7 +9,7 @@ import {
   type HashVerifyParams,
 } from "#tool-operations";
 
-/** The four agent tools. Same names over MCP, Pi, OMP and the AI SDK. */
+/** The agent tools the playground runs. Same names over MCP, Pi, OMP and the AI SDK. */
 export const TOOLS = ["hashes_compute", "hashes_hmac_compute", "hashes_verify", "hashes_algorithms"] as const;
 
 export type ToolName = (typeof TOOLS)[number];

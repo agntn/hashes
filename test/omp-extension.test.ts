@@ -19,6 +19,7 @@ vi.mock("@oh-my-pi/pi-coding-agent/tui", () => {
 import hashesExtension, { preview } from "../packages/omp/extensions/hashes.ts";
 import {
   hashAlgorithmsSchema,
+  hashDigestExtendSchema,
   hashComputeSchema,
   hashHmacSchema,
   hashVerifySchema,
@@ -46,6 +47,7 @@ const sharedSchemas = {
   hashes_compute: hashComputeSchema,
   hashes_hmac_compute: hashHmacSchema,
   hashes_verify: hashVerifySchema,
+  hashes_digest_extend: hashDigestExtendSchema,
   hashes_algorithms: hashAlgorithmsSchema,
 };
 
@@ -84,6 +86,39 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     { algorithm: "sha256", input: "00", key: "k", inputEncoding: "binary" },
     { algorithm: "sha256", input: "x", key: "aa", keyEncoding: "hex" },
     { algorithm: "sha256", input: "x", key: "aa", keyEncoding: "base64url" },
+  ],
+  hashes_digest_extend: [
+    { algorithm: "sha256", digest: "00".repeat(32), message: "m", suffix: "s", secretLength: 6 },
+    { algorithm: "sha256", digest: "0".repeat(63), message: "m", suffix: "s", secretLength: 6 },
+    { algorithm: "sha256", digest: "00".repeat(65), message: "m", suffix: "s", secretLength: 6 },
+    { algorithm: "sha256", digest: "00".repeat(32), message: "m", suffix: "s", secretLength: -1 },
+    { algorithm: "sha256", digest: "00".repeat(32), message: "m", suffix: "s", secretLength: 1.5 },
+    {
+      algorithm: "sha256",
+      digest: "00".repeat(32),
+      message: "m",
+      suffix: "s",
+      secretLength: 1_000_001,
+    },
+    {
+      algorithm: "sha256",
+      digest: "00".repeat(32),
+      message: "6d",
+      messageEncoding: "hex",
+      suffix: "cw==",
+      suffixEncoding: "base64",
+      secretLength: 1,
+      secretLengthMax: 8,
+    },
+    {
+      algorithm: "sha256",
+      digest: "00".repeat(32),
+      message: "m",
+      suffix: "s",
+      suffixEncoding: "latin1",
+      secretLength: 1,
+    },
+    { algorithm: "sha256", digest: "00".repeat(32), message: "m", secretLength: 1 },
   ],
   hashes_verify: [
     { algorithm: "sha256", input: "x", expected: "ab" },

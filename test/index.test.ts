@@ -26,6 +26,8 @@ import {
   argon2i,
   argon2id,
   blake256,
+  extendDigest,
+  extendableAlgorithms,
   blake2b,
   builtinAlgorithms,
   crc16Xmodem,
@@ -1489,6 +1491,139 @@ describe("key derivation", () => {
     );
     expect(() => create("pbkdf2").hash("x", { salt, iterations: 0 } as Pbkdf2Options)).toThrow(
       InvalidOptionError,
+    );
+  });
+});
+
+describe("extendDigest", () => {
+  const text = (value: string) => new TextEncoder().encode(value);
+  const node = new Set(["md5", "sha1", "sha256", "sha512", "ripemd160"]);
+
+  it("forges the digest from the issue without the secret", () => {
+    const forged = extendDigest({
+      algorithm: "sha256",
+      digest: Uint8Array.fromHex(
+        "ca2c6fe0b879f58a8afea413fef7202c94a5156ccfb5d22c4ef690af5117a081",
+      ),
+      message: text("data"),
+      secretLength: 6,
+      suffix: text("append"),
+    });
+
+    expect(forged.digest.toHex()).toBe(
+      "5e6f4311f409a57a899e8e36fc5c9d27bc5fd5d5f797ad693004d34815a81214",
+    );
+    expect(forged.padding.toHex()).toBe(`80${"00".repeat(45)}0000000000000050`);
+    expect(forged.message.toHex()).toBe(
+      `${text("data").toHex()}${forged.padding.toHex()}${text("append").toHex()}`,
+    );
+  });
+
+  it("lists the Merkle-Damgard hashes whose digest is the whole state", () => {
+    expect(extendableAlgorithms()).toEqual([
+      "sha256",
+      "sha512",
+      "ripemd160",
+      "ripemd320",
+      "md5",
+      "md4",
+      "sha1",
+      "sha0",
+      "ripemd128",
+      "ripemd256",
+    ]);
+  });
+
+  it.each([
+    "sha256",
+    "sha512",
+    "ripemd160",
+    "ripemd320",
+    "md5",
+    "md4",
+    "sha1",
+    "sha0",
+    "ripemd128",
+    "ripemd256",
+  ])("%s matches the hash of the secret and the forged message at every block offset", (name) => {
+    const algorithm = create(name);
+    const hash = (bytes: Uint8Array) => algorithm.hash(bytes).digest as string;
+    for (let prefix = 0; prefix <= 260; prefix += 7) {
+      for (const suffixLength of [0, 1, 55, 64, 129]) {
+        const secretLength = prefix % 19;
+        const secret = Uint8Array.from({ length: secretLength }, (_, i) => i + 1);
+        const message = Uint8Array.from({ length: prefix - secretLength }, (_, i) => i ^ 0x5a);
+        const suffix = Uint8Array.from({ length: suffixLength }, (_, i) => 255 - i);
+        const known = new Uint8Array([...secret, ...message]);
+        const forged = extendDigest({
+          algorithm: name,
+          digest: Uint8Array.fromHex(hash(known)),
+          message,
+          secretLength,
+          suffix,
+        });
+        const full = new Uint8Array([...secret, ...forged.message]);
+
+        expect(forged.digest.toHex()).toBe(hash(full));
+        if (node.has(name)) {
+          expect(forged.digest.toHex()).toBe(createHash(name).update(full).digest("hex"));
+        }
+      }
+    }
+  });
+
+  it.each([
+    "sha224",
+    "sha384",
+    "sha512-224",
+    "sha512-256",
+    "sha512-half",
+    "sha3-256",
+    "ntlm",
+    "hash160",
+  ])("refuses %s, whose digest is not a state it can resume from", (algorithm) => {
+    const call = () =>
+      extendDigest({
+        algorithm,
+        digest: new Uint8Array(32),
+        message: new Uint8Array(),
+        secretLength: 1,
+        suffix: new Uint8Array(),
+      });
+
+    expect(call).toThrow(InvalidOptionError);
+    expect(call).toThrow("cannot be extended, use one of sha256, sha512");
+  });
+
+  it("refuses a digest of the wrong length, a bad secret length and anything but bytes", () => {
+    const base = {
+      algorithm: "md5",
+      digest: new Uint8Array(16),
+      message: new Uint8Array(),
+      secretLength: 4,
+      suffix: new Uint8Array(),
+    };
+
+    expect(() => extendDigest({ ...base, digest: new Uint8Array(20) })).toThrow(
+      "md5 digests are 16 bytes",
+    );
+    for (const secretLength of [-1, 1.5, Number.NaN, 2 ** 53]) {
+      expect(() => extendDigest({ ...base, secretLength })).toThrow(InvalidOptionError);
+    }
+    for (const key of ["digest", "message", "suffix"] as const) {
+      expect(() => extendDigest({ ...base, [key]: "abc" as unknown as Uint8Array })).toThrow(
+        `${key} must be a Uint8Array`,
+      );
+    }
+  });
+
+  it("lets a hasher resume only from a whole state on a block boundary", () => {
+    expect(() => new Sha256Hasher().resume(new Uint8Array(31), 64)).toThrow(HashError);
+    expect(() => new Sha256Hasher().resume(new Uint8Array(32), 63)).toThrow(HashError);
+    expect(() => new Sha256Hasher().resume(new Uint8Array(32), Number.NaN)).toThrow(HashError);
+    expect(() => new Sha224Hasher().resume(new Uint8Array(28), 64)).toThrow(HashError);
+    expect(() => new Sha256Hasher().resume("x".repeat(32) as unknown as Uint8Array, 64)).toThrow(
+      "digest must be a Uint8Array",
     );
   });
 });

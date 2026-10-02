@@ -48,7 +48,7 @@ describe("hashes CLI", () => {
     const help = run(["--help"]);
     const usage = run(["hash", "--help"]);
 
-    expect(help.stdout).toContain("USAGE hashes hash|hmac|verify|algorithms|info|mcp");
+    expect(help.stdout).toContain("USAGE hashes hash|hmac|verify|extend|algorithms|info|mcp");
     expect(usage.stdout).toContain("ALGORITHM");
     expect(usage.stdout).toContain(
       "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d)",
