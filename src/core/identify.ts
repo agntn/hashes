@@ -169,6 +169,9 @@ function readPasslibScrypt(match: Match): FormatReading {
   };
 }
 
+/** Why a `$2a$` MISMATCH may still be the right password (CVE-2011-2483). */
+const OLD_2A = "crypt_blowfish before 1.1 wrote $2a$ with the sign bug for non-ASCII passwords";
+
 /**
  * Reads a bcrypt string. `$2a$` and `$2y$` hash as `$2b$` does for the 72 bytes bcrypt reads.
  *
@@ -185,6 +188,7 @@ function readBcrypt(match: Match): FormatReading {
     return { note: `cost ${cost}, while bcrypt takes ${BCRYPT_MIN_COST} to ${BCRYPT_MAX_COST}` };
   }
   return {
+    ...(variant === "a" ? { note: OLD_2A } : {}),
     algorithm: "bcrypt",
     salt: bcryptBase64(salt!).toHex(),
     parameters: { cost },

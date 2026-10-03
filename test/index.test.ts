@@ -2013,6 +2013,18 @@ describe("bcrypt", () => {
     ]);
   });
 
+  it("warns that an old $2a$ of a non-ASCII password may run the sign bug", () => {
+    const [, cost, salt, digest, crypt] = vectors[2];
+
+    expect(identifyDigest(crypt.replace("$2b$", "$2a$")).candidates[0]).toMatchObject({
+      algorithm: "bcrypt",
+      salt,
+      parameters: { cost },
+      expected: digest,
+      note: "crypt_blowfish before 1.1 wrote $2a$ with the sign bug for non-ASCII passwords",
+    });
+  });
+
   it("reads a string htpasswd refuses to match only by its prefix", () => {
     const [, , , , crypt] = vectors[4];
     const spareSalt = `${crypt.slice(0, 28)}/${crypt.slice(29)}`;
