@@ -767,9 +767,29 @@ describe("hashes MCP server", () => {
     expect(verified.text).toMatch(/^MATCH/);
   });
 
+  it("reads an htpasswd bcrypt string into the hashes_verify call that matches it", async () => {
+    const answer = await call("hashes_digest_identify", {
+      digest: "$2y$04$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6",
+    });
+    const verified = await call("hashes_verify", {
+      algorithm: "bcrypt",
+      input: "ProbablyFine-2026",
+      salt: "6789a16455a136b8a4b2add0ec3b3cd4",
+      parameters: { cost: 4 },
+      expected: "1a3468800371d3214970cdd239fdf82d8ac06665a92aaf",
+    });
+
+    expect(answer.text.split("\n")).toEqual([
+      "Read by its prefix. Candidates from the shape alone, most likely first:",
+      "bcrypt: bcrypt, computable, salt 6789a16455a136b8a4b2add0ec3b3cd4, cost 4, expected 1a3468800371d3214970cdd239fdf82d8ac06665a92aaf",
+      "Next: hashes_verify a guessed input with that algorithm, salt, parameters and expected.",
+    ]);
+    expect(verified.text).toMatch(/^MATCH/);
+  });
+
   it("answers without a next step when nothing computable fits", async () => {
     const bcrypt = await call("hashes_digest_identify", {
-      digest: "$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy",
+      digest: "$2x$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy",
     });
     const none = await call("hashes_digest_identify", { digest: "00".repeat(7) });
     const truncated = await call("hashes_digest_identify", { digest: "$argon2id$v=19$m=1" });
@@ -778,7 +798,7 @@ describe("hashes MCP server", () => {
       isError: false,
       text: [
         "Read by its prefix. Candidates from the shape alone, most likely first:",
-        "bcrypt: bcrypt, cost 5, not in this package",
+        "bcrypt: bcrypt, cost 5, $2x$ is crypt_blowfish's sign bug, not in this package",
       ].join("\n"),
     });
     expect(none).toEqual({

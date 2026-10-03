@@ -4,6 +4,7 @@
  * hashing a known input and getting a match settles it.
  */
 import { kdfDigests } from "../algorithms/pbkdf2.ts";
+import { bcryptBase64, BCRYPT_MAX_COST, BCRYPT_MIN_COST } from "./bcrypt.ts";
 import { parameterText } from "./digest.ts";
 import { InvalidOptionError } from "./errors.ts";
 import { algorithms, create, has } from "./registry.ts";
@@ -168,6 +169,29 @@ function readPasslibScrypt(match: Match): FormatReading {
   };
 }
 
+/**
+ * Reads a bcrypt string. `$2a$` and `$2y$` hash as `$2b$` does for the 72 bytes bcrypt reads.
+ *
+ * @param match - Variant, cost, salt and hash.
+ * @returns {FormatReading} The call that recomputes it.
+ */
+function readBcrypt(match: Match): FormatReading {
+  const [, variant, digits, salt, hash] = match;
+  const cost = Number(digits);
+  if (variant === "x") {
+    return { note: `cost ${cost}, $2x$ is crypt_blowfish's sign bug` };
+  }
+  if (cost < BCRYPT_MIN_COST || cost > BCRYPT_MAX_COST) {
+    return { note: `cost ${cost}, while bcrypt takes ${BCRYPT_MIN_COST} to ${BCRYPT_MAX_COST}` };
+  }
+  return {
+    algorithm: "bcrypt",
+    salt: bcryptBase64(salt!).toHex(),
+    parameters: { cost },
+    expected: bcryptBase64(hash!).toHex(),
+  };
+}
+
 const CRYPT = "[./A-Za-z0-9]";
 
 /**
@@ -193,8 +217,8 @@ function digestFormats(): DigestFormat[] {
       name: "bcrypt",
       label: "bcrypt",
       prefixes: ["$2a$", "$2b$", "$2x$", "$2y$"],
-      layout: new RegExp(String.raw`^\$2[abxy]\$(\d{2})\$${CRYPT}{53}$`),
-      read: (match) => ({ note: `cost ${Number(match[1])}` }),
+      layout: new RegExp(String.raw`^\$2([abxy])\$(\d{2})\$(${CRYPT}{22})(${CRYPT}{31})$`),
+      read: readBcrypt,
     },
     {
       name: "scrypt",
