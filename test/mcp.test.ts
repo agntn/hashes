@@ -467,7 +467,7 @@ describe("hashes MCP server", () => {
       "hashes_compute failed: Invalid option parameters=encoding: pass the encoding as the encoding argument",
     );
     expect((await compute("crc32", { key: "secret" })).text).toBe(
-      "hashes_compute failed: Invalid option key=secret: crc32 takes rounds, chain",
+      "hashes_compute failed: Invalid option key=secret: crc32 takes variant, rounds, chain",
     );
   });
 
@@ -736,6 +736,29 @@ describe("hashes MCP server", () => {
         "Any length: scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, with keyLength 16",
         "Next: hashes_verify a known input with each computable candidate. Only a MATCH settles it.",
       ].join("\n"),
+    });
+  });
+
+  it("names a family's other variants as parameters hashes_verify takes", async () => {
+    const answer = await call("hashes_digest_identify", { digest: "fc891918" });
+    const matched = await call("hashes_verify", {
+      algorithm: "crc32",
+      input: "123456789",
+      parameters: { variant: "bzip2" },
+      expected: "fc891918",
+    });
+    const refused = await call("hashes_compute", {
+      algorithm: "xxhash",
+      input: "abc",
+      parameters: { bits: 48 },
+    });
+
+    expect(answer.text).toContain("crc32: CRC-32 (variant bzip2), computable, variant bzip2");
+    expect(answer.text).toContain("xxhash: xxHash (bits 32), computable, bits 32");
+    expect(matched.text).toContain("MATCH");
+    expect(refused).toEqual({
+      isError: true,
+      text: "hashes_compute failed: Invalid option bits=48: use one of 32, 64",
     });
   });
 

@@ -672,7 +672,8 @@ function infoText(info: AlgorithmInfo): string {
       ? "required"
       : `default ${String(option.default ?? "none")}`;
     const description = toolDescriptions[option.name] ?? option.description;
-    lines.push(`  ${option.name} (${option.type}, ${requirement}): ${description}`);
+    const choices = option.choices ? `; one of ${option.choices.join(", ")}` : "";
+    lines.push(`  ${option.name} (${option.type}, ${requirement}): ${description}${choices}`);
   }
   return lines.join("\n");
 }

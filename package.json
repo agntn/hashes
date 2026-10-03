@@ -71,6 +71,14 @@
       "types": "./dist/crc.d.mts",
       "import": "./dist/crc.mjs"
     },
+    "./adler32": {
+      "types": "./dist/adler32.d.mts",
+      "import": "./dist/adler32.mjs"
+    },
+    "./xxhash": {
+      "types": "./dist/xxhash.d.mts",
+      "import": "./dist/xxhash.mjs"
+    },
     "./hmac": {
       "types": "./dist/hmac.d.mts",
       "import": "./dist/hmac.mjs"

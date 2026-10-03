@@ -10,6 +10,8 @@ const byteEntries = [
   "blake2b",
   "blake256",
   "crc",
+  "adler32",
+  "xxhash",
   "hmac",
   "evp",
   "scrypt",
@@ -19,7 +21,7 @@ const byteEntries = [
 
 /** The small digests share one chunk, since every file Node loads costs more than its bytes. */
 const smallDigests =
-  /\/src\/core\/(?:errors|hasher|sha1|md5|sha2|ripemd160|hmac|evp|crc|scrypt|bcrypt)\.ts$/u;
+  /\/src\/core\/(?:errors|hasher|sha1|md5|sha2|ripemd160|hmac|evp|crc|adler32|xxhash|scrypt|bcrypt)\.ts$/u;
 
 export default defineBuildConfig({
   entries: [

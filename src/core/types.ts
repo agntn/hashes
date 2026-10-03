@@ -55,6 +55,8 @@ export interface HashOption {
   /** Whether a missing value is drawn at random, so verify needs the one a digest was made with. */
   random?: boolean;
   description: string;
+  /** The values the option takes, such as the variants of a CRC. Absent when any value of its type goes. */
+  choices?: readonly (number | string)[];
 }
 
 /** Metadata about a hash algorithm. */

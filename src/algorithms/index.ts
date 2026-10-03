@@ -1,4 +1,5 @@
 import type { HashConstructor } from "../core/hash.ts";
+import { Adler32 } from "./adler32.ts";
 import { Argon2d } from "./argon2d.ts";
 import { Argon2i } from "./argon2i.ts";
 import { Argon2id } from "./argon2id.ts";
@@ -11,6 +12,7 @@ import { Blake2s } from "./blake2s.ts";
 import { Blake3 } from "./blake3.ts";
 import { Crc16Xmodem } from "./crc16-xmodem.ts";
 import { Crc32 } from "./crc32.ts";
+import { Crc64 } from "./crc64.ts";
 import { EvpBytesToKey } from "./evp-bytestokey.ts";
 import { Fnv1a } from "./fnv1a.ts";
 import { Hash160 } from "./hash160.ts";
@@ -72,7 +74,9 @@ export const builtins: readonly HashConstructor[] = [
   Ripemd128,
   Ripemd256,
   Crc32,
+  Crc64,
   Crc16Xmodem,
+  Adler32,
   Xxhash,
   Fnv1a,
   Scrypt,

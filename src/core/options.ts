@@ -27,6 +27,21 @@ export function parameterOptions(algorithm: Hash): HashOption[] {
  * @returns {ParameterValue} The value in the option's type.
  */
 function coerce(option: Readonly<HashOption>, value: unknown): ParameterValue {
+  const coerced = coerceType(option, value);
+  if (option.choices && !option.choices.includes(coerced)) {
+    throw new InvalidOptionError(option.name, value, `use one of ${option.choices.join(", ")}`);
+  }
+  return coerced;
+}
+
+/**
+ * Reads one value by the option's declared type, before its choices are checked.
+ *
+ * @param option - The declared option.
+ * @param value - The value as passed.
+ * @returns {ParameterValue} The value in the option's type.
+ */
+function coerceType(option: Readonly<HashOption>, value: unknown): ParameterValue {
   if (option.type !== "number") {
     if (typeof value !== "string")
       throw new InvalidOptionError(option.name, value, "must be a string");
