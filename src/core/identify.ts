@@ -8,6 +8,7 @@ import { bcryptBase64, BCRYPT_MAX_COST, BCRYPT_MIN_COST } from "./bcrypt.ts";
 import { parameterText } from "./digest.ts";
 import { InvalidOptionError } from "./errors.ts";
 import { algorithms, create, has } from "./registry.ts";
+import type { AlgorithmInfo, HashOptions } from "./types.ts";
 
 /** What fits: a format's whole layout, its prefix alone, the digest size, or a KDF's output. */
 export type DigestFit = "format" | "prefix" | "length" | "keyLength";
@@ -371,6 +372,39 @@ function readFormat(read: DigestFormat["read"], match: Match): FormatReading | u
 }
 
 /**
+ * Lists the readings of an algorithm that one option changed from its default gives, as
+ * `@agntn/encodings` does for alphabets: CRC-32's `bzip2` variant, XXH32 through `bits`. A
+ * reading counts when its digest is `length` bytes.
+ *
+ * @param name - Registry name.
+ * @param info - Its metadata.
+ * @param length - Bytes the string spells.
+ * @returns {DigestCandidate[]} One candidate per such choice, with the option as a parameter.
+ */
+function choiceCandidates(name: string, info: AlgorithmInfo, length: number): DigestCandidate[] {
+  const found: DigestCandidate[] = [];
+  for (const option of info.options) {
+    for (const choice of option.choices ?? []) {
+      if (choice === option.default) continue;
+      const parameters = { [option.name]: choice };
+      const digest = create(name).hash(new Uint8Array(0), {
+        ...parameters,
+        encoding: "binary",
+      } as HashOptions);
+      if (digest.digestLength !== length) continue;
+      found.push({
+        name,
+        label: `${info.label} (${option.name} ${choice})`,
+        fit: "length",
+        algorithm: name,
+        parameters,
+      });
+    }
+  }
+  return found;
+}
+
+/**
  * Lists the algorithms whose digest, or KDF output, is `length` bytes.
  *
  * @param length - Bytes the string spells.
@@ -384,7 +418,10 @@ function lengthCandidates(length: number, prefixed: boolean): DigestCandidate[] 
     const info = create(name).info();
     if (info.digestLength === length) {
       fixed.push({ name, label: info.label, fit: "length", algorithm: name });
-    } else if (
+    }
+    fixed.push(...choiceCandidates(name, info, length));
+    if (
+      info.digestLength !== length &&
       info.digestLength === undefined &&
       length >= MIN_KDF_LENGTH &&
       info.options.some((option) => option.name === "keyLength")

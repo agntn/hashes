@@ -55,7 +55,7 @@ describe("hashes CLI", () => {
     expect(usage.stdout).toContain(
       "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt)",
     );
-    expect(usage.stdout).toContain("Seed value for xxHash (xxhash, xxhash32)");
+    expect(usage.stdout).toContain("Seed value for xxHash (xxhash)");
     for (const output of [help, usage]) {
       expect(output.stdout + output.stderr).not.toContain("\u001B");
     }
@@ -292,7 +292,7 @@ describe("hashes CLI", () => {
       "argon2d",
       "bcrypt",
     ]);
-    expect(names(["-f", "crc"])).toEqual(["crc32", "crc32-bzip2", "crc64-xz", "crc16-xmodem"]);
+    expect(names(["-f", "crc"])).toEqual(["crc32", "crc64", "crc16-xmodem"]);
     expect(names(["-f", "SHA", "-c", "legacy"])).toEqual(["sha1", "sha0"]);
     expect(run(["info", "SHA3_256"]).stdout).toContain("SHA3-256 (sha3-256)");
   });

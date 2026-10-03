@@ -1,9 +1,22 @@
 /**
- * CRC-32 as zlib computes it, CRC-32/BZIP2, CRC-64/XZ and CRC-16/XMODEM. The lookup tables are
- * built on first import of this module; the builders are marked pure so a bundle that never calls
- * a CRC drops them.
+ * CRC-32 (as zlib computes it, or as bzip2 does), CRC-64/XZ and CRC-16/XMODEM. The lookup tables
+ * are built on first import of this module; the builders are marked pure so a bundle that never
+ * calls a CRC drops them.
  */
+import { InvalidOptionError } from "./errors.ts";
 import { assertBytes } from "./hasher.ts";
+
+/** The CRC-32 variants, by their names in the CRC catalogue: zlib's first, then bzip2's. */
+export const CRC32_VARIANTS = ["iso-hdlc", "bzip2"] as const;
+
+/** A CRC-32 variant. */
+export type Crc32Variant = (typeof CRC32_VARIANTS)[number];
+
+/** The CRC-64 variants, by their names in the CRC catalogue. */
+export const CRC64_VARIANTS = ["xz"] as const;
+
+/** A CRC-64 variant. */
+export type Crc64Variant = (typeof CRC64_VARIANTS)[number];
 
 /**
  * Builds the CRC-32 lookup tables for slicing by eight: polynomial 0x04c11db7, reflected as
@@ -90,13 +103,19 @@ const CRC64_XZ_TABLE = /* @__PURE__ */ crc64XzTable();
 const CRC16_XMODEM_TABLE = /* @__PURE__ */ crc16XmodemTable();
 
 /**
- * Computes CRC-32 as zlib does: initial value and final xor all ones.
+ * Computes CRC-32: `iso-hdlc`, the reflected one zlib, gzip, ZIP and PNG use, or `bzip2`, the same
+ * polynomial unreflected. Both start and finish with all ones.
  *
  * @param data - Bytes to check.
+ * @param variant - Which CRC-32. Default: `iso-hdlc`.
  * @returns {Uint8Array} The checksum, big-endian.
  */
-export function crc32(data: Uint8Array): Uint8Array {
+export function crc32(data: Uint8Array, variant: Crc32Variant = "iso-hdlc"): Uint8Array {
   assertBytes(data, "data");
+  if (variant === "bzip2") return crc32Bzip2(data);
+  if (variant !== "iso-hdlc") {
+    throw new InvalidOptionError("variant", variant, `use one of ${CRC32_VARIANTS.join(", ")}`);
+  }
   const t = CRC32_TABLES;
   const end = data.length - (data.length & 7);
   let crc = -1;
@@ -121,14 +140,12 @@ export function crc32(data: Uint8Array): Uint8Array {
 }
 
 /**
- * Computes CRC-32/BZIP2, the CRC bzip2 stores per block: the zlib polynomial without reflection,
- * initial value and final xor all ones.
+ * Computes CRC-32/BZIP2, the CRC bzip2 stores per block.
  *
  * @param data - Bytes to check.
  * @returns {Uint8Array} The checksum, big-endian.
  */
-export function crc32Bzip2(data: Uint8Array): Uint8Array {
-  assertBytes(data, "data");
+function crc32Bzip2(data: Uint8Array): Uint8Array {
   const table = CRC32_BZIP2_TABLE;
   let crc = -1;
   for (const byte of data) crc = (crc << 8) ^ table[((crc >>> 24) ^ byte) & 0xff]!;
@@ -138,14 +155,18 @@ export function crc32Bzip2(data: Uint8Array): Uint8Array {
 }
 
 /**
- * Computes CRC-64/XZ, the check xz writes by default: ECMA-182 reflected, initial value and final
- * xor all ones.
+ * Computes CRC-64: `xz`, the check xz writes by default, ECMA-182 reflected, starting and
+ * finishing with all ones.
  *
  * @param data - Bytes to check.
+ * @param variant - Which CRC-64. Default: `xz`.
  * @returns {Uint8Array} The checksum, big-endian.
  */
-export function crc64Xz(data: Uint8Array): Uint8Array {
+export function crc64(data: Uint8Array, variant: Crc64Variant = "xz"): Uint8Array {
   assertBytes(data, "data");
+  if (variant !== "xz") {
+    throw new InvalidOptionError("variant", variant, `use one of ${CRC64_VARIANTS.join(", ")}`);
+  }
   const table = CRC64_XZ_TABLE;
   let high = -1;
   let low = -1;

@@ -36,8 +36,7 @@ import {
   adler32,
   crc16Xmodem,
   crc32,
-  crc32Bzip2,
-  crc64Xz,
+  crc64,
   create,
   digestMatches,
   evpBytesToKey,
@@ -62,8 +61,7 @@ import {
   sha3_256,
   sha512,
   version,
-  xxh32,
-  xxh64,
+  xxhash,
   type HashOptions,
   type Argon2Options,
   type BcryptOptions,
@@ -296,12 +294,10 @@ describe("digests", () => {
       "hash256",
       "ntlm",
       "crc32",
-      "crc32-bzip2",
-      "crc64-xz",
+      "crc64",
       "crc16-xmodem",
       "adler32",
       "xxhash",
-      "xxhash32",
       "fnv1a",
       "scrypt",
       "pbkdf2",
@@ -406,40 +402,49 @@ describe("digests", () => {
   });
 
   it("matches the published check values of the compression checksums", () => {
-    expect(create("crc32-bzip2").hash("123456789").digest).toBe("fc891918");
-    expect(create("crc64-xz").hash("123456789").digest).toBe("995dc9bbdf1939fa");
+    expect(create("crc32").hash("123456789", { variant: "bzip2" } as HashOptions).digest).toBe(
+      "fc891918",
+    );
+    expect(create("crc64").hash("123456789").digest).toBe("995dc9bbdf1939fa");
     expect(create("adler32").hash("Wikipedia").digest).toBe("11e60398");
-    expect(create("xxhash32").hash("").digest).toBe("02cc5d05");
-    expect(create("xxhash32").hash("abc").digest).toBe("32d153ff");
+    expect(create("xxhash").hash("", { bits: 32 } as XxhashOptions).digest).toBe("02cc5d05");
+    expect(create("xxhash").hash("abc", { bits: 32 } as XxhashOptions).digest).toBe("32d153ff");
   });
 
   it.each(CHECKSUM_REFERENCES)(
     "matches zlib, crccheck and xxhash on %i bytes",
     (length, adler, bzip2, xz, xxh32Digest, xxh32Seeded, xxh64Digest) => {
       const input = checksumInput(length);
+      const xxh32 = (seed?: number) => ({ bits: 32, seed }) as XxhashOptions;
       expect(create("adler32").hash(input).digest).toBe(adler);
-      expect(create("crc32-bzip2").hash(input).digest).toBe(bzip2);
-      expect(create("crc64-xz").hash(input).digest).toBe(xz);
-      expect(create("xxhash32").hash(input).digest).toBe(xxh32Digest);
-      expect(create("xxhash32").hash(input, { seed: 0xdeadbeef } as HashOptions).digest).toBe(
-        xxh32Seeded,
-      );
+      expect(create("crc32").hash(input, { variant: "bzip2" } as HashOptions).digest).toBe(bzip2);
+      expect(create("crc64").hash(input).digest).toBe(xz);
+      expect(create("xxhash").hash(input, xxh32()).digest).toBe(xxh32Digest);
+      expect(create("xxhash").hash(input, xxh32(0xdeadbeef)).digest).toBe(xxh32Seeded);
       expect(create("xxhash").hash(input).digest).toBe(xxh64Digest);
     },
   );
 
-  it("refuses an XXH32 seed outside 32 bits and reports the one it used", () => {
-    const xxhash32 = create("xxhash32");
-    expect(xxhash32.hash("abc", { seed: "4294967295" } as HashOptions).options).toMatchObject({
+  it("takes a variant or a width only from the family's choices", () => {
+    const xxhash32 = (seed: unknown) => ({ bits: 32, seed }) as XxhashOptions;
+    expect(create("xxhash").hash("abc", xxhash32("4294967295")).options).toMatchObject({
+      bits: 32,
       seed: "4294967295",
     });
+    expect(create("crc32").hash("abc").options).not.toHaveProperty("variant");
     for (const seed of [-1, 2 ** 32, 1.5, "0x10"]) {
-      expect(() => xxhash32.hash("abc", { seed } as HashOptions)).toThrow(InvalidOptionError);
+      expect(() => create("xxhash").hash("abc", xxhash32(seed))).toThrow(InvalidOptionError);
     }
-    expect(() => xxh32(new Uint8Array(1), 2 ** 32)).toThrow(InvalidOptionError);
-    expect(() => xxh64(new Uint8Array(1), -1n)).toThrow(InvalidOptionError);
-    expect(() => xxh64(new Uint8Array(1), 1 as unknown as bigint)).toThrow(InvalidOptionError);
-    expect(xxh64(new Uint8Array(0), 0xffffffffffffffffn)).toHaveLength(8);
+    expect(() => create("xxhash").hash("abc", { bits: 48 } as unknown as XxhashOptions)).toThrow(
+      InvalidOptionError,
+    );
+    expect(() => create("crc32").hash("abc", { variant: "jamcrc" } as HashOptions)).toThrow(
+      InvalidOptionError,
+    );
+    expect(() => xxhash(new Uint8Array(1), 32, 2 ** 32)).toThrow(InvalidOptionError);
+    expect(() => xxhash(new Uint8Array(1), 64, -1n)).toThrow(InvalidOptionError);
+    expect(xxhash(new Uint8Array(0), 64, 0xffffffffffffffffn)).toHaveLength(8);
+    expect(xxhash(new Uint8Array(0), 32)).toHaveLength(4);
   });
 
   it("matches the published FNV-1a 64 vectors", () => {
@@ -665,12 +670,10 @@ describe("byte functions", () => {
       "blake2b-224": (bytes: Uint8Array) => blake2b(bytes, 28),
       blake2b: (bytes: Uint8Array) => blake2b(bytes, 64),
       crc32,
-      "crc32-bzip2": crc32Bzip2,
-      "crc64-xz": crc64Xz,
+      crc64,
       "crc16-xmodem": crc16Xmodem,
       adler32,
-      xxhash32: (bytes: Uint8Array) => xxh32(bytes),
-      xxhash: (bytes: Uint8Array) => xxh64(bytes),
+      xxhash,
     };
     for (const [name, digest] of Object.entries(functions)) {
       for (const bytes of inputs)
@@ -1145,9 +1148,9 @@ describe("byte function subpaths", () => {
     keccak: ["keccak256", "sha3_256"],
     blake2b: ["Blake2bHasher", "blake2b"],
     blake256: ["blake256"],
-    crc: ["crc16Xmodem", "crc32", "crc32Bzip2", "crc64Xz"],
+    crc: ["CRC32_VARIANTS", "CRC64_VARIANTS", "crc16Xmodem", "crc32", "crc64"],
     adler32: ["adler32"],
-    xxhash: ["xxh32", "xxh64"],
+    xxhash: ["XXHASH_BITS", "xxhash"],
     hmac: ["hkdf", "hkdfExpand", "hkdfExtract", "hmac", "pbkdf2"],
     evp: ["evpBytesToKey"],
     scrypt: ["scrypt"],
@@ -1869,13 +1872,15 @@ describe("identifyDigest", () => {
     });
     expect(prefixed.candidates[1]!.name).toBe("sha256");
     expect(identifyDigest("ab".repeat(32)).candidates[0]!.name).toBe("sha256");
-    expect(crc.candidates.map((candidate) => candidate.name)).toEqual([
-      "crc32",
-      "crc32-bzip2",
-      "adler32",
-      "xxhash32",
-      "crc32c",
-    ]);
+    expect(crc.candidates.map((candidate) => [candidate.name, candidate.parameters ?? {}])).toEqual(
+      [
+        ["crc32", {}],
+        ["crc32", { variant: "bzip2" }],
+        ["adler32", {}],
+        ["xxhash", { bits: 32 }],
+        ["crc32c", {}],
+      ],
+    );
   });
 
   it("counts a registered algorithm as computable in place of the one it replaces", () => {

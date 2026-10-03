@@ -1,7 +1,8 @@
 /**
- * XXH32 and XXH64 in plain TypeScript, after the xxHash specification by Yann Collet. XXH64 keeps
- * each 64-bit word as a high and a low half in a `Uint32Array`, since BigInt ran it ten times
- * slower. lz4 frames check their blocks and content with XXH32, zstd frames with XXH64.
+ * xxHash in plain TypeScript, after the specification by Yann Collet: XXH64, and XXH32 with
+ * `bits: 32`. XXH64 keeps each 64-bit word as a high and a low half in a `Uint32Array`, since
+ * BigInt ran it ten times slower. lz4 frames check their blocks and content with XXH32, zstd
+ * frames with XXH64.
  */
 import { InvalidOptionError } from "./errors.ts";
 import { assertBytes } from "./hasher.ts";
@@ -35,17 +36,13 @@ function round32(lane: number, word: number): number {
 }
 
 /**
- * Computes XXH32 as the xxHash specification by Yann Collet defines it.
+ * Computes XXH32.
  *
  * @param data - Bytes to hash.
  * @param seed - Unsigned 32-bit seed.
  * @returns {Uint8Array} The hash, big-endian, as `xxh32sum` prints it.
  */
-export function xxh32(data: Uint8Array, seed = 0): Uint8Array {
-  assertBytes(data, "data");
-  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) {
-    throw new InvalidOptionError("seed", String(seed), "must be an integer from 0 to 2^32-1");
-  }
+function xxh32(data: Uint8Array, seed: number): Uint8Array {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const length = data.length;
   let offset = 0;
@@ -245,26 +242,13 @@ function stripes(s: Uint32Array, view: DataView, end: number): void {
 }
 
 /**
- * Refuses a seed outside 64 bits, which would otherwise wrap silently.
- *
- * @param seed - The seed as passed.
- */
-function assertSeed64(seed: unknown): asserts seed is bigint {
-  if (typeof seed !== "bigint" || seed < 0n || seed > MASK64) {
-    throw new InvalidOptionError("seed", String(seed), "must be an integer from 0 to 2^64-1");
-  }
-}
-
-/**
- * Computes XXH64 as the xxHash specification by Yann Collet defines it.
+ * Computes XXH64.
  *
  * @param data - Bytes to hash.
  * @param seed - Unsigned 64-bit seed.
  * @returns {Uint8Array} The hash, big-endian.
  */
-export function xxh64(data: Uint8Array, seed = 0n): Uint8Array {
-  assertBytes(data, "data");
-  assertSeed64(seed);
+function xxh64(data: Uint8Array, seed: bigint): Uint8Array {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const seedHigh = Number(seed >> 32n);
   const seedLow = Number(seed & 0xffffffffn);
@@ -322,4 +306,46 @@ export function xxh64(data: Uint8Array, seed = 0n): Uint8Array {
   out.setUint32(0, s[HASH]!);
   out.setUint32(4, s[HASH + 1]!);
   return digest;
+}
+
+/** The xxHash widths: XXH32 and XXH64. */
+export const XXHASH_BITS = [32, 64] as const;
+
+/** An xxHash width. */
+export type XxhashBits = (typeof XXHASH_BITS)[number];
+
+/**
+ * Reads a seed as an unsigned integer of `bits` bits.
+ *
+ * @param seed - The seed as passed.
+ * @param bits - 32 or 64.
+ * @returns {bigint} The seed.
+ */
+function seedOf(seed: unknown, bits: XxhashBits): bigint {
+  const value = typeof seed === "number" && Number.isSafeInteger(seed) ? BigInt(seed) : seed;
+  if (typeof value !== "bigint" || value < 0n || value > (bits === 32 ? 0xffffffffn : MASK64)) {
+    throw new InvalidOptionError("seed", String(seed), `must be an integer from 0 to 2^${bits}-1`);
+  }
+  return value;
+}
+
+/**
+ * Computes xxHash: XXH64 by default, XXH32 with `bits` 32.
+ *
+ * @param data - Bytes to hash.
+ * @param bits - 64 for XXH64, 32 for XXH32. Default: 64.
+ * @param seed - Unsigned seed of that many bits, as a number or a bigint. Default: 0.
+ * @returns {Uint8Array} The hash, big-endian, as `xxhsum` prints it.
+ */
+export function xxhash(
+  data: Uint8Array,
+  bits: XxhashBits = 64,
+  seed: number | bigint = 0,
+): Uint8Array {
+  assertBytes(data, "data");
+  if (bits !== 32 && bits !== 64) {
+    throw new InvalidOptionError("bits", bits, `use one of ${XXHASH_BITS.join(", ")}`);
+  }
+  const value = seedOf(seed, bits);
+  return bits === 32 ? xxh32(data, Number(value)) : xxh64(data, value);
 }

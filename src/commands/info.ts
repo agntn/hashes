@@ -25,7 +25,7 @@ export default defineCommand({
     for (const option of info.options) {
       const fallback = option.default === undefined ? "" : ` (default: ${String(option.default)})`;
       lines.push(
-        `  --${option.name}${option.required ? " [required]" : ""}${fallback}: ${option.description}`,
+        `  --${option.name}${option.required ? " [required]" : ""}${fallback}: ${option.description}${option.choices ? ` (${option.choices.join(", ")})` : ""}`,
       );
     }
     process.stdout.write(`${lines.join("\n")}\n`);

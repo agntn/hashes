@@ -1,1 +1,1 @@
-export { xxh32, xxh64 } from "./core/xxhash.ts";
+export { XXHASH_BITS, xxhash, type XxhashBits } from "./core/xxhash.ts";
