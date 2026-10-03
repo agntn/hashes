@@ -1,6 +1,20 @@
 # Changelog
 
 
+## v0.6.4
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.6.3...v0.6.4)
+
+### 🚀 Enhancements
+
+- Read bcrypt strings in identify ([#121](https://github.com/agntn/hashes/pull/121))
+- Add the checksums compression formats use ([#124](https://github.com/agntn/hashes/pull/124))
+
+### ❤️ Contributors
+
+- Ori ([@oritwoen](https://github.com/oritwoen))
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+
 ## v0.6.3
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.6.2...v0.6.3)
