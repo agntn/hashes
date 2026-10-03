@@ -767,9 +767,54 @@ describe("hashes MCP server", () => {
     expect(verified.text).toMatch(/^MATCH/);
   });
 
+  it("reads an htpasswd bcrypt string into the hashes_verify call that matches it", async () => {
+    const answer = await call("hashes_digest_identify", {
+      digest: "$2y$04$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6",
+    });
+    const verified = await call("hashes_verify", {
+      algorithm: "bcrypt",
+      input: "ProbablyFine-2026",
+      salt: "6789a16455a136b8a4b2add0ec3b3cd4",
+      parameters: { cost: 4 },
+      expected: "1a3468800371d3214970cdd239fdf82d8ac06665a92aaf",
+    });
+
+    expect(answer.text.split("\n")).toEqual([
+      "Read by its prefix. Candidates from the shape alone, most likely first:",
+      "bcrypt: bcrypt, computable, salt 6789a16455a136b8a4b2add0ec3b3cd4, cost 4, expected 1a3468800371d3214970cdd239fdf82d8ac06665a92aaf",
+      "Next: hashes_verify a guessed input with that algorithm, salt, parameters and expected.",
+    ]);
+    expect(verified.text).toMatch(/^MATCH/);
+  });
+
+  it("names the tool limit a string's costs break instead of sending it to hashes_verify", async () => {
+    const bcrypt = await call("hashes_digest_identify", {
+      digest: "$2y$17$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6",
+    });
+    const argon2 = await call("hashes_digest_identify", {
+      digest:
+        "$argon2id$v=19$m=262144,t=100,p=1$c29tZXNhbHRzYWx0$8mkYn4qtK5HHJtQQI+FNQKE4UECfkb5diD560/y7mZs",
+    });
+    const huge = await call("hashes_digest_identify", {
+      digest:
+        "$argon2id$v=19$m=9999999999,t=2,p=1$c29tZXNhbHRzYWx0$8mkYn4qtK5HHJtQQI+FNQKE4UECfkb5diD560/y7mZs",
+    });
+
+    expect(bcrypt.text.split("\n").slice(2)).toEqual([
+      "bcrypt is past what hashes_verify runs: Invalid option cost=17: must be 1 to 16 in a tool call.",
+    ]);
+    expect(argon2.text).toContain(
+      "argon2id is past what hashes_verify runs: Invalid option iterations=100",
+    );
+    expect(argon2.text).not.toContain("Next:");
+    expect(huge.text.split("\n").at(-1)).toBe(
+      "argon2id is past what hashes_verify runs: Invalid option memory=9999999999: must be 1 to 262144 in a tool call.",
+    );
+  });
+
   it("answers without a next step when nothing computable fits", async () => {
     const bcrypt = await call("hashes_digest_identify", {
-      digest: "$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy",
+      digest: "$2x$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy",
     });
     const none = await call("hashes_digest_identify", { digest: "00".repeat(7) });
     const truncated = await call("hashes_digest_identify", { digest: "$argon2id$v=19$m=1" });
@@ -778,7 +823,7 @@ describe("hashes MCP server", () => {
       isError: false,
       text: [
         "Read by its prefix. Candidates from the shape alone, most likely first:",
-        "bcrypt: bcrypt, cost 5, not in this package",
+        "bcrypt: bcrypt, cost 5, $2x$ is crypt_blowfish's sign bug, not in this package",
       ].join("\n"),
     });
     expect(none).toEqual({

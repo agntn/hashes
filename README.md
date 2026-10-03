@@ -28,7 +28,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
 - 🔁 **Ten thousand rounds, one call.** `--rounds 10000 --chain hex` hashes each digest again. Bytes or hex in between? Puzzles use both, so you pick.
 - ✂️ **Length extension.** Got `md5(secret + message)` and the secret's length? `hashes extend` signs a longer message. No secret needed.
-- 🔎 **No name on the digest?** `hashes identify` lists what fits its length or its `$2b$` prefix. Argon2, scrypt and PBKDF2 strings come apart into salt, costs and digest.
+- 🔎 **No name on the digest?** `hashes identify` lists what fits its length or its `$2b$` prefix. Argon2, bcrypt, scrypt and PBKDF2 strings come apart into salt, costs and digest.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share the same tools and the code behind them.
 - 🧩 **Bring your own.** Extend `FixedHash`, or `BlockHash` if you want HMAC too, and `register()` the class.
 

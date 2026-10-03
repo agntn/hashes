@@ -197,6 +197,24 @@ function base64(bytes: Uint8Array): string {
   return bits > 0 ? text + ALPHABET[(buffer << (6 - bits)) & 63] : text;
 }
 
+/** The standard base64 alphabet, digit for digit against bcrypt's. */
+const STANDARD = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/**
+ * Decodes bcrypt's base64, refusing set spare bits, which `htpasswd` never matches.
+ *
+ * @param text - Salt or digest digits from a `$2b$` string.
+ * @returns {Uint8Array} The bytes.
+ */
+export function bcryptBase64(text: string): Uint8Array {
+  const standard = Array.from(text, (digit) => STANDARD[ALPHABET.indexOf(digit)] ?? "!").join("");
+  const bytes = Uint8Array.fromBase64(standard);
+  if (base64(bytes) !== text) {
+    throw new InvalidOptionError("digits", text, "set bits past the last byte");
+  }
+  return bytes;
+}
+
 /**
  * Writes a bcrypt result as the `$2b$` string a password database or `.htpasswd` stores.
  *

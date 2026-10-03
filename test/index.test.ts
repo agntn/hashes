@@ -1637,8 +1637,8 @@ describe("extendDigest", () => {
 describe("identifyDigest", () => {
   /** `password` as mkpasswd, openssl passwd, htpasswd, argon2, passlib and Django wrote it. */
   const FORMATS: readonly (readonly [string, string, string | undefined])[] = [
-    ["$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy", "bcrypt", undefined],
-    ["$2y$10$ohjdIMwX4ixMxLrzKd3ruuMwvA1nrvwq5Fg7NGIxz7jR3vsgR93wa", "bcrypt", undefined],
+    ["$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy", "bcrypt", "bcrypt"],
+    ["$2y$10$ohjdIMwX4ixMxLrzKd3ruuMwvA1nrvwq5Fg7NGIxz7jR3vsgR93wa", "bcrypt", "bcrypt"],
     [
       "$6$saltsalt$qFmFH.bQmmtXzyBY0s9v7Oicd2z4XSIecDzlB5KiA2/jctKu9YterLp8wwnSq.qc.eoxqOmSuNp2xS0ktL3nh/",
       "sha512crypt",
@@ -1721,7 +1721,7 @@ describe("identifyDigest", () => {
   });
 
   it("keeps a format this package cannot compute without the call", () => {
-    const [bcrypt] = identifyDigest(FORMATS[0]![0]).candidates;
+    const [bcrypt] = identifyDigest(FORMATS[0]![0].replace("$2b$", "$2x$")).candidates;
     const [sha1] = identifyDigest(
       "$pbkdf2$1000$c2FsdHNhbHQ$6f6/9Uv85mj94wGsyFVjzJ3HHvY",
     ).candidates;
@@ -1729,7 +1729,12 @@ describe("identifyDigest", () => {
       "$argon2i$v=16$m=65536,t=2,p=1$c29tZXNhbHQ$9sTbSlTio3Biev89thdrlKKiCaYsjjYVJxGAL3swxpQ";
     const [old] = identifyDigest(legacy).candidates;
 
-    expect(bcrypt).toEqual({ name: "bcrypt", label: "bcrypt", fit: "format", note: "cost 5" });
+    expect(bcrypt).toEqual({
+      name: "bcrypt",
+      label: "bcrypt",
+      fit: "format",
+      note: "cost 5, $2x$ is crypt_blowfish's sign bug",
+    });
     expect(sha1!.algorithm).toBeUndefined();
     expect(sha1!.note).toContain("over sha1, while pbkdf2 here takes sha256");
     expect(old).toMatchObject({
@@ -1990,6 +1995,49 @@ describe("bcrypt", () => {
     expect(() => bcryptString("a".repeat(16) as never, cost, Uint8Array.fromHex(digest))).toThrow(
       HashError,
     );
+  });
+
+  it.each(vectors)("reads the salt, cost and digest of %j out of its string", (...vector) => {
+    const [, cost, salt, digest, crypt] = vector;
+
+    expect(identifyDigest(crypt).candidates).toEqual([
+      {
+        name: "bcrypt",
+        label: "bcrypt",
+        fit: "format",
+        algorithm: "bcrypt",
+        salt,
+        parameters: { cost },
+        expected: digest,
+      },
+    ]);
+  });
+
+  it("warns that an old $2a$ of a non-ASCII password may run the sign bug", () => {
+    const [, cost, salt, digest, crypt] = vectors[2];
+
+    expect(identifyDigest(crypt.replace("$2b$", "$2a$")).candidates[0]).toMatchObject({
+      algorithm: "bcrypt",
+      salt,
+      parameters: { cost },
+      expected: digest,
+      note: "crypt_blowfish before 1.1 wrote $2a$ with the sign bug for non-ASCII passwords",
+    });
+  });
+
+  it("reads a string htpasswd refuses to match only by its prefix", () => {
+    const [, , , , crypt] = vectors[4];
+    const spareSalt = `${crypt.slice(0, 28)}/${crypt.slice(29)}`;
+    const spareDigest = `${crypt.slice(0, -1)}7`;
+
+    expect(identifyDigest(spareSalt).candidates[0]!.fit).toBe("prefix");
+    expect(identifyDigest(spareDigest).candidates[0]!.fit).toBe("prefix");
+    expect(identifyDigest(crypt.replace("$04$", "$03$")).candidates[0]).toEqual({
+      name: "bcrypt",
+      label: "bcrypt",
+      fit: "format",
+      note: "cost 3, while bcrypt takes 4 to 31",
+    });
   });
 
   it("draws 16 bytes of salt and defaults to cost 12", () => {
