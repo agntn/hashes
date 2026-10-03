@@ -795,14 +795,21 @@ describe("hashes MCP server", () => {
       digest:
         "$argon2id$v=19$m=262144,t=100,p=1$c29tZXNhbHRzYWx0$8mkYn4qtK5HHJtQQI+FNQKE4UECfkb5diD560/y7mZs",
     });
+    const huge = await call("hashes_digest_identify", {
+      digest:
+        "$argon2id$v=19$m=9999999999,t=2,p=1$c29tZXNhbHRzYWx0$8mkYn4qtK5HHJtQQI+FNQKE4UECfkb5diD560/y7mZs",
+    });
 
     expect(bcrypt.text.split("\n").slice(2)).toEqual([
-      "bcrypt is past what hashes_verify runs: Invalid option cost=17: must be 1 to 16 in a tool call. The library and the CLI take it.",
+      "bcrypt is past what hashes_verify runs: Invalid option cost=17: must be 1 to 16 in a tool call.",
     ]);
     expect(argon2.text).toContain(
       "argon2id is past what hashes_verify runs: Invalid option iterations=100",
     );
     expect(argon2.text).not.toContain("Next:");
+    expect(huge.text.split("\n").at(-1)).toBe(
+      "argon2id is past what hashes_verify runs: Invalid option memory=9999999999: must be 1 to 262144 in a tool call.",
+    );
   });
 
   it("answers without a next step when nothing computable fits", async () => {

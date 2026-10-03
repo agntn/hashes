@@ -604,9 +604,7 @@ export function hashDigestIdentify(params: HashDigestIdentifyParams): ToolResult
     const reason = refusals[index];
     return reason === undefined
       ? []
-      : [
-          `${candidate.name} is past what hashes_verify runs: ${reason}. The library and the CLI take it.`,
-        ];
+      : [`${candidate.name} is past what hashes_verify runs: ${reason}.`];
   });
   const callable = found.candidates.some(
     (candidate, index) => candidate.algorithm !== undefined && refusals[index] === undefined,
