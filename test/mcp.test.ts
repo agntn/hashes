@@ -787,6 +787,24 @@ describe("hashes MCP server", () => {
     expect(verified.text).toMatch(/^MATCH/);
   });
 
+  it("names the tool limit a string's costs break instead of sending it to hashes_verify", async () => {
+    const bcrypt = await call("hashes_digest_identify", {
+      digest: "$2y$17$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6",
+    });
+    const argon2 = await call("hashes_digest_identify", {
+      digest:
+        "$argon2id$v=19$m=262144,t=100,p=1$c29tZXNhbHRzYWx0$8mkYn4qtK5HHJtQQI+FNQKE4UECfkb5diD560/y7mZs",
+    });
+
+    expect(bcrypt.text.split("\n").slice(2)).toEqual([
+      "bcrypt is past what hashes_verify runs: Invalid option cost=17: must be 1 to 16 in a tool call. The library and the CLI take it.",
+    ]);
+    expect(argon2.text).toContain(
+      "argon2id is past what hashes_verify runs: Invalid option iterations=100",
+    );
+    expect(argon2.text).not.toContain("Next:");
+  });
+
   it("answers without a next step when nothing computable fits", async () => {
     const bcrypt = await call("hashes_digest_identify", {
       digest: "$2x$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy",

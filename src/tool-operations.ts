@@ -595,15 +595,53 @@ export function hashDigestIdentify(params: HashDigestIdentifyParams): ToolResult
   assertArguments("hashes_digest_identify", params);
   const found = identifyDigest(textArgument("digest", params.digest, MAX_EXPECTED_LENGTH));
   const { heading, lines } = identityText(found);
-  const next = found.candidates.some((candidate) => candidate.algorithm !== undefined)
+  const refusals = found.candidates.map((candidate) =>
+    candidate.algorithm === undefined
+      ? undefined
+      : toolRefusal(candidate.algorithm, candidate.salt, candidate.parameters),
+  );
+  const over = found.candidates.flatMap((candidate, index) => {
+    const reason = refusals[index];
+    return reason === undefined
+      ? []
+      : [
+          `${candidate.name} is past what hashes_verify runs: ${reason}. The library and the CLI take it.`,
+        ];
+  });
+  const callable = found.candidates.some(
+    (candidate, index) => candidate.algorithm !== undefined && refusals[index] === undefined,
+  );
+  const next = callable
     ? [
         found.reading === "format"
           ? "Next: hashes_verify a guessed input with that algorithm, salt, parameters and expected."
           : "Next: hashes_verify a known input with each computable candidate. Only a MATCH settles it.",
       ]
     : [];
-  const text = [heading, ...lines, ...next].join("\n");
+  const text = [heading, ...lines, ...over, ...next].join("\n");
   return { content: [{ type: "text", text }], details: found };
+}
+
+/**
+ * Says why `hashes_verify` would refuse a call that identify read out of a string.
+ *
+ * @param name - The algorithm.
+ * @param salt - The salt in hex.
+ * @param parameters - The costs.
+ * @returns {string | undefined} The tool limit it breaks, or nothing.
+ */
+function toolRefusal(
+  name: string,
+  salt: string | undefined,
+  parameters: Readonly<Record<string, number | string>> | undefined,
+): string | undefined {
+  try {
+    algorithmOptions(resolveAlgorithm(name), salt, parameters);
+    return undefined;
+  } catch (error) {
+    if (error instanceof InvalidOptionError) return error.message;
+    throw error;
+  }
 }
 
 /**

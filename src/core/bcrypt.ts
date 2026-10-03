@@ -207,7 +207,7 @@ const STANDARD = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
  * @returns {Uint8Array} The bytes.
  */
 export function bcryptBase64(text: string): Uint8Array {
-  const standard = [...text].map((digit) => STANDARD[ALPHABET.indexOf(digit)] ?? "!").join("");
+  const standard = Array.from(text, (digit) => STANDARD[ALPHABET.indexOf(digit)] ?? "!").join("");
   const bytes = Uint8Array.fromBase64(standard);
   if (base64(bytes) !== text) {
     throw new InvalidOptionError("digits", text, "set bits past the last byte");
