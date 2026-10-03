@@ -5,7 +5,8 @@ export class Crc64Xz extends FixedHash {
   static readonly key = "crc64-xz";
   protected readonly about = {
     label: "CRC-64/XZ",
-    description: "CRC-64/XZ (ECMA-182, reflected), the check xz writes after every block by default",
+    description:
+      "CRC-64/XZ (ECMA-182, reflected), the check xz writes after every block by default",
     family: "CRC",
     category: "non-cryptographic",
     digestLength: 8,

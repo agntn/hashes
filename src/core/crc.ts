@@ -51,7 +51,8 @@ function crc32Bzip2Table(): Int32Array {
   const table = new Int32Array(256);
   for (let index = 0; index < 256; index++) {
     let value = index << 24;
-    for (let bit = 0; bit < 8; bit++) value = value & 0x80000000 ? (value << 1) ^ 0x04c11db7 : value << 1;
+    for (let bit = 0; bit < 8; bit++)
+      value = value & 0x80000000 ? (value << 1) ^ 0x04c11db7 : value << 1;
     table[index] = value;
   }
   return table;
