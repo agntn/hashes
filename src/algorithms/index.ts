@@ -1,4 +1,5 @@
 import type { HashConstructor } from "../core/hash.ts";
+import { Adler32 } from "./adler32.ts";
 import { Argon2d } from "./argon2d.ts";
 import { Argon2i } from "./argon2i.ts";
 import { Argon2id } from "./argon2id.ts";
@@ -11,6 +12,8 @@ import { Blake2s } from "./blake2s.ts";
 import { Blake3 } from "./blake3.ts";
 import { Crc16Xmodem } from "./crc16-xmodem.ts";
 import { Crc32 } from "./crc32.ts";
+import { Crc32Bzip2 } from "./crc32-bzip2.ts";
+import { Crc64Xz } from "./crc64-xz.ts";
 import { EvpBytesToKey } from "./evp-bytestokey.ts";
 import { Fnv1a } from "./fnv1a.ts";
 import { Hash160 } from "./hash160.ts";
@@ -38,6 +41,7 @@ import { Sha512_224 } from "./sha512-224.ts";
 import { Sha512_256 } from "./sha512-256.ts";
 import { Sha512Half } from "./sha512-half.ts";
 import { Xxhash } from "./xxhash.ts";
+import { Xxhash32 } from "./xxhash32.ts";
 
 /**
  * Every algorithm class the package ships, in the order of `builtinAlgorithms`. Not in this list,
@@ -72,8 +76,12 @@ export const builtins: readonly HashConstructor[] = [
   Ripemd128,
   Ripemd256,
   Crc32,
+  Crc32Bzip2,
+  Crc64Xz,
   Crc16Xmodem,
+  Adler32,
   Xxhash,
+  Xxhash32,
   Fnv1a,
   Scrypt,
   Pbkdf2,

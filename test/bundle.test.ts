@@ -105,6 +105,8 @@ describe("one byte function subpath in plain Node", () => {
     ["sha2", []],
     ["ripemd160", []],
     ["crc", []],
+    ["adler32", []],
+    ["xxhash", []],
     ["hmac", []],
     ["evp", []],
     ["scrypt", []],

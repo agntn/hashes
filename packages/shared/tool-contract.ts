@@ -57,9 +57,9 @@ export const HASH_CATEGORIES = [
   "password",
 ] as const;
 export const BUILTIN_FAMILIES =
-  "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2, bcrypt";
+  "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, Adler, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2, bcrypt";
 export const BUILTIN_ALGORITHMS =
-  "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, md5, md4, ntlm, sha1, sha0, ripemd128, ripemd256, crc32, crc16-xmodem, xxhash, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt";
+  "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, md5, md4, ntlm, sha1, sha0, ripemd128, ripemd256, crc32, crc32-bzip2, crc64-xz, crc16-xmodem, adler32, xxhash, xxhash32, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt";
 export const EXTENDABLE_ALGORITHMS =
   "sha256, sha512, ripemd160, ripemd320, md5, md4, sha1, sha0, ripemd128, ripemd256";
 export const HMAC_ALGORITHMS =

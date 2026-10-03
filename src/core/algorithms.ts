@@ -36,8 +36,12 @@ export const builtinAlgorithms = [
   "ripemd256",
   // Non-cryptographic
   "crc32",
+  "crc32-bzip2",
+  "crc64-xz",
   "crc16-xmodem",
+  "adler32",
   "xxhash",
+  "xxhash32",
   "fnv1a",
   // Password/KDF
   "scrypt",
