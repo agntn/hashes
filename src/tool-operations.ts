@@ -384,6 +384,7 @@ function costs(algorithm: Hash, options: Readonly<Record<string, unknown>>): Map
 
 /**
  * Bytes a call's KDF fills: the scrypt block table or the Argon2 memory, 0 for anything else.
+ * A cost that's neither a number nor text counts as its default, and the schema refuses it after.
  *
  * @param args - The arguments of a tool call, read for `algorithm` and `parameters`.
  * @returns {number} The bytes, or 0 when the call names no KDF it can read.
@@ -393,7 +394,10 @@ export function kdfMemory(args: Readonly<Record<string, unknown>>): number {
   if (algorithm === undefined) return 0;
   const { parameters } = args;
   const given = typeof parameters === "object" && parameters !== null ? parameters : {};
-  const cost = costs(algorithm, given as Readonly<Record<string, unknown>>);
+  const numbers = Object.entries(given as Readonly<Record<string, unknown>>).filter(
+    ([, value]) => typeof value === "number" || typeof value === "string",
+  );
+  const cost = costs(algorithm, Object.fromEntries(numbers));
   const at = (name: string): number => cost.get(name) ?? 0;
   const memory = cost.has("N") ? 128 * at("r") * at("N") : 1024 * at("memory");
   return Number.isFinite(memory) ? memory : 0;

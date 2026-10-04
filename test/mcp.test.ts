@@ -176,6 +176,21 @@ describe("hashes MCP server", () => {
     expect(part?.text).toMatch(/^MISMATCH/u);
   });
 
+  /** The docs site's `/mcp` hands `callTool` arguments no schema has checked yet. */
+  it("leaves a cost that can't be a number to the schema, and caps one given as text", async () => {
+    const maxMemory = 64 * 1024 * 1024;
+    const args = { algorithm: "argon2id", input: "x", salt: "73616c7473616c74" };
+    const odd = { ...args, parameters: { memory: { toString: null, valueOf: null } } };
+    const refused = await callTool("hashes_compute", odd, { maxMemory });
+    expect(refused).toEqual(await callTool("hashes_compute", odd));
+    expect(refused.isError).toBe(true);
+
+    const text = { ...args, parameters: { memory: "131072" } };
+    const capped = await callTool("hashes_compute", text, { maxMemory });
+    const [part] = capped.content as Array<{ text: string }>;
+    expect(part?.text).toMatch(/^hashes_compute failed: argon2id needs 134217728 bytes/u);
+  });
+
   it("hashes and names the algorithm, encoding and length", async () => {
     const answer = await call("hashes_compute", { algorithm: "SHA256", input: "abc" });
 
