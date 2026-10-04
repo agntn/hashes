@@ -16,10 +16,13 @@ import {
   MissingOptionError,
   UnknownAlgorithmError,
   Blake2bHasher,
+  Keccak256Hasher,
   Md5Hasher,
   Ripemd160Hasher,
   Sha1Hasher,
   Sha256Hasher,
+  Sha3_256Hasher,
+  Sha3_512Hasher,
   Sha512Hasher,
   algorithms,
   argon2d,
@@ -61,6 +64,7 @@ import {
   sha1,
   sha256,
   sha3_256,
+  sha3_512,
   sha512,
   version,
   xxhash,
@@ -720,6 +724,7 @@ describe("byte functions", () => {
       hash256,
       keccak256,
       "sha3-256": sha3_256,
+      "sha3-512": sha3_512,
       blake256,
       "blake2b-256": (bytes: Uint8Array) => blake2b(bytes, 32),
       "blake2b-224": (bytes: Uint8Array) => blake2b(bytes, 28),
@@ -745,6 +750,7 @@ describe("byte functions", () => {
       expect(sha512(bytes).toHex()).toBe(createHash("sha512").update(bytes).digest("hex"));
       expect(ripemd160(bytes).toHex()).toBe(createHash("ripemd160").update(bytes).digest("hex"));
       expect(sha3_256(bytes).toHex()).toBe(createHash("sha3-256").update(bytes).digest("hex"));
+      expect(sha3_512(bytes).toHex()).toBe(createHash("sha3-512").update(bytes).digest("hex"));
       expect(new DataView(crc32(bytes).buffer).getUint32(0)).toBe(zlibCrc32(bytes));
     }
   });
@@ -756,6 +762,7 @@ describe("byte functions", () => {
       [() => new Sha256Hasher(), "sha256", () => new Sha512Hasher(), "sha512"],
       [() => new Md5Hasher(), "md5", () => new Ripemd160Hasher(), "ripemd160"],
       [() => new Sha1Hasher(), "sha1", () => new Sha256Hasher(), "sha256"],
+      [() => new Sha3_256Hasher(), "sha3-256", () => new Sha3_512Hasher(), "sha3-512"],
     ] as const;
     for (const [left, leftName, right, rightName] of pairs) {
       const a = left();
@@ -767,6 +774,38 @@ describe("byte functions", () => {
       }
       expect(a.digest().toHex()).toBe(createHash(leftName).update(message).digest("hex"));
       expect(b.digest().toHex()).toBe(createHash(rightName).update(message).digest("hex"));
+    }
+  });
+
+  it("give keccak256 from a Keccak256Hasher fed in pieces across its rate", () => {
+    const message = inputs.at(-1)!;
+    const hasher = new Keccak256Hasher();
+    for (const [start, end] of [
+      [0, 1],
+      [1, 136],
+      [136, 273],
+      [273, 500],
+      [500, 1000],
+    ] as const)
+      hasher.update(message.subarray(start, end));
+    expect(hasher.digest()).toEqual(keccak256(message));
+  });
+
+  it("run HMAC and PBKDF2 over the SHA-3 hashers as Node does", () => {
+    const key = new TextEncoder().encode(
+      "a key longer than one SHA3-512 block of 72 bytes".repeat(2),
+    );
+    const salt = new TextEncoder().encode("salt");
+    for (const [create, name] of [
+      [() => new Sha3_256Hasher(), "sha3-256"],
+      [() => new Sha3_512Hasher(), "sha3-512"],
+    ] as const) {
+      expect(hmac(create, key, salt).toHex()).toBe(
+        createHmac(name, key).update(salt).digest("hex"),
+      );
+      expect(pbkdf2(create, key, salt, 3, 100).toHex()).toBe(
+        pbkdf2Sync(key, salt, 3, 100, name).toString("hex"),
+      );
     }
   });
 
@@ -1005,6 +1044,7 @@ describe("byte functions", () => {
       new Sha512Hasher(),
       new Ripemd160Hasher(),
       new Blake2bHasher(32),
+      new Sha3_256Hasher(),
     ]) {
       expect(() => hasher.update(loose("abc"))).toThrow(
         new HashError("data must be a Uint8Array, not string"),
@@ -1330,7 +1370,14 @@ describe("byte function subpaths", () => {
     md5: ["Md5Hasher", "md5"],
     sha2: ["Sha256Hasher", "Sha512Hasher", "hash256", "sha256", "sha512"],
     ripemd160: ["Ripemd160Hasher", "hash160", "ripemd160"],
-    keccak: ["keccak256", "sha3_256"],
+    keccak: [
+      "Keccak256Hasher",
+      "Sha3_256Hasher",
+      "Sha3_512Hasher",
+      "keccak256",
+      "sha3_256",
+      "sha3_512",
+    ],
     blake2b: ["Blake2bHasher", "blake2b"],
     blake256: ["blake256"],
     crc: [

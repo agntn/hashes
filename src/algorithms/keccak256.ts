@@ -1,6 +1,6 @@
 import { BlockHash } from "../core/block-hash.ts";
 import type { Hasher } from "../core/hasher.ts";
-import { KECCAK_PADDING, KeccakHasher } from "../core/keccak.ts";
+import { Keccak256Hasher } from "../core/keccak.ts";
 
 export class Keccak256 extends BlockHash {
   static readonly key = "keccak256";
@@ -21,6 +21,6 @@ export class Keccak256 extends BlockHash {
    * @returns {Hasher} A fresh one.
    */
   hasher(): Hasher {
-    return new KeccakHasher(32, KECCAK_PADDING);
+    return new Keccak256Hasher();
   }
 }
