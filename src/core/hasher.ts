@@ -221,7 +221,7 @@ export abstract class MerkleDamgard extends Hasher {
 
   /**
    * Compresses the buffered block from a scratch copy for the hasher's first two, then from its own
-   * view. The copy is wiped afterwards, so a `compress` override that keeps the view reads zeros.
+   * view. A nested hash takes another copy, and each is wiped so a kept view reads zeros.
    *
    * @param length - Bytes hashed, written into the last block as its bit length.
    */
@@ -232,16 +232,20 @@ export abstract class MerkleDamgard extends Hasher {
     let slot;
     if (view === undefined) {
       slot = scratch[buffer.length];
+      scratch[buffer.length] = undefined;
       if (slot === undefined) {
         const bytes = new Uint8Array(buffer.length);
-        slot = scratch[buffer.length] = { bytes, view: new DataView(bytes.buffer) };
+        slot = { bytes, view: new DataView(bytes.buffer) };
       }
       slot.bytes.set(buffer);
       view = slot.view;
     }
     if (length !== undefined) writeBitLength(view, buffer.length, length, this.littleEndian);
     this.compress(view, 0);
-    slot?.bytes.fill(0);
+    if (slot !== undefined) {
+      slot.bytes.fill(0);
+      scratch[buffer.length] = slot;
+    }
   }
 
   /**

@@ -776,6 +776,18 @@ describe("byte functions", () => {
     expect(new Uint8Array(kept[0]!.buffer).every((byte) => byte === 0)).toBe(true);
   });
 
+  it("hash right when a compress override hashes before its own block", () => {
+    class Nested extends Sha256Hasher {
+      protected override compress(view: DataView, offset: number): void {
+        sha256(new Uint8Array([offset]));
+        super.compress(view, offset);
+      }
+    }
+    expect(new Nested().update(new TextEncoder().encode("abc")).digest().toHex()).toBe(
+      createHash("sha256").update("abc").digest("hex"),
+    );
+  });
+
   it("keep the half-filled blocks of hundreds of live hashers apart", () => {
     const messages = Array.from({ length: 300 }, (_, i) => inputs.at(-1)!.subarray(i, i + 100));
     const hashers = messages.map((message, i) => {
