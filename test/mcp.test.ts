@@ -498,6 +498,15 @@ describe("hashes MCP server", () => {
     expect(answer.text).toContain("Invalid arguments at /input");
   });
 
+  it("takes an algorithm by the label hashes_algorithms prints", async () => {
+    const answer = await call("hashes_compute", { algorithm: "SHA-256", input: "abc" });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\nsha256, hex, 32 bytes",
+    );
+  });
+
   it("answers an unknown algorithm with the registered names", async () => {
     const answer = await call("hashes_compute", { algorithm: "sha999", input: "x" });
 

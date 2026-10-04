@@ -3,7 +3,7 @@ import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } 
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
-import { Md5, Sha1, builtins } from "../src/algorithms/index.ts";
+import { Md4, Md5, Sha1, builtins } from "../src/algorithms/index.ts";
 import { algorithmInfos } from "../src/core/resolve.ts";
 import { Sha224Hasher, Sha512tHasher } from "../src/core/sha2.ts";
 import {
@@ -225,6 +225,43 @@ describe("registry", () => {
     expect(resolveAlgorithm("SHA256").name()).toBe("sha256");
     expect(resolveAlgorithm(" sha3_256 ").name()).toBe("sha3-256");
     expect(resolveAlgorithm("SHA3 512").name()).toBe("sha3-512");
+  });
+
+  it("resolves a key or label without its punctuation", () => {
+    expect(resolveAlgorithm("SHA-256").name()).toBe("sha256");
+    expect(resolveAlgorithm("ripemd-160").name()).toBe("ripemd160");
+    expect(resolveAlgorithm("SHA-512/256").name()).toBe("sha512-256");
+    expect(resolveAlgorithm("crc16xmodem").name()).toBe("crc16-xmodem");
+    for (const name of algorithms()) {
+      expect(resolveAlgorithm(create(name).info().label).name()).toBe(name);
+    }
+    expect(() => resolveAlgorithm("--")).toThrow(UnknownAlgorithmError);
+    expect(() => resolveAlgorithm("CRC-32/BZIP2")).toThrow(UnknownAlgorithmError);
+    expect(() => resolveAlgorithm("XXH-32")).toThrow(UnknownAlgorithmError);
+  });
+
+  it("refuses a spelling two algorithms share", () => {
+    class Md4AsMd5 extends FixedHash {
+      static readonly key = "md4";
+      protected readonly about = {
+        label: "MD5",
+        description: "MD4 under MD5's label",
+        family: "MD",
+        category: "legacy",
+        digestLength: 16,
+      } as const;
+
+      protected digest(bytes: Uint8Array): Uint8Array {
+        return createHash("md5").update(bytes).digest();
+      }
+    }
+    register(Md4AsMd5);
+    try {
+      expect(() => resolveAlgorithm("md-5")).toThrow(UnknownAlgorithmError);
+      expect(resolveAlgorithm("md5").name()).toBe("md5");
+    } finally {
+      register(Md4);
+    }
   });
 
   it("throws UnknownAlgorithmError with the registered names", () => {

@@ -19,17 +19,44 @@ export function normalizeAlgorithmName(name: string): string {
 }
 
 /**
- * Resolves a hash algorithm from a user-typed name.
+ * Resolves an algorithm by key or label, case and punctuation aside: `SHA-256` finds `sha256`.
  *
- * @param preferred - Algorithm name, normalized by `normalizeAlgorithmName`.
+ * @param preferred - Algorithm name or label.
  * @returns {Hash} The matching algorithm.
  */
 export function resolveAlgorithm(preferred?: string): Hash {
   if (preferred) {
     const normalized = normalizeAlgorithmName(preferred);
     if (has(normalized)) return create(normalized);
+    const spelled = spelledAlgorithm(preferred);
+    if (spelled !== undefined) return create(spelled);
   }
   throw new UnknownAlgorithmError(preferred ?? "(none)", algorithms());
+}
+
+/**
+ * Drops case and everything but letters and digits from a name.
+ *
+ * @param name - Key, label or name as typed.
+ * @returns {string} The name as `spelledAlgorithm` compares it.
+ */
+function compactName(name: string): string {
+  return name.toLowerCase().replaceAll(/[^a-z\d]/g, "");
+}
+
+/**
+ * Finds the one algorithm whose key or label matches a name once punctuation is gone.
+ *
+ * @param name - Name as typed.
+ * @returns {string | undefined} The algorithm's key, or nothing when none or several match.
+ */
+function spelledAlgorithm(name: string): string | undefined {
+  const wanted = compactName(name);
+  if (wanted === "") return undefined;
+  const matches = algorithms().filter(
+    (key) => compactName(key) === wanted || compactName(create(key).info().label) === wanted,
+  );
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 /** Which algorithms `algorithmInfos` keeps; each field left out keeps them all. */

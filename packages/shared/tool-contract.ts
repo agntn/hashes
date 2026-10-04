@@ -99,7 +99,7 @@ export const TOOL_TITLES = {
  */
 function parameterDescriptions() {
   return {
-    algorithm: `Algorithm name, case-insensitive: ${BUILTIN_ALGORITHMS}`,
+    algorithm: `Algorithm name or label, case and punctuation ignored: ${BUILTIN_ALGORITHMS}`,
     hmacAlgorithm: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
     input: "Input to hash, read as inputEncoding says",
     inputEncoding:
