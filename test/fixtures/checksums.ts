@@ -28,6 +28,15 @@ export const CHECKSUM_REFERENCES = [
   [65537, "fb105ebf", "d469cf8c", "9df9844b1719f14e", "5bf1d2fa", "773a1665", "b153aa201990e2c9"],
 ] as const;
 
+/** Adler-32, CRC-32/BZIP2 and CRC-64/XZ of `length` bytes of 0xff, the largest Adler-32 sums. */
+export const ONES_REFERENCES = [
+  [3854, "3c26ffc5", "7e0a75d2", "4bbb82f39c72251a"],
+  [3855, "3cf900d3", "d64f6f12", "81f5abe4f5f10851"],
+  [7708, "d2a9ff98", "1a651936", "4598e4790504d103"],
+  [7709, "d34f00a6", "06823b59", "b8efe20dd2e2fbe5"],
+  [65536, "77970ef2", "727ed57b", "503d557d404f3e95"],
+] as const;
+
 /**
  * The bytes each reference row covers: glibc's old `rand` LCG seeded with `length + 1`, one byte
  * from bits 16 to 23 of each state.

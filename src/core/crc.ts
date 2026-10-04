@@ -1,7 +1,6 @@
 /**
- * CRC-32 (as zlib computes it, or as bzip2 does), CRC-64/XZ and CRC-16/XMODEM. The lookup tables
- * are built on first import of this module; the builders are marked pure so a bundle that never
- * calls a CRC drops them.
+ * CRC-32 (as zlib computes it, or as bzip2 does), CRC-64/XZ and CRC-16/XMODEM. Each table fills on
+ * the first call that needs it, so a SHA-1 caller loading the shared chunk never pays for it.
  */
 import { InvalidOptionError } from "./errors.ts";
 import { assertBytes } from "./hasher.ts";
@@ -18,14 +17,24 @@ export const CRC64_VARIANTS = ["xz"] as const;
 /** A CRC-64 variant. */
 export type Crc64Variant = (typeof CRC64_VARIANTS)[number];
 
+/** Allocated empty and filled on first use, since a module constant keeps the hot loops fast. */
+const CRC32_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
+const CRC16_XMODEM_TABLE = /* @__PURE__ */ new Uint16Array(256);
+const CRC32_BZIP2_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
+const CRC64_XZ_TABLES = /* @__PURE__ */ new Uint32Array(512 * 8);
+
+let crc32Filled = false;
+let crc16XmodemFilled = false;
+let crc32Bzip2Filled = false;
+let crc64XzFilled = false;
+
 /**
- * Builds the CRC-32 lookup tables for slicing by eight: polynomial 0x04c11db7, reflected as
- * 0xedb88320. Table `k` at `256 * k` advances a byte's remainder through `k` more zero bytes.
- *
- * @returns {Int32Array} Eight tables of 256 entries, one after another.
+ * Fills the CRC-32 tables for slicing by eight: polynomial 0x04c11db7, reflected as 0xedb88320.
+ * Table `k` at `256 * k` advances a byte's remainder through `k` more zero bytes.
  */
-function crc32Tables(): Int32Array {
-  const tables = new Int32Array(256 * 8);
+function fillCrc32Tables(): void {
+  if (crc32Filled) return;
+  const tables = CRC32_TABLES;
   for (let index = 0; index < 256; index++) {
     let value = index;
     for (let bit = 0; bit < 8; bit++) value = value & 1 ? (value >>> 1) ^ 0xedb88320 : value >>> 1;
@@ -35,16 +44,15 @@ function crc32Tables(): Int32Array {
     const value = tables[index]!;
     tables[index + 256] = (value >>> 8) ^ tables[value & 0xff]!;
   }
-  return tables;
+  crc32Filled = true;
 }
 
 /**
- * Builds the CRC-16/XMODEM lookup table: polynomial 0x1021, not reflected.
- *
- * @returns {Uint16Array} The remainder of each byte.
+ * Fills the CRC-16/XMODEM table, each byte's remainder: polynomial 0x1021, not reflected.
  */
-function crc16XmodemTable(): Uint16Array {
-  const table = new Uint16Array(256);
+function fillCrc16XmodemTable(): void {
+  if (crc16XmodemFilled) return;
+  const table = CRC16_XMODEM_TABLE;
   for (let index = 0; index < 256; index++) {
     let value = index << 8;
     for (let bit = 0; bit < 8; bit++) {
@@ -52,33 +60,35 @@ function crc16XmodemTable(): Uint16Array {
     }
     table[index] = value;
   }
-  return table;
+  crc16XmodemFilled = true;
 }
 
 /**
- * Builds the CRC-32/BZIP2 lookup table: polynomial 0x04c11db7, not reflected.
- *
- * @returns {Int32Array} The remainder of each byte, in the top byte first.
+ * Fills the CRC-32/BZIP2 tables for slicing by eight: polynomial 0x04c11db7, not reflected.
  */
-function crc32Bzip2Table(): Int32Array {
-  const table = new Int32Array(256);
+function fillCrc32Bzip2Tables(): void {
+  if (crc32Bzip2Filled) return;
+  const tables = CRC32_BZIP2_TABLES;
   for (let index = 0; index < 256; index++) {
     let value = index << 24;
     for (let bit = 0; bit < 8; bit++)
       value = value & 0x80000000 ? (value << 1) ^ 0x04c11db7 : value << 1;
-    table[index] = value;
+    tables[index] = value;
   }
-  return table;
+  for (let index = 0; index < 256 * 7; index++) {
+    const value = tables[index]!;
+    tables[index + 256] = (value << 8) ^ tables[value >>> 24]!;
+  }
+  crc32Bzip2Filled = true;
 }
 
 /**
- * Builds the CRC-64/XZ lookup table: polynomial 0x42f0e1eba9ea3693 (ECMA-182), reflected as
- * 0xc96c5795d7870f42. Each entry is a high and a low half, since BigInt would run it far slower.
- *
- * @returns {Uint32Array} The high half of each byte's remainder at `2 * byte`, the low at `2 * byte + 1`.
+ * Fills the CRC-64/XZ tables for slicing by eight: ECMA-182 reflected, 0xc96c5795d7870f42. Each
+ * entry is a high and a low half at `2 * byte`, since BigInt would run it far slower.
  */
-function crc64XzTable(): Uint32Array {
-  const table = new Uint32Array(512);
+function fillCrc64XzTables(): void {
+  if (crc64XzFilled) return;
+  const tables = CRC64_XZ_TABLES;
   for (let index = 0; index < 256; index++) {
     let high = 0;
     let low = index;
@@ -91,16 +101,18 @@ function crc64XzTable(): Uint32Array {
         low ^= 0xd7870f42;
       }
     }
-    table[2 * index] = high;
-    table[2 * index + 1] = low;
+    tables[2 * index] = high;
+    tables[2 * index + 1] = low;
   }
-  return table;
+  for (let index = 0; index < 512 * 7; index += 2) {
+    const high = tables[index]!;
+    const low = tables[index + 1]!;
+    const next = 2 * (low & 0xff);
+    tables[index + 512] = (high >>> 8) ^ tables[next]!;
+    tables[index + 513] = ((low >>> 8) | (high << 24)) ^ tables[next + 1]!;
+  }
+  crc64XzFilled = true;
 }
-
-const CRC32_TABLES = /* @__PURE__ */ crc32Tables();
-const CRC32_BZIP2_TABLE = /* @__PURE__ */ crc32Bzip2Table();
-const CRC64_XZ_TABLE = /* @__PURE__ */ crc64XzTable();
-const CRC16_XMODEM_TABLE = /* @__PURE__ */ crc16XmodemTable();
 
 /**
  * Computes CRC-32: `iso-hdlc`, the reflected one zlib, gzip, ZIP and PNG use, or `bzip2`, the same
@@ -116,6 +128,7 @@ export function crc32(data: Uint8Array, variant: Crc32Variant = "iso-hdlc"): Uin
   if (variant !== "iso-hdlc") {
     throw new InvalidOptionError("variant", variant, `use one of ${CRC32_VARIANTS.join(", ")}`);
   }
+  fillCrc32Tables();
   const t = CRC32_TABLES;
   const end = data.length - (data.length & 7);
   let crc = -1;
@@ -146,9 +159,25 @@ export function crc32(data: Uint8Array, variant: Crc32Variant = "iso-hdlc"): Uin
  * @returns {Uint8Array} The checksum, big-endian.
  */
 function crc32Bzip2(data: Uint8Array): Uint8Array {
-  const table = CRC32_BZIP2_TABLE;
+  fillCrc32Bzip2Tables();
+  const t = CRC32_BZIP2_TABLES;
+  const end = data.length - (data.length & 7);
   let crc = -1;
-  for (const byte of data) crc = (crc << 8) ^ table[((crc >>> 24) ^ byte) & 0xff]!;
+  let i = 0;
+  for (; i < end; i += 8) {
+    const high =
+      crc ^ ((data[i]! << 24) | (data[i + 1]! << 16) | (data[i + 2]! << 8) | data[i + 3]!);
+    crc =
+      t[1792 + (high >>> 24)]! ^
+      t[1536 + ((high >>> 16) & 0xff)]! ^
+      t[1280 + ((high >>> 8) & 0xff)]! ^
+      t[1024 + (high & 0xff)]! ^
+      t[768 + data[i + 4]!]! ^
+      t[512 + data[i + 5]!]! ^
+      t[256 + data[i + 6]!]! ^
+      t[data[i + 7]!]!;
+  }
+  for (; i < data.length; i++) crc = (crc << 8) ^ t[((crc >>> 24) ^ data[i]!) & 0xff]!;
   const digest = new Uint8Array(4);
   new DataView(digest.buffer).setInt32(0, ~crc);
   return digest;
@@ -167,13 +196,33 @@ export function crc64(data: Uint8Array, variant: Crc64Variant = "xz"): Uint8Arra
   if (variant !== "xz") {
     throw new InvalidOptionError("variant", variant, `use one of ${CRC64_VARIANTS.join(", ")}`);
   }
-  const table = CRC64_XZ_TABLE;
+  fillCrc64XzTables();
+  const t = CRC64_XZ_TABLES;
+  const end = data.length - (data.length & 7);
   let high = -1;
   let low = -1;
-  for (const byte of data) {
-    const index = 2 * ((low ^ byte) & 0xff);
-    low = ((low >>> 8) | (high << 24)) ^ table[index + 1]!;
-    high = (high >>> 8) ^ table[index]!;
+  let i = 0;
+  for (; i < end; i += 8) {
+    const first =
+      low ^ (data[i]! | (data[i + 1]! << 8) | (data[i + 2]! << 16) | (data[i + 3]! << 24));
+    const second =
+      high ^ (data[i + 4]! | (data[i + 5]! << 8) | (data[i + 6]! << 16) | (data[i + 7]! << 24));
+    const a = 3584 + 2 * (first & 0xff);
+    const b = 3072 + 2 * ((first >>> 8) & 0xff);
+    const c = 2560 + 2 * ((first >>> 16) & 0xff);
+    const d = 2048 + 2 * (first >>> 24);
+    const e = 1536 + 2 * (second & 0xff);
+    const f = 1024 + 2 * ((second >>> 8) & 0xff);
+    const g = 512 + 2 * ((second >>> 16) & 0xff);
+    const h = 2 * (second >>> 24);
+    high = t[a]! ^ t[b]! ^ t[c]! ^ t[d]! ^ t[e]! ^ t[f]! ^ t[g]! ^ t[h]!;
+    low =
+      t[a + 1]! ^ t[b + 1]! ^ t[c + 1]! ^ t[d + 1]! ^ t[e + 1]! ^ t[f + 1]! ^ t[g + 1]! ^ t[h + 1]!;
+  }
+  for (; i < data.length; i++) {
+    const index = 2 * ((low ^ data[i]!) & 0xff);
+    low = ((low >>> 8) | (high << 24)) ^ t[index + 1]!;
+    high = (high >>> 8) ^ t[index]!;
   }
   const digest = new Uint8Array(8);
   const view = new DataView(digest.buffer);
@@ -190,6 +239,7 @@ export function crc64(data: Uint8Array, variant: Crc64Variant = "xz"): Uint8Arra
  */
 export function crc16Xmodem(data: Uint8Array): Uint8Array {
   assertBytes(data, "data");
+  fillCrc16XmodemTable();
   const table = CRC16_XMODEM_TABLE;
   let crc = 0;
   for (const byte of data) crc = ((crc << 8) & 0xffff) ^ table[((crc >>> 8) ^ byte) & 0xff]!;

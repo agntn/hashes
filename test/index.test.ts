@@ -72,7 +72,7 @@ import {
   type XxhashOptions,
 } from "../src/index.ts";
 import * as root from "../src/index.ts";
-import { CHECKSUM_REFERENCES, checksumInput } from "./fixtures/checksums.ts";
+import { CHECKSUM_REFERENCES, ONES_REFERENCES, checksumInput } from "./fixtures/checksums.ts";
 import buildConfig from "../build.config.ts";
 import pkg from "../package.json" with { type: "json" };
 
@@ -422,6 +422,15 @@ describe("digests", () => {
       expect(create("xxhash").hash(input, xxh32()).digest).toBe(xxh32Digest);
       expect(create("xxhash").hash(input, xxh32(0xdeadbeef)).digest).toBe(xxh32Seeded);
       expect(create("xxhash").hash(input).digest).toBe(xxh64Digest);
+    },
+  );
+
+  it.each(ONES_REFERENCES)(
+    "matches zlib and crccheck on %i bytes of 0xff",
+    (length, ...digests) => {
+      const input = new Uint8Array(length).fill(0xff);
+      const checksums = [adler32(input), crc32(input, "bzip2"), crc64(input)];
+      expect(checksums.map((digest) => digest.toHex())).toEqual(digests);
     },
   );
 
