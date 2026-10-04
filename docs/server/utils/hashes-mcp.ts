@@ -6,6 +6,9 @@ import {
 } from "@nuxtjs/mcp-toolkit/server";
 import { z } from "zod";
 
+/** Most bytes a KDF may fill here, half the 128 MB a Workers isolate gets. */
+const WORKER_MEMORY = 64 * 1024 * 1024;
+
 /**
  * A `hashes mcp` tool for Docus, its schema read into Zod whole, since a shape strips unknown keys.
  *
@@ -27,6 +30,6 @@ export function hashesMcpTool(name: string): McpToolDefinitionListItem {
     annotations: listing.annotations,
     inputSchema,
     handler: (args: Readonly<Record<string, unknown>>, extra) =>
-      callTool(name, args, extra.signal),
+      callTool(name, args, { signal: extra.signal, maxMemory: WORKER_MEMORY }),
   });
 }
