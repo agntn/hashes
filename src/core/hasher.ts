@@ -57,29 +57,6 @@ export function viewOf(data: Uint8Array): DataView {
   return new DataView(data.buffer, data.byteOffset, data.byteLength);
 }
 
-/** Bytes of each pool the block buffers come from: 64 SHA-512 blocks. */
-const POOL_BYTES = 8192;
-
-/** The pool block buffers come from now. */
-let pool: ArrayBuffer | undefined;
-/** Bytes of it handed out, full at first so the first call makes one. */
-let pooled = POOL_BYTES;
-
-/**
- * Cuts a block buffer from a shared pool: a typed array with its own buffer costs about 900 ns.
- *
- * @param length - Bytes, a multiple of 8 up to 8192.
- * @returns {Uint8Array} Zeroed bytes no other hasher holds.
- */
-export function poolBytes(length: number): Uint8Array {
-  if (pooled + length > POOL_BYTES) {
-    pool = new ArrayBuffer(POOL_BYTES);
-    pooled = 0;
-  }
-  pooled += length;
-  return new Uint8Array(pool!, pooled - length, length);
-}
-
 /**
  * Throws unless the value is bytes. A string or a plain array would otherwise hash to a digest of
  * something else without a word.
@@ -196,6 +173,25 @@ export function writeBitLength(
   view.setUint32(end - 4, littleEndian ? high : low, littleEndian);
 }
 
+/** Off-heap blocks a hasher's first blocks go through, one per block length so a copy fills it. */
+const scratch: Partial<Record<number, { bytes: Uint8Array; view: DataView }>> = {};
+
+/**
+ * Copies a block into this module's scratch bytes of its length and returns a view over them.
+ *
+ * @param block - 64 or 128 bytes.
+ * @returns {DataView} A view holding exactly the block.
+ */
+function scratchView(block: Uint8Array): DataView {
+  let slot = scratch[block.length];
+  if (slot === undefined) {
+    const bytes = new Uint8Array(block.length);
+    slot = scratch[block.length] = { bytes, view: new DataView(bytes.buffer) };
+  }
+  slot.bytes.set(block);
+  return slot.view;
+}
+
 /**
  * Merkle-Damgard hashing: MD5, SHA-1, SHA-2 and RIPEMD-160. Blocks go to `compress`, the last one
  * padded with 0x80, zeros and the message length in bits; the digest is the state's words.
@@ -209,7 +205,10 @@ export abstract class MerkleDamgard extends Hasher {
   readonly littleEndian: boolean;
   /** The partial block not compressed yet. */
   private readonly buffer: Uint8Array;
-  private readonly bufferView: DataView;
+  /** A view over the buffer, made at its third block: a view moves 64 bytes off the V8 heap. */
+  private bufferView: DataView | undefined;
+  /** Blocks compressed from the buffer through the scratch view. */
+  private copies = 0;
   /** Bytes waiting in the buffer. */
   private position = 0;
   /** Bytes absorbed so far. */
@@ -225,8 +224,7 @@ export abstract class MerkleDamgard extends Hasher {
     this.blockLength = blockLength;
     this.outputLength = outputLength;
     this.littleEndian = littleEndian;
-    this.buffer = poolBytes(blockLength);
-    this.bufferView = viewOf(this.buffer);
+    this.buffer = new Uint8Array(blockLength);
   }
 
   /**
@@ -236,6 +234,16 @@ export abstract class MerkleDamgard extends Hasher {
    * @param offset - Where the block starts in the view.
    */
   protected abstract compress(view: DataView, offset: number): void;
+
+  /**
+   * A view holding the buffered block: a scratch copy for the hasher's first two, then its own.
+   *
+   * @returns {DataView} The view to compress from.
+   */
+  private bufferedView(): DataView {
+    if (this.bufferView === undefined && this.copies++ >= 2) this.bufferView = viewOf(this.buffer);
+    return this.bufferView ?? scratchView(this.buffer);
+  }
 
   /**
    * Copies short input byte by byte: a subarray or a view over it costs more than the copy.
@@ -256,7 +264,7 @@ export abstract class MerkleDamgard extends Hasher {
         this.position = position;
         return this;
       }
-      this.compress(this.bufferView, 0);
+      this.compress(this.bufferedView(), 0);
       position = 0;
     }
     if (length - offset >= block) {
@@ -269,18 +277,19 @@ export abstract class MerkleDamgard extends Hasher {
   }
 
   digestInto(out: Uint8Array): void {
-    const { buffer, bufferView: view, blockLength: block, littleEndian, state } = this;
+    const { buffer, blockLength: block, littleEndian, state } = this;
     const length = this.length;
     let position = this.position;
     buffer[position++] = 0x80;
     // The bit length takes the last eighth of the block: 8 bytes, or 16 for SHA-512.
     if (position > block - (block >> 3)) {
       while (position < block) buffer[position++] = 0;
-      this.compress(view, 0);
+      this.compress(this.bufferedView(), 0);
       position = 0;
     }
     while (position < block - 8) buffer[position++] = 0;
     this.position = position;
+    const view = this.bufferedView();
     writeBitLength(view, block, length, littleEndian);
     this.compress(view, 0);
     wordsToBytes(state, out, this.outputLength, littleEndian);
@@ -351,7 +360,7 @@ export abstract class Blake2 extends Hasher {
     super();
     this.blockLength = blockLength;
     this.outputLength = outputLength;
-    this.block = poolBytes(blockLength);
+    this.block = new Uint8Array(blockLength);
   }
 
   /**

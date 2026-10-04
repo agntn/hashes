@@ -407,7 +407,7 @@ function littleEndian(): boolean {
 export class Blake2bHasher extends Blake2 {
   protected readonly state = new Int32Array(16);
   /** The block buffer as thirty-two little-endian halves. */
-  private readonly words = new Int32Array(this.block.buffer, this.block.byteOffset, 32);
+  private readonly words = new Int32Array(this.block.buffer);
 
   /**
    * @param outputLength - Digest bytes, 1 to 64.

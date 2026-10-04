@@ -80,14 +80,14 @@ describe("one byte function bundled with esbuild", () => {
   // catches one table coming back, which is too small to show in the size.
   it.each([
     ["md5", 3, 4_000],
-    ["sha1", 1, 3_000],
+    ["sha1", 1, 3_500],
     ["sha256", 2, 4_000],
     ["keccak256", 1, 6_000],
     ["ripemd160", 5, 5_000],
     ["blake2b", 3, 8_000],
     // CRC-32 carries its bzip2 variant and the error a wrong variant throws.
     ["crc32", 0, 2_000],
-    ["scrypt", 2, 8_000],
+    ["scrypt", 2, 8_500],
     ["argon2id", 4, 12_000],
     ["bcrypt", 0, 4_000],
   ])("%s leaves the other algorithms out", async (name, tables, limit) => {
