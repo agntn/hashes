@@ -10,7 +10,7 @@ import { z } from "zod";
 const WORKER_MEMORY = 64 * 1024 * 1024;
 
 /**
- * A `hashes mcp` tool for Docus, its schema read into Zod whole, since a shape strips unknown keys.
+ * A `hashes mcp` tool for Docus: its own schema in `tools/list`, its own checks on the call.
  *
  * @param {string} name - The tool's name, such as `hashes_compute`.
  * @returns {McpToolDefinitionListItem} The tool definition for `server/mcp/tools/`.
@@ -20,7 +20,9 @@ export function hashesMcpTool(name: string): McpToolDefinitionListItem {
   if (listing === undefined) {
     throw new Error(`Unknown hashes tool: ${name}`);
   }
-  const schema = z.fromJSONSchema(listing.inputSchema as z.core.JSONSchema.JSONSchema);
+  /** Zod lets any object by, so a stray key reaches `callTool` and comes back sanitized. */
+  const schema = z.looseObject({});
+  schema._zod.toJSONSchema = () => ({ ...listing.inputSchema });
   /** The toolkit types a raw shape only, while the SDK it hands the schema to takes an object too. */
   const inputSchema = schema as unknown as NonNullable<McpToolDefinition["inputSchema"]>;
   return defineMcpTool({
