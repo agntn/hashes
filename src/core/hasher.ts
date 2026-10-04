@@ -173,6 +173,9 @@ export function writeBitLength(
   view.setUint32(end - 4, littleEndian ? high : low, littleEndian);
 }
 
+/** Off-heap blocks a hasher's first blocks go through, one per block length so a copy fills it. */
+const scratch: Partial<Record<number, { bytes: Uint8Array; view: DataView }>> = {};
+
 /**
  * Merkle-Damgard hashing: MD5, SHA-1, SHA-2 and RIPEMD-160. Blocks go to `compress`, the last one
  * padded with 0x80, zeros and the message length in bits; the digest is the state's words.
@@ -186,7 +189,10 @@ export abstract class MerkleDamgard extends Hasher {
   readonly littleEndian: boolean;
   /** The partial block not compressed yet. */
   private readonly buffer: Uint8Array;
-  private readonly bufferView: DataView;
+  /** A view over the buffer, made at its third block: a view moves 64 bytes off the V8 heap. */
+  private bufferView: DataView | undefined;
+  /** Blocks compressed from the buffer through the scratch view. */
+  private copies = 0;
   /** Bytes waiting in the buffer. */
   private position = 0;
   /** Bytes absorbed so far. */
@@ -203,7 +209,6 @@ export abstract class MerkleDamgard extends Hasher {
     this.outputLength = outputLength;
     this.littleEndian = littleEndian;
     this.buffer = new Uint8Array(blockLength);
-    this.bufferView = new DataView(this.buffer.buffer);
   }
 
   /**
@@ -214,6 +219,41 @@ export abstract class MerkleDamgard extends Hasher {
    */
   protected abstract compress(view: DataView, offset: number): void;
 
+  /**
+   * Compresses the buffered block from a scratch copy for the hasher's first two, then from its own
+   * view. A nested hash takes another copy, and each is wiped so a kept view reads zeros.
+   *
+   * @param length - Bytes hashed, written into the last block as its bit length.
+   */
+  private compressBuffer(length?: number): void {
+    const { buffer } = this;
+    if (this.bufferView === undefined && this.copies++ >= 2) this.bufferView = viewOf(buffer);
+    let view = this.bufferView;
+    let slot;
+    if (view === undefined) {
+      slot = scratch[buffer.length];
+      scratch[buffer.length] = undefined;
+      if (slot === undefined) {
+        const bytes = new Uint8Array(buffer.length);
+        slot = { bytes, view: new DataView(bytes.buffer) };
+      }
+      slot.bytes.set(buffer);
+      view = slot.view;
+    }
+    if (length !== undefined) writeBitLength(view, buffer.length, length, this.littleEndian);
+    this.compress(view, 0);
+    if (slot !== undefined) {
+      slot.bytes.fill(0);
+      scratch[buffer.length] = slot;
+    }
+  }
+
+  /**
+   * Copies short input byte by byte: a subarray or a view over it costs more than the copy.
+   *
+   * @param data - The next bytes.
+   * @returns {this} The same hasher.
+   */
   update(data: Uint8Array): this {
     assertBytes(data, "data");
     const { buffer, blockLength: block } = this;
@@ -221,14 +261,13 @@ export abstract class MerkleDamgard extends Hasher {
     let position = this.position;
     let offset = 0;
     this.length += length;
-    // Short pieces go byte by byte: a subarray per call costs more than copying a block here.
-    if (position > 0) {
+    if (position > 0 || length <= block) {
       while (offset < length && position < block) buffer[position++] = data[offset++]!;
       if (position < block) {
         this.position = position;
         return this;
       }
-      this.compress(this.bufferView, 0);
+      this.compressBuffer();
       position = 0;
     }
     if (length - offset >= block) {
@@ -241,20 +280,19 @@ export abstract class MerkleDamgard extends Hasher {
   }
 
   digestInto(out: Uint8Array): void {
-    const { buffer, bufferView: view, blockLength: block, littleEndian, state } = this;
+    const { buffer, blockLength: block, littleEndian, state } = this;
     const length = this.length;
     let position = this.position;
     buffer[position++] = 0x80;
     // The bit length takes the last eighth of the block: 8 bytes, or 16 for SHA-512.
     if (position > block - (block >> 3)) {
       while (position < block) buffer[position++] = 0;
-      this.compress(view, 0);
+      this.compressBuffer();
       position = 0;
     }
     while (position < block - 8) buffer[position++] = 0;
     this.position = position;
-    writeBitLength(view, block, length, littleEndian);
-    this.compress(view, 0);
+    this.compressBuffer(length);
     wordsToBytes(state, out, this.outputLength, littleEndian);
   }
 

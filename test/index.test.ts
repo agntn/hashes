@@ -740,6 +740,70 @@ describe("byte functions", () => {
     }
   });
 
+  it("match Node when two hashers take a message in turns, in pieces around a block", () => {
+    const message = inputs.at(-1)!;
+    const pieces = [1, 63, 64, 65, 128, 129, 3, 200];
+    const pairs = [
+      [() => new Sha256Hasher(), "sha256", () => new Sha512Hasher(), "sha512"],
+      [() => new Md5Hasher(), "md5", () => new Ripemd160Hasher(), "ripemd160"],
+      [() => new Sha1Hasher(), "sha1", () => new Sha256Hasher(), "sha256"],
+    ] as const;
+    for (const [left, leftName, right, rightName] of pairs) {
+      const a = left();
+      const b = right();
+      for (let i = 0, offset = 0; offset < message.length; offset += pieces[i++ % pieces.length]!) {
+        const piece = message.slice(offset, offset + pieces[i % pieces.length]!);
+        a.update(piece);
+        b.update(piece);
+      }
+      expect(a.digest().toHex()).toBe(createHash(leftName).update(message).digest("hex"));
+      expect(b.digest().toHex()).toBe(createHash(rightName).update(message).digest("hex"));
+    }
+  });
+
+  it("show a compress override that keeps its view nothing of later hashes", () => {
+    const kept: DataView[] = [];
+    class Spy extends Sha256Hasher {
+      protected override compress(view: DataView, offset: number): void {
+        kept.push(view);
+        super.compress(view, offset);
+      }
+    }
+    new Spy().update(new Uint8Array([1, 2, 3])).digest();
+    const key = new TextEncoder().encode("secret key");
+    hmac(() => new Sha256Hasher(), key, key);
+    expect(kept).toHaveLength(1);
+    expect(new Uint8Array(kept[0]!.buffer).every((byte) => byte === 0)).toBe(true);
+  });
+
+  it("hash right when a compress override hashes before its own block", () => {
+    class Nested extends Sha256Hasher {
+      protected override compress(view: DataView, offset: number): void {
+        sha256(new Uint8Array([offset]));
+        super.compress(view, offset);
+      }
+    }
+    expect(new Nested().update(new TextEncoder().encode("abc")).digest().toHex()).toBe(
+      createHash("sha256").update("abc").digest("hex"),
+    );
+  });
+
+  it("keep the half-filled blocks of hundreds of live hashers apart", () => {
+    const messages = Array.from({ length: 300 }, (_, i) => inputs.at(-1)!.subarray(i, i + 100));
+    const hashers = messages.map((message, i) => {
+      const hasher = i % 2 === 0 ? new Sha512Hasher() : new Sha256Hasher();
+      return hasher.update(message.subarray(0, 37));
+    });
+    hashers.forEach((hasher, i) => hasher.update(messages[i]!.subarray(37)));
+    for (const [i, hasher] of hashers.entries()) {
+      expect(hasher.digest().toHex()).toBe(
+        createHash(i % 2 === 0 ? "sha512" : "sha256")
+          .update(messages[i]!)
+          .digest("hex"),
+      );
+    }
+  });
+
   it("return a Uint8Array of the digest's length", () => {
     for (const [digest, length] of [
       [sha256(new Uint8Array(1)), 32],
