@@ -142,7 +142,8 @@ describe("hashes MCP server", () => {
   });
 
   it("names the Argon2 salt and cost it ran with, so verify can repeat it", async () => {
-    const parameters = { memory: 256, iterations: 2, parallelism: 2, secret: "0a0b" };
+    const secret = "5ec2e75ec2e75ec2e75ec2e75ec2e75e";
+    const parameters = { memory: 256, iterations: 2, parallelism: 2, secret };
     const answer = await call("hashes_compute", { algorithm: "argon2id", input: "pw", parameters });
     const salt = /salt ([0-9a-f]{64})/.exec(answer.text)?.[1] ?? "";
     const digest = argon2Sync("argon2id", {
@@ -152,7 +153,7 @@ describe("hashes MCP server", () => {
       passes: 2,
       parallelism: 2,
       tagLength: 32,
-      secret: Buffer.from("0a0b", "hex"),
+      secret: Buffer.from(secret, "hex"),
     }).toString("hex");
     const verified = await call("hashes_verify", {
       algorithm: "argon2id",
@@ -164,7 +165,7 @@ describe("hashes MCP server", () => {
 
     expect(answer.text.split("\n")[0]).toBe(digest);
     expect(answer.text).toContain("memory 256, iterations 2, parallelism 2, keyLength 32");
-    expect(answer.text).not.toContain("0a0b");
+    expect(answer.text).not.toContain(secret);
     expect(verified.text).toMatch(/^MATCH/);
   });
 

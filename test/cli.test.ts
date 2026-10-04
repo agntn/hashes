@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { argon2Sync, createHash, createHmac, hkdfSync, scryptSync } from "node:crypto";
+import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -115,9 +115,15 @@ describe("hashes CLI", () => {
   });
 
   it("keeps a drawn KDF salt on stderr and the digest alone on stdout", () => {
-    const { stderr, stdout } = run(["pbkdf2", "pw"]);
-    expect(stdout).toMatch(/^[0-9a-f]{128}\n$/);
-    expect(stderr).toMatch(/^iterations 600000, digest sha512, keyLength 64, salt [0-9a-f]{64}\n$/);
+    const { stderr, stdout } = run(["pbkdf2", "pw", "--iterations", "1000"]);
+    const salt = /^iterations 1000, digest sha512, keyLength 64, salt ([0-9a-f]{64})\n$/.exec(
+      stderr,
+    )?.[1];
+
+    expect(salt).toBeDefined();
+    expect(stdout).toBe(
+      `${pbkdf2Sync("pw", Buffer.from(salt ?? "", "hex"), 1000, 64, "sha512").toString("hex")}\n`,
+    );
   });
 
   it("verifies and exits 1 on a mismatch, base64 case-sensitively", () => {
