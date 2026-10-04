@@ -907,6 +907,71 @@ describe("byte functions", () => {
     );
   });
 
+  it("refuse a factory that gives no hasher before the first block", () => {
+    const bytes = new Uint8Array(1);
+    const factories = [
+      () => create("sha256"),
+      () => undefined,
+      () => Sha256Hasher,
+      (): object => Object.create(null) as object,
+      () => ({ update() {}, digestInto() {}, digest() {}, load() {} }),
+      () => ({
+        blockLength: 64,
+        outputLength: 0,
+        update() {},
+        digestInto() {},
+        digest() {},
+        load() {},
+      }),
+      create("sha256"),
+      "sha256",
+    ] as unknown as (() => Sha256Hasher)[];
+    for (const factory of factories) {
+      for (const derive of [
+        () => hmac(factory, bytes, bytes),
+        () => pbkdf2(factory, bytes, bytes, 1, 32),
+        () => hkdf(factory, bytes, bytes, bytes, 32),
+        () => hkdfExtract(factory, bytes, bytes),
+        () => hkdfExpand(factory, new Uint8Array(32), bytes, 32),
+        () => evpBytesToKey(factory, bytes, bytes, 1, 48),
+      ]) {
+        expect(derive).toThrow(InvalidOptionError);
+      }
+    }
+    expect(() => pbkdf2(factories[0]!, bytes, bytes, 1, 32)).toThrow(
+      new InvalidOptionError(
+        "create",
+        "Sha256",
+        "must return a Hasher, such as new Sha256Hasher()",
+      ),
+    );
+    expect(() => hmac(factories[2]!, bytes, bytes)).toThrow(
+      new InvalidOptionError(
+        "create",
+        "Sha256Hasher",
+        "must return a Hasher, such as new Sha256Hasher()",
+      ),
+    );
+    expect(() => hmac(factories[3]!, bytes, bytes)).toThrow("Invalid option create=object");
+    expect(() => evpBytesToKey(factories[5]!, bytes, bytes, 1, 48)).toThrow(
+      "Invalid option create=Object",
+    );
+    let calls = 0;
+    const flaky = (() => (++calls > 1 ? undefined : new Sha256Hasher())) as () => Sha256Hasher;
+    for (const derive of [
+      () => hmac(flaky, bytes, bytes),
+      () => pbkdf2(flaky, bytes, bytes, 1, 32),
+      () => hkdfExpand(flaky, new Uint8Array(32), bytes, 32),
+      () => evpBytesToKey(flaky, bytes, bytes, 1, 48),
+    ]) {
+      calls = 0;
+      expect(derive).toThrow("Invalid option create=undefined");
+    }
+    expect(() => evpBytesToKey(factories[6]!, bytes, bytes, 1, 48)).toThrow(
+      new InvalidOptionError("create", "Sha256", "must be a function that returns a Hasher"),
+    );
+  });
+
   it("build each SHA-2 length from its own initial value, nothing in between", () => {
     const bytes = new Uint8Array([1, 2, 3]);
     for (const [hasher, name] of [

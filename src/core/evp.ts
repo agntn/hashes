@@ -1,6 +1,6 @@
 /** OpenSSL's EVP_BytesToKey, behind `openssl enc` without `-pbkdf2` and CryptoJS's EvpKDF. */
 import { InvalidOptionError } from "./errors.ts";
-import { type Hasher, assertBytes } from "./hasher.ts";
+import { type Hasher, assertBytes, createHasher } from "./hasher.ts";
 
 /**
  * Derives bytes the way OpenSSL's EVP_BytesToKey does: each block hashes the one before it, the
@@ -30,8 +30,8 @@ export function evpBytesToKey(
       throw new InvalidOptionError(name, value, "must be a positive integer");
     }
   }
-  const fresh = create();
-  const hasher = create();
+  const fresh = createHasher(create);
+  const hasher = createHasher(create);
   const block = new Uint8Array(hasher.outputLength);
   const out = new Uint8Array(length);
   for (let offset = 0; offset < length; offset += block.length) {

@@ -3,7 +3,7 @@
  * hashes a whole input at once; a `Hasher` takes it in pieces, which is what lets PBKDF2 key the
  * HMAC state once and copy it on every iteration instead of hashing the padded key again.
  */
-import { HashError } from "./errors.ts";
+import { HashError, InvalidOptionError } from "./errors.ts";
 
 /** Incremental state of a hash that works in blocks. */
 export abstract class Hasher {
@@ -70,6 +70,65 @@ export function assertBytes(value: unknown, name: string): asserts value is Uint
       `${name} must be a Uint8Array, not ${value === null ? "null" : typeof value}`,
     );
   }
+}
+
+/**
+ * Calls a hasher factory and throws unless it gave a hasher. Plain JavaScript can pass the
+ * registry's `create(name)`, whose `Hash` would otherwise fail deep inside the KDF.
+ *
+ * @param create - What the caller passed as the factory.
+ * @returns {Hasher} A fresh hasher.
+ */
+export function createHasher(create: () => Hasher): Hasher {
+  if (typeof create !== "function") {
+    throw new InvalidOptionError(
+      "create",
+      nameOf(create),
+      "must be a function that returns a Hasher",
+    );
+  }
+  const hasher: unknown = create();
+  if (!isHasher(hasher)) {
+    throw new InvalidOptionError(
+      "create",
+      nameOf(hasher),
+      "must return a Hasher, such as new Sha256Hasher()",
+    );
+  }
+  return hasher;
+}
+
+/**
+ * Tells a hasher by its methods and lengths, so one from another copy of this package still
+ * passes. A zero output length would keep `evpBytesToKey` looping forever.
+ *
+ * @param value - What the factory returned.
+ * @returns {boolean} Whether it has every method and a positive length of each kind.
+ */
+function isHasher(value: unknown): value is Hasher {
+  if (typeof value !== "object" || value === null) return false;
+  const fields = value as Partial<Record<string, unknown>>;
+  return (
+    ["update", "digestInto", "digest", "load"].every(
+      (name) => typeof fields[name] === "function",
+    ) &&
+    [fields.blockLength, fields.outputLength].every(
+      (length) => typeof length === "number" && Number.isSafeInteger(length) && length > 0,
+    )
+  );
+}
+
+/**
+ * Names a value for an error message: a function or an object by its name, anything else as it is.
+ *
+ * @param value - The value.
+ * @returns {string} Its name.
+ */
+function nameOf(value: unknown): string {
+  if (typeof value === "function") return value.name || "function";
+  if (typeof value !== "object" || value === null) return String(value);
+  const name: unknown = (value as { constructor?: { name?: unknown } }).constructor?.name;
+  return typeof name === "string" && name !== "" ? name : "object";
 }
 
 /**
