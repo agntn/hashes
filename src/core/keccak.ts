@@ -434,6 +434,27 @@ export class KeccakHasher extends Hasher {
   }
 }
 
+/** Keccak-256 with the original padding, fed in pieces. */
+export class Keccak256Hasher extends KeccakHasher {
+  constructor() {
+    super(32, KECCAK_PADDING);
+  }
+}
+
+/** SHA3-256 (FIPS 202), fed in pieces. */
+export class Sha3_256Hasher extends KeccakHasher {
+  constructor() {
+    super(32, SHA3_PADDING);
+  }
+}
+
+/** SHA3-512 (FIPS 202), fed in pieces. */
+export class Sha3_512Hasher extends KeccakHasher {
+  constructor() {
+    super(64, SHA3_PADDING);
+  }
+}
+
 /**
  * Keccak-256 with the original padding, as Ethereum hashes with it.
  *
@@ -452,4 +473,14 @@ export function keccak256(data: Uint8Array): Uint8Array {
  */
 export function sha3_256(data: Uint8Array): Uint8Array {
   return new KeccakHasher(32, SHA3_PADDING).update(data).digest();
+}
+
+/**
+ * SHA3-512 (FIPS 202).
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 64 bytes.
+ */
+export function sha3_512(data: Uint8Array): Uint8Array {
+  return new KeccakHasher(64, SHA3_PADDING).update(data).digest();
 }

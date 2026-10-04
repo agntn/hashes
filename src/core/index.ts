@@ -49,7 +49,14 @@ export {
 export { evpBytesToKey } from "./evp.ts";
 export { scrypt } from "./scrypt.ts";
 export { hkdf, hkdfExpand, hkdfExtract, hmac, pbkdf2 } from "./hmac.ts";
-export { keccak256, sha3_256 } from "./keccak.ts";
+export {
+  Keccak256Hasher,
+  Sha3_256Hasher,
+  Sha3_512Hasher,
+  keccak256,
+  sha3_256,
+  sha3_512,
+} from "./keccak.ts";
 export { Md5Hasher, md5 } from "./md5.ts";
 export { Ripemd160Hasher, hash160, ripemd160 } from "./ripemd160.ts";
 export { Sha1Hasher, sha1 } from "./sha1.ts";
