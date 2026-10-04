@@ -30,7 +30,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - ✂️ **Length extension.** Got `md5(secret + message)` and the secret's length? `hashes extend` signs a longer message. No secret needed.
 - 🔎 **No name on the digest?** `hashes identify` lists what fits its length or its `$2b$` prefix. Argon2, bcrypt, scrypt and PBKDF2 strings come apart into salt, costs and digest.
 - 🔀 **Words but no recipe?** `hashes search <digest> <words...>` tries every order, joiner, case, algorithm and round count until one gives the digest. It tells you the total before it starts.
-- 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share the same tools and the code behind them.
+- 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share the same tools and the code behind them, and the MCP one also runs at [hashes.agntn.dev/mcp](https://hashes.agntn.dev/guide/agents#remote-mcp) with nothing to install.
 - 🧩 **Bring your own.** Extend `FixedHash`, or `BlockHash` if you want HMAC too, and `register()` the class.
 
 ## 📦 Install
@@ -145,6 +145,14 @@ omp install @agntn/hashes
   }
 }
 ```
+
+No Node at all? The docs site serves the same tools over HTTP, plus `list-pages` and `get-page` for reading the guide:
+
+```bash
+claude mcp add --transport http hashes https://hashes.agntn.dev/mcp
+```
+
+Everything you send there passes through a Cloudflare worker. Fine for test vectors, not for your real password.
 
 The tools: `hashes_compute`, `hashes_hmac_compute`, `hashes_verify`, `hashes_digest_extend`, `hashes_digest_identify`, `hashes_digest_search` and `hashes_algorithms`. The same ones in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding` and `keyEncoding`, same as the CLI flags. A model that isn't sure calls `hashes_algorithms` first.
 

@@ -1,7 +1,7 @@
 import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { createMcpServer } from "../src/mcp.ts";
+import { callTool, createMcpServer, toolListings } from "../src/mcp.ts";
 import { Pbkdf2 } from "../src/algorithms/index.ts";
 import {
   type AlgorithmInfo,
@@ -119,6 +119,21 @@ describe("hashes MCP server", () => {
     }
     // Enums, not unions of literals, so a rejection can name the allowed values.
     expect(JSON.stringify(tools)).not.toContain('"const"');
+  });
+
+  it("lists and answers through toolListings and callTool as tools/list and tools/call do", async () => {
+    const client = await connectTestClient();
+    expect((await client.listTools()).tools).toEqual(toolListings);
+    const calls: Array<[string, Record<string, unknown>]> = [
+      ["hashes_compute", { algorithm: "md5", input: "hello" }],
+      ["hashes_verify", { algorithm: "md5", input: "hello", expected: "00" }],
+      ["hashes_compute", { algorithm: "sha256", input: "x", salt_hex: "00" }],
+      ["hashes_compute", { algorithm: "nope", input: "x" }],
+      ["hashes_nope", {}],
+    ];
+    for (const [name, args] of calls) {
+      expect(await callTool(name, args)).toEqual(await client.callTool({ name, arguments: args }));
+    }
   });
 
   it("hashes and names the algorithm, encoding and length", async () => {

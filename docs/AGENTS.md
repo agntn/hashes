@@ -1,13 +1,13 @@
 # docs/
 
-Docus site for `@agntn/hashes` at hashes.agntn.dev. Markdown lives in `content/`. The playground is a Vue page that imports the library into the browser. There's no server API, because the library needs none.
+Docus site for `@agntn/hashes` at hashes.agntn.dev. Markdown lives in `content/`. The playground is a Vue page that imports the library into the browser. The one route that answers at request time is `/mcp`, the Docus MCP server with every tool of `hashes mcp` beside its own `list-pages` and `get-page`.
 
 ## Layout
 
 ```
 docs/
 ├── DESIGN.md                      # the instruments this site owns and where it departs from the agntn design system
-├── nuxt.config.ts                 # extends: ['docus'], cloudflare_module preset (Workers), @agntn/hashes and #tool-operations aliased to ../src
+├── nuxt.config.ts                 # extends: ['docus'], cloudflare_module preset (Workers), @agntn/hashes, @agntn/hashes/mcp and #tool-operations aliased to ../src
 ├── shiki-theme.ts                 # code block theme, every colour a --shiki-token-* variable from app.css
 ├── app/app.config.ts              # title, github, theme, the Nuxt UI variants in the instrument grammar
 ├── app/app.css                    # theme tokens, the shared `console-*` and `hero-*` grammar, `hashes-*` classes
@@ -19,6 +19,9 @@ docs/
 ├── app/utils/                     # algorithms table (icons, blurbs, chains over the library's info()), tools (the agent tools' text), tokens, roster, formatting
 ├── app/pages/playground.vue       # playground, own route outside the docs layout, its own useSeo and OG image
 ├── server/routes/sitemap.xml.ts   # Docus sitemap plus the Vue pages it cannot see
+├── server/mcp/index.ts            # the Docus MCP handler at /mcp, named and versioned like `hashes mcp`
+├── server/mcp/tools/              # one file per hash tool, each `hashesMcpTool("<name>")`
+├── server/utils/hashes-mcp.ts     # a tool from `@agntn/hashes/mcp`: its entry in `toolListings` and `callTool`, the TypeBox schema read into Zod
 ├── public/                        # fonts, favicon.svg and the icons and manifest cut from it
 ├── content/index.md               # landing
 ├── content/1.guide/               # getting started, hashing, HMAC and verify, KDFs, length extension, identify, search, CLI, agents, custom, playground
@@ -37,7 +40,7 @@ pnpm exec nuxt prepare --extends docus && pnpm exec vue-tsc --noEmit -p .nuxt/ts
 
 Deployment: Workers Builds with root directory `docs`. It installs `docs/` and nothing else, and that's enough, because the library comes from `../src` (next paragraph). Nitro preset `cloudflare_module`. Nuxt Content wants a D1 binding named `DB`. `wrangler.jsonc` carries it plus the `NUXT_SITE_URL` var. The database `agntn-hashes` lives in the EU jurisdiction, which is set at creation; the binding names it by id alone. No KV binding. Nothing is fetched, so nothing is cached.
 
-`@agntn/hashes` is an alias in `nuxt.config.ts` for `../src/index.ts`, and `#tool-operations` for `../src/tool-operations.ts`. Vite bundles the checkout's sources for the browser and Nitro gets the same alias for the prerender, so `dist/` and the root `node_modules` are never touched. That works because nothing under `src/index.ts` or `src/tool-operations.ts` imports `node:*` or npm; the executors take only types from `@agntn/tools`. A new npm import under `src/core`, `src/algorithms` or `packages/shared` needs three entries here or it breaks the deploy: a dependency pinned to the root's version, plus `vite.resolve.dedupe` and `vite.optimizeDeps.include`, since Vite resolves a bare import in `../src` from the repo root upward, never from `docs/node_modules`.
+`@agntn/hashes` is an alias in `nuxt.config.ts` for `../src/index.ts`, and `#tool-operations` for `../src/tool-operations.ts`. Vite bundles the checkout's sources for the browser and Nitro gets the same alias for the prerender, so `dist/` and the root `node_modules` are never touched. That works because nothing under `src/index.ts` or `src/tool-operations.ts` imports `node:*` or npm; the executors take only types from `@agntn/tools`. `src/mcp.ts` does import npm, see [MCP](#mcp). A new npm import under `src/core`, `src/algorithms` or `packages/shared` needs three entries here or it breaks the deploy: a dependency pinned to the root's version, plus `vite.resolve.dedupe` and `vite.optimizeDeps.include`, since Vite resolves a bare import in `../src` from the repo root upward, never from `docs/node_modules`.
 
 The library needs `Uint8Array` with native hex and base64 (`toHex`, `fromHex`, `fromBase64`), in the browser as on Node 26. A browser without them can't run the playground. The TypeScript that Docus brings (5.9) has no types for them yet, so the type check under Commands reports them in `../src`. Those lines are the library's, checked by the root `tsc`; count only errors under `app/`.
 
@@ -45,6 +48,14 @@ Two resolution traps, both because the repo root is its own pnpm workspace:
 
 - `pnpm-workspace.yaml` sets `shamefullyHoist: true`. Without it `docs/node_modules` holds only direct dependencies, Node walks up to the root `node_modules`, and the server bundle can end up with a second copy of Vue.
 - `nuxt.config.ts` pins `workspaceDir` to `docs/`, disables devtools and telemetry, and adds `../src` to `vite.server.fs.allow`, since `pnpm dev` couldn't load the library otherwise.
+
+## MCP
+
+`@agntn/hashes/mcp` is a third alias, for `../src/mcp.ts`. A file in `server/mcp/tools/` names one tool and nothing else: `hashesMcpTool()` takes the name, prose and annotations from `toolListings` and runs `callTool()` from there, so a tool changed in `src/` changes here without an edit. A new tool in `src/tools.ts` needs one more file here, and `test/docs-mcp.test.ts` fails until it has one. `@nuxtjs/mcp-toolkit` wants Zod, so its schema is `z.fromJSONSchema()` over the TypeBox one, passed as the whole object so an unknown key is refused instead of stripped. A schema error reads in Zod's words. Every other answer is the text `hashes mcp` gives.
+
+`src/mcp.ts` is the one file the site loads that imports npm: `@agntn/tools` and `@modelcontextprotocol/server`. Both are dependencies here, pinned to the root's versions and listed in `vite.resolve.dedupe`. They run on the worker only, so they stay out of `optimizeDeps`. On the `cloudflare_module` preset the toolkit hands its server to `createMcpHandler` from `agents`, which tells an SDK v1 server apart with `instanceof`. pnpm installs one copy of `@modelcontextprotocol/sdk` per `zod` peer it resolves, so the toolkit and `agents` can each get their own and every request fails with "createMcpHandler received an unsupported server". `nitro.alias` points every import of the SDK at the copy in `docs/node_modules`. Keep it until both resolve the same one.
+
+The worker hashes whatever an MCP client sends it and keeps none of it. The pages still compute everything in the tab, which is what the footer promises.
 
 ## Live values
 
