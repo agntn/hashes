@@ -1,7 +1,8 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "rootDir": ".."
+    "rootDir": "..",
+    "paths": { "@agntn/hashes/mcp": ["../src/mcp.ts"] }
   },
   "include": ["**/*.ts"],
   "exclude": ["../node_modules", "../dist"]

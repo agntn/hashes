@@ -48,7 +48,7 @@ Keep AGENTS.md updated with project status.
 - `pnpm lint` - build, then `vp lint` and `vp fmt --check`
 - `pnpm fmt` - build, then `vp lint --fix` and `vp fmt` (the autofix workflow runs it on a clean checkout)
 - `pnpm typecheck` - library, build, extensions, tests
-- `pnpm test` - `vp test run`
+- `pnpm test` - `vp test run`, which wants `pnpm --dir docs install` too: `test/docs-mcp.test.ts` borrows Zod and the toolkit from `docs/node_modules`
 - `pnpm release` - build, test against that build, and release, in CI's order
 
 ## Structure
