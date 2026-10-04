@@ -4,8 +4,8 @@ import { assertBytes } from "./hasher.ts";
 /** Largest prime below 2^16. */
 const BASE = 65521;
 
-/** Most bytes summed between reductions, zlib's NMAX: both sums stay below 2^32. */
-const RUN = 5552;
+/** Below zlib's NMAX of 5552, so both sums stay under 2^31 and V8 keeps them as int32. */
+const RUN = 3854;
 
 /**
  * Computes Adler-32: two sums modulo 65521, the first of the bytes plus one, the second of the
