@@ -4,17 +4,26 @@ import { hashesTheme } from "./shiki-theme";
 /** Bundled from the checkout's sources: a deploy needs neither dist/ nor the root node_modules. */
 const librarySource = resolve(import.meta.dirname, "../src");
 
+/** Runtime deps under src/mcp.ts, installed here so they resolve from docs/node_modules. */
+const libraryDependencies = ["@agntn/tools", "@modelcontextprotocol/server"];
+
 export default defineNuxtConfig({
   extends: ["docus"],
   /** The repo root is its own pnpm workspace; Nuxt must not treat it as this site's. */
   workspaceDir: import.meta.dirname,
   alias: {
+    /** The tool listings and the executor `hashes mcp` serves, for the MCP server at /mcp. */
+    "@agntn/hashes/mcp": resolve(librarySource, "mcp.ts"),
     "@agntn/hashes": resolve(librarySource, "index.ts"),
     /** The text the agent tools answer with; it imports nothing beyond the library. */
     "#tool-operations": resolve(librarySource, "tool-operations.ts"),
   },
   vite: {
     build: { target: "es2024" },
+    resolve: {
+      /** Bare imports in ../src resolve upwards from the importer and skip docs/node_modules. */
+      dedupe: libraryDependencies,
+    },
     server: {
       /** Dev serves the library from outside the workspace, which Vite refuses without this. */
       fs: { allow: [librarySource] },
@@ -32,6 +41,18 @@ export default defineNuxtConfig({
     description:
       "Hash, HMAC and verify with SHA-256, BLAKE3, Keccak-256, HASH160, scrypt and the rest of the registry, as a library, a CLI, an MCP server and Pi and OMP extensions. Computed locally.",
     sections: [
+      {
+        title: "MCP Server",
+        description: "The tools of `hashes mcp` and the page tools of this site over Streamable HTTP.",
+        links: [
+          {
+            title: "MCP endpoint",
+            href: "https://hashes.agntn.dev/mcp",
+            description:
+              "Add it to any MCP client as an HTTP server, for example `claude mcp add --transport http hashes https://hashes.agntn.dev/mcp`.",
+          },
+        ],
+      },
       {
         title: "Playground",
         description: "Hash, HMAC, verify and list the algorithms, in the browser.",
@@ -128,12 +149,15 @@ export default defineNuxtConfig({
       ],
     },
   },
-  /** Docus ships an MCP endpoint that wants the Cloudflare Agents SDK on Workers. Not needed. */
-  mcp: {
-    enabled: false,
-  },
   nitro: {
     preset: "cloudflare_module",
+    /** One MCP SDK copy, or `agents` fails the toolkit's server on its `instanceof` check. */
+    alias: {
+      "@modelcontextprotocol/sdk": resolve(
+        import.meta.dirname,
+        "node_modules/@modelcontextprotocol/sdk/dist/esm",
+      ),
+    },
     compatibilityDate: "2026-09-03",
     /** Nitro compiles the server bundle for ES2019 unless told otherwise; the library uses BigInt. */
     esbuild: { options: { target: "es2024" } },

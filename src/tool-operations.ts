@@ -367,6 +367,54 @@ function algorithmOptions(
 }
 
 /**
+ * Reads a cost the call sets, or the algorithm's declared default when it leaves it out.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The options as given.
+ * @returns {Map<string, number>} Every declared option with its value as a number.
+ */
+function costs(algorithm: Hash, options: Readonly<Record<string, unknown>>): Map<string, number> {
+  return new Map(
+    parameterOptions(algorithm).map((option) => [
+      option.name,
+      Number(options[option.name] ?? option.default),
+    ]),
+  );
+}
+
+/**
+ * Bytes a call's KDF fills: the scrypt block table or the Argon2 memory, 0 for anything else.
+ *
+ * @param args - The arguments of a tool call, read for `algorithm` and `parameters`.
+ * @returns {number} The bytes, or 0 when the call names no KDF it can read.
+ */
+export function kdfMemory(args: Readonly<Record<string, unknown>>): number {
+  const algorithm = knownAlgorithm(args["algorithm"]);
+  if (algorithm === undefined) return 0;
+  const { parameters } = args;
+  const given = typeof parameters === "object" && parameters !== null ? parameters : {};
+  const cost = costs(algorithm, given as Readonly<Record<string, unknown>>);
+  const at = (name: string): number => cost.get(name) ?? 0;
+  const memory = cost.has("N") ? 128 * at("r") * at("N") : 1024 * at("memory");
+  return Number.isFinite(memory) ? memory : 0;
+}
+
+/**
+ * Resolves a name the way a call does, or nothing when no algorithm answers to it.
+ *
+ * @param name - The name as passed.
+ * @returns {Hash | undefined} The algorithm.
+ */
+function knownAlgorithm(name: unknown): Hash | undefined {
+  if (typeof name !== "string") return undefined;
+  try {
+    return resolveAlgorithm(name);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Keeps a scrypt call within `MAX_SCRYPT_MEMORY`, reading the costs the call leaves out from the
  * algorithm's declared defaults.
  *
@@ -377,11 +425,9 @@ function assertScryptMemory(
   algorithm: Hash,
   options: Readonly<Record<string, ParameterValue>>,
 ): void {
-  const defaults = Object.fromEntries(
-    parameterOptions(algorithm).map((option) => [option.name, option.default]),
-  );
-  if (!("N" in defaults && "r" in defaults && "p" in defaults)) return;
-  const cost = (name: string): number => Number(options[name] ?? defaults[name]);
+  const all = costs(algorithm, options);
+  if (!(all.has("N") && all.has("r") && all.has("p"))) return;
+  const cost = (name: string): number => all.get(name) ?? 0;
   const memory = 128 * cost("r") * cost("N");
   if (memory > MAX_SCRYPT_MEMORY) {
     throw new InvalidOptionError(
@@ -403,11 +449,9 @@ function assertArgon2Work(
   algorithm: Hash,
   options: Readonly<Record<string, ParameterValue>>,
 ): void {
-  const defaults = Object.fromEntries(
-    parameterOptions(algorithm).map((option) => [option.name, option.default]),
-  );
-  if (!("memory" in defaults && "iterations" in defaults)) return;
-  const cost = (name: string): number => Number(options[name] ?? defaults[name]);
+  const all = costs(algorithm, options);
+  if (!(all.has("memory") && all.has("iterations"))) return;
+  const cost = (name: string): number => all.get(name) ?? 0;
   const work = cost("memory") * cost("iterations");
   if (work > MAX_ARGON2_WORK) {
     throw new InvalidOptionError(
