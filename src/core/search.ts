@@ -291,7 +291,8 @@ function* textsOf(picked: readonly string[], scope: SearchScope): Generator<Cand
 }
 
 /**
- * Lists every text a scope makes, the smallest combinations first.
+ * Lists every text a scope makes, the smallest combinations first. A text two splits make, `ab`
+ * alone and `a` + `b` with no joiner, comes once per split, and `total` counts both.
  *
  * @param scope - What the search covers.
  * @yields {Candidate} One text with its recipe.
