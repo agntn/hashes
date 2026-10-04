@@ -59,6 +59,8 @@ export interface SearchScope {
   readonly algorithms: readonly string[];
   readonly rounds: number;
   readonly chains: readonly SearchChain[];
+  /** Algorithms that hash UTF-8 text only, such as NTLM, so no round hashes bytes with them. */
+  readonly textOnly: readonly string[];
 }
 
 /** The transform that gives the digest. */
@@ -195,8 +197,11 @@ function scopeSize(scope: SearchScope): number {
     const joiners = BigInt(size === 1 ? 1 : scope.joiners.length);
     texts += (combinations[size] ?? 0n) * orderings * joiners;
   }
-  const chained = scope.rounds > 1 ? scope.chains.length * (scope.rounds - 1) : 0;
-  const total = texts * BigInt(scope.algorithms.length * (1 + chained));
+  const perText = scope.algorithms.reduce((sum, label) => {
+    const chains = chainsFor(scope, scope.textOnly.includes(label)).length;
+    return sum + 1 + (scope.rounds > 1 ? chains * (scope.rounds - 1) : 0);
+  }, 0);
+  const total = texts * BigInt(perText);
   if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new InvalidOptionError(
       "maxWords",
@@ -390,6 +395,39 @@ interface Reading {
   readonly hash: Hash;
   readonly parameters?: Readonly<Record<string, number | string>>;
   readonly label: string;
+  /** Set when the algorithm refuses bytes that are not UTF-8, as NTLM does. */
+  readonly textOnly: boolean;
+}
+
+/**
+ * Lists the chains a search runs with one algorithm: all of them, less `bytes` for text only.
+ *
+ * @param scope - What the search covers.
+ * @param textOnly - Whether the algorithm hashes UTF-8 text only.
+ * @returns {readonly SearchChain[]} The chains.
+ */
+function chainsFor(scope: SearchScope, textOnly: boolean): readonly SearchChain[] {
+  return textOnly ? scope.chains.filter((chain) => chain !== "bytes") : scope.chains;
+}
+
+/**
+ * Tells whether an algorithm refuses bytes that are not UTF-8, by hashing one lone 0xff.
+ *
+ * @param hash - The algorithm.
+ * @param parameters - The option value it runs with.
+ * @returns {boolean} Whether it hashes text only.
+ */
+function hashesTextOnly(
+  hash: Hash,
+  parameters: Readonly<Record<string, number | string>> | undefined,
+): boolean {
+  try {
+    hash.hash(Uint8Array.of(0xff), { ...parameters, encoding: "binary" } as HashOptions);
+    return false;
+  } catch (error) {
+    if (error instanceof HashError) return true;
+    throw error;
+  }
 }
 
 /**
@@ -403,9 +441,14 @@ interface Reading {
 function readingsOf(hash: Hash, length: number): Reading[] {
   const info = hash.info();
   const name = hash.name();
-  const found: Reading[] = info.digestLength === length ? [{ hash, label: name }] : [];
+  const found: Reading[] =
+    info.digestLength === length
+      ? [{ hash, label: name, textOnly: hashesTextOnly(hash, undefined) }]
+      : [];
   for (const { option, choice } of lengthChoices(name, info, length)) {
-    found.push({ hash, parameters: { [option]: choice }, label: `${name} ${option} ${choice}` });
+    const parameters = { [option]: choice };
+    const label = `${name} ${option} ${choice}`;
+    found.push({ hash, parameters, label, textOnly: hashesTextOnly(hash, parameters) });
   }
   return found;
 }
@@ -511,6 +554,7 @@ function searchScope(
     algorithms: readings.map((reading) => reading.label),
     rounds: wholeNumber("rounds", options.rounds ?? 1, 1, Number.MAX_SAFE_INTEGER),
     chains: distinct("chains", options.chains ?? SEARCH_CHAINS, SEARCH_CHAINS),
+    textOnly: readings.filter((reading) => reading.textOnly).map((reading) => reading.label),
   };
   return { scope, readings };
 }
@@ -620,7 +664,7 @@ class Search {
     };
     if (sameBytes(first, this.#target)) return { ...recipe, rounds: 1 };
     if (this.#scope.rounds === 1) return undefined;
-    for (const chain of this.#scope.chains) {
+    for (const chain of chainsFor(this.#scope, reading.textOnly)) {
       const outcome = this.#chain(first, reading, chain);
       if (outcome !== undefined) return outcome === "limit" ? outcome : { ...recipe, ...outcome };
     }
@@ -628,8 +672,7 @@ class Search {
   }
 
   /**
-   * Hashes a digest again round after round in one chain. A chain the algorithm cannot take,
-   * such as raw bytes for NTLM, which hashes UTF-8 text only, ends there without a match.
+   * Hashes a digest again round after round in one chain.
    *
    * @param first - The first round's digest.
    * @param reading - The algorithm.
@@ -644,12 +687,7 @@ class Search {
     let digest = first;
     for (let rounds = 2; rounds <= this.#scope.rounds; rounds++) {
       if (!this.#next(chain === "bytes" ? digest.length : digest.length * 2)) return "limit";
-      try {
-        digest = nextRound(reading, digest, chain);
-      } catch (error) {
-        if (error instanceof HashError) return undefined;
-        throw error;
-      }
+      digest = nextRound(reading, digest, chain);
       if (sameBytes(digest, this.#target)) return { rounds, chain };
     }
     return undefined;
@@ -713,9 +751,13 @@ function scopeLine(scope: SearchScope): string {
     scope.minWords === scope.maxWords
       ? `${scope.minWords}`
       : `${scope.minWords} to ${scope.maxWords}`;
+  const skipped =
+    scope.chains.includes("bytes") && scope.textOnly.length > 0
+      ? `, no bytes chain for ${scope.textOnly.join(", ")}`
+      : "";
   const rounds =
     scope.rounds > 1
-      ? `up to ${scope.rounds} rounds chained as ${scope.chains.join(", ")}`
+      ? `up to ${scope.rounds} rounds chained as ${scope.chains.join(", ")}${skipped}`
       : "1 round";
   return [
     `Covered ${sizes} of the words ${quotedList(scope.words)}`,

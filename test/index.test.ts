@@ -2096,7 +2096,7 @@ describe("searchDigest", () => {
     expect(searchDigest(thrice, { words: ["abc"], rounds: 2 }).recipe).toBeUndefined();
   });
 
-  it("ends a chain NTLM cannot take, since it hashes UTF-8 text and a digest is bytes", () => {
+  it("leaves the bytes chain out for NTLM, which hashes UTF-8 text only, and counts it so", () => {
     const found = searchDigest(Buffer.alloc(16), {
       words: ["abc"],
       rounds: 3,
@@ -2104,7 +2104,9 @@ describe("searchDigest", () => {
     });
 
     expect(found.recipe).toBeUndefined();
-    expect(found.stopped).toBe(false);
+    expect(found.scope.textOnly).toEqual(["ntlm"]);
+    expect(found).toMatchObject({ stopped: false, tried: found.total });
+    expect(found.total).toBe(3 * (1 + 2 * 2));
   });
 
   it("joins with a line feed and capitalizes each word in title case", () => {
