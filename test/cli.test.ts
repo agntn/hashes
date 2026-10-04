@@ -221,6 +221,39 @@ describe("hashes CLI", () => {
     expect(run(["algorithms", "--category", "SHA"]).code).toBe(1);
   });
 
+  it("refuses a flag or an argument the command does not take", () => {
+    for (const [args, flag, command] of [
+      [["sha256", "abc", "--key", "secret"], "--key", "hash"],
+      [["sha256", "abc", "--rounds", "2", "--typo=3"], "--typo", "hash"],
+      [["verify", "sha256", "abc", sha256("abc"), "--key", "x"], "--key", "verify"],
+      [["hmac", "sha256", "abc", "k", "--salt", "00"], "--salt", "hmac"],
+      [["info", "sha256", "-x"], "-x", "info"],
+      [["search", sha256("x"), "x", "--bogus"], "--bogus", "search"],
+    ] as const) {
+      expect(run(args)).toMatchObject({
+        code: 1,
+        stdout: "",
+        stderr: `Unknown option ${flag} for ${command}. Text that starts with - goes after --, which ends the options.\n`,
+      });
+    }
+    expect(run(["sha256", "hello", "world"])).toMatchObject({
+      code: 1,
+      stdout: "",
+      stderr:
+        "Unexpected argument: world. hash takes ALGORITHM INPUT; quote an input with spaces\n",
+    });
+    expect(run(["identify", "abcd", "ef"]).stderr).toBe(
+      "Unexpected argument: ef. identify takes DIGEST; quote an input with spaces\n",
+    );
+    expect(run(["sha256", "a", "b\nMATCH"]).stderr).toBe(
+      'Unexpected argument: "b\\nMATCH". hash takes ALGORITHM INPUT; quote an input with spaces\n',
+    );
+    expect(run(["sha256", "--", "--key"]).stdout).toBe(`${sha256("--key")}\n`);
+    expect(run(["sha256", "abc", "--input-encoding", "utf8", "--inputEncoding", "utf8"]).code).toBe(
+      0,
+    );
+  });
+
   it("passes every advertised option as a flag and refuses one the algorithm lacks", () => {
     expect(run(["xxhash", "abc", "--seed", "1"]).stdout).toBe("bea9ca8199328908\n");
     // Reference: Python xxhash.xxh64(b"abc", seed=2**64 - 1).

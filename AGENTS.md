@@ -84,6 +84,7 @@ docs/                    - the hashes.agntn.dev site, its own pnpm project, outs
 - No `as any`, `@ts-ignore`, or `@ts-expect-error`.
 - Every bound a tool schema declares is enforced again in the executor, and every tool argument table in `TOOL_ARGUMENTS` matches its schema keys.
 - Tool schemas are closed (`additionalProperties: false`); an undeclared key is an error on every surface.
+- The CLI refuses an option or an argument its subcommand doesn't declare (`command()` in `src/cli.ts`, #134), since citty parses with `strict: false` and keeps both. The message matches `@agntn/encodings`.
 - An algorithm's options besides `encoding` and `key` (salt, seed, KDF costs) reach every surface from one place: `info().options`, checked by `checkedParameters` in `src/core/options.ts`. The CLI turns them into flags, the tools take them as `parameters`, and a name the algorithm does not declare is an error, never dropped. Tool calls also cap KDF costs (`PARAMETER_LIMITS`, `MAX_SCRYPT_MEMORY`, `MAX_ARGON2_WORK`); the library leaves them to the caller. A capped parameter starts at 1 unless `ZERO_PARAMETERS` lists it, as it does `ivLength`.
 - An MCP client sees only `content`, so every fact a follow-up call needs (a KDF's salt and cost) is in the text.
 - The CLI prints the digest alone on stdout; a salted digest's parameters go to stderr.
