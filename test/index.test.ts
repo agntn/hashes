@@ -761,6 +761,21 @@ describe("byte functions", () => {
     }
   });
 
+  it("show a compress override that keeps its view nothing of later hashes", () => {
+    const kept: DataView[] = [];
+    class Spy extends Sha256Hasher {
+      protected override compress(view: DataView, offset: number): void {
+        kept.push(view);
+        super.compress(view, offset);
+      }
+    }
+    new Spy().update(new Uint8Array([1, 2, 3])).digest();
+    const key = new TextEncoder().encode("secret key");
+    hmac(() => new Sha256Hasher(), key, key);
+    expect(kept).toHaveLength(1);
+    expect(new Uint8Array(kept[0]!.buffer).every((byte) => byte === 0)).toBe(true);
+  });
+
   it("keep the half-filled blocks of hundreds of live hashers apart", () => {
     const messages = Array.from({ length: 300 }, (_, i) => inputs.at(-1)!.subarray(i, i + 100));
     const hashers = messages.map((message, i) => {

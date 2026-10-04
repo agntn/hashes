@@ -177,22 +177,6 @@ export function writeBitLength(
 const scratch: Partial<Record<number, { bytes: Uint8Array; view: DataView }>> = {};
 
 /**
- * Copies a block into this module's scratch bytes of its length and returns a view over them.
- *
- * @param block - 64 or 128 bytes.
- * @returns {DataView} A view holding exactly the block.
- */
-function scratchView(block: Uint8Array): DataView {
-  let slot = scratch[block.length];
-  if (slot === undefined) {
-    const bytes = new Uint8Array(block.length);
-    slot = scratch[block.length] = { bytes, view: new DataView(bytes.buffer) };
-  }
-  slot.bytes.set(block);
-  return slot.view;
-}
-
-/**
  * Merkle-Damgard hashing: MD5, SHA-1, SHA-2 and RIPEMD-160. Blocks go to `compress`, the last one
  * padded with 0x80, zeros and the message length in bits; the digest is the state's words.
  */
@@ -236,13 +220,28 @@ export abstract class MerkleDamgard extends Hasher {
   protected abstract compress(view: DataView, offset: number): void;
 
   /**
-   * A view holding the buffered block: a scratch copy for the hasher's first two, then its own.
+   * Compresses the buffered block from a scratch copy for the hasher's first two, then from its own
+   * view. The copy is wiped afterwards, so a `compress` override that keeps the view reads zeros.
    *
-   * @returns {DataView} The view to compress from.
+   * @param length - Bytes hashed, written into the last block as its bit length.
    */
-  private bufferedView(): DataView {
-    if (this.bufferView === undefined && this.copies++ >= 2) this.bufferView = viewOf(this.buffer);
-    return this.bufferView ?? scratchView(this.buffer);
+  private compressBuffer(length?: number): void {
+    const { buffer } = this;
+    if (this.bufferView === undefined && this.copies++ >= 2) this.bufferView = viewOf(buffer);
+    let view = this.bufferView;
+    let slot;
+    if (view === undefined) {
+      slot = scratch[buffer.length];
+      if (slot === undefined) {
+        const bytes = new Uint8Array(buffer.length);
+        slot = scratch[buffer.length] = { bytes, view: new DataView(bytes.buffer) };
+      }
+      slot.bytes.set(buffer);
+      view = slot.view;
+    }
+    if (length !== undefined) writeBitLength(view, buffer.length, length, this.littleEndian);
+    this.compress(view, 0);
+    slot?.bytes.fill(0);
   }
 
   /**
@@ -264,7 +263,7 @@ export abstract class MerkleDamgard extends Hasher {
         this.position = position;
         return this;
       }
-      this.compress(this.bufferedView(), 0);
+      this.compressBuffer();
       position = 0;
     }
     if (length - offset >= block) {
@@ -284,14 +283,12 @@ export abstract class MerkleDamgard extends Hasher {
     // The bit length takes the last eighth of the block: 8 bytes, or 16 for SHA-512.
     if (position > block - (block >> 3)) {
       while (position < block) buffer[position++] = 0;
-      this.compress(this.bufferedView(), 0);
+      this.compressBuffer();
       position = 0;
     }
     while (position < block - 8) buffer[position++] = 0;
     this.position = position;
-    const view = this.bufferedView();
-    writeBitLength(view, block, length, littleEndian);
-    this.compress(view, 0);
+    this.compressBuffer(length);
     wordsToBytes(state, out, this.outputLength, littleEndian);
   }
 
