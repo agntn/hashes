@@ -22,7 +22,7 @@ const toolsByName = indexTools(hashesTools);
 
 /** What a host running the tools for someone else can add to a call. */
 export interface CallToolOptions {
-  /** Aborts a long call, such as a search, when the client cancels it. */
+  /** Passed to the tool as is; the synchronous executors finish within their limits anyway. */
   readonly signal?: Readonly<AbortSignal>;
   /** Most bytes a KDF may fill, below the tool limits, for a host with less memory. */
   readonly maxMemory?: number;
