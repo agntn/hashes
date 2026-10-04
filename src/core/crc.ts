@@ -1,6 +1,7 @@
 /**
- * CRC-32 (as zlib computes it, or as bzip2 does), CRC-64/XZ and CRC-16/XMODEM. Each table fills on
- * the first call that needs it, so a SHA-1 caller loading the shared chunk never pays for it.
+ * CRC-32 (as zlib computes it, or as bzip2 does), CRC-64/XZ, CRC-24/OPENPGP and CRC-16/XMODEM.
+ * Each table fills on the first call that needs it, so a SHA-1 caller loading the shared chunk
+ * never pays for it.
  */
 import { InvalidOptionError } from "./errors.ts";
 import { assertBytes } from "./hasher.ts";
@@ -17,16 +18,24 @@ export const CRC64_VARIANTS = ["xz"] as const;
 /** A CRC-64 variant. */
 export type Crc64Variant = (typeof CRC64_VARIANTS)[number];
 
+/** The CRC-24 variants, by their names in the CRC catalogue. */
+export const CRC24_VARIANTS = ["openpgp"] as const;
+
+/** A CRC-24 variant. */
+export type Crc24Variant = (typeof CRC24_VARIANTS)[number];
+
 /** Allocated empty and filled on first use, since a module constant keeps the hot loops fast. */
 const CRC32_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC16_XMODEM_TABLE = /* @__PURE__ */ new Uint16Array(256);
 const CRC32_BZIP2_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC64_XZ_TABLES = /* @__PURE__ */ new Uint32Array(512 * 8);
+const CRC24_OPENPGP_TABLE = /* @__PURE__ */ new Uint32Array(256);
 
 let crc32Filled = false;
 let crc16XmodemFilled = false;
 let crc32Bzip2Filled = false;
 let crc64XzFilled = false;
+let crc24OpenpgpFilled = false;
 
 /**
  * Fills the CRC-32 tables for slicing by eight: polynomial 0x04c11db7, reflected as 0xedb88320.
@@ -112,6 +121,19 @@ function fillCrc64XzTables(): void {
     tables[index + 513] = ((low >>> 8) | (high << 24)) ^ tables[next + 1]!;
   }
   crc64XzFilled = true;
+}
+
+/** Fills the CRC-24/OPENPGP table, each byte's remainder: polynomial 0x864cfb, not reflected. */
+function fillCrc24OpenpgpTable(): void {
+  if (crc24OpenpgpFilled) return;
+  const table = CRC24_OPENPGP_TABLE;
+  for (let index = 0; index < 256; index++) {
+    let value = index << 16;
+    for (let bit = 0; bit < 8; bit++)
+      value = value & 0x800000 ? (value << 1) ^ 0x1864cfb : value << 1;
+    table[index] = value;
+  }
+  crc24OpenpgpFilled = true;
 }
 
 /**
@@ -229,6 +251,25 @@ export function crc64(data: Uint8Array, variant: Crc64Variant = "xz"): Uint8Arra
   view.setInt32(0, ~high);
   view.setInt32(4, ~low);
   return digest;
+}
+
+/**
+ * Computes CRC-24: `openpgp`, the checksum after the `=` that closes OpenPGP armor (RFC 4880).
+ *
+ * @param data - Bytes to check.
+ * @param variant - Which CRC-24. Default: `openpgp`.
+ * @returns {Uint8Array} The checksum, big-endian, as armor stores it.
+ */
+export function crc24(data: Uint8Array, variant: Crc24Variant = "openpgp"): Uint8Array {
+  assertBytes(data, "data");
+  if (variant !== "openpgp") {
+    throw new InvalidOptionError("variant", variant, `use one of ${CRC24_VARIANTS.join(", ")}`);
+  }
+  fillCrc24OpenpgpTable();
+  const table = CRC24_OPENPGP_TABLE;
+  let crc = 0xb704ce;
+  for (const byte of data) crc = ((crc << 8) & 0xffffff) ^ table[((crc >>> 16) ^ byte) & 0xff]!;
+  return new Uint8Array([crc >>> 16, (crc >>> 8) & 0xff, crc & 0xff]);
 }
 
 /**

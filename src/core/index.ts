@@ -16,6 +16,7 @@ export type { ScryptOptions } from "../algorithms/scrypt.ts";
 export type { XxhashOptions } from "../algorithms/xxhash.ts";
 export type { Crc32Options } from "../algorithms/crc32.ts";
 export type { Crc64Options } from "../algorithms/crc64.ts";
+export type { Crc24Options } from "../algorithms/crc24.ts";
 export {
   DependencyError,
   HashError,
@@ -34,11 +35,14 @@ export { Blake2bHasher, blake2b } from "./blake2b.ts";
 export { blake256 } from "./blake256.ts";
 export { adler32 } from "./adler32.ts";
 export {
+  CRC24_VARIANTS,
   CRC32_VARIANTS,
   CRC64_VARIANTS,
   crc16Xmodem,
+  crc24,
   crc32,
   crc64,
+  type Crc24Variant,
   type Crc32Variant,
   type Crc64Variant,
 } from "./crc.ts";
