@@ -96,6 +96,7 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   },
   crc32: { icon: "i-lucide-file-digit", blurb: "The checksum in every ZIP, PNG, gzip and bzip2" },
   crc64: { icon: "i-lucide-file-digit", blurb: "Eight bytes after every xz block" },
+  crc24: { icon: "i-lucide-mail-check", blurb: "Four base64 characters after the = in PGP armor" },
   "crc16-xmodem": {
     icon: "i-token-xlm",
     blurb: "Two bytes that close an address",

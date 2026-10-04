@@ -371,7 +371,7 @@ describe("hashes CLI", () => {
       "argon2d",
       "bcrypt",
     ]);
-    expect(names(["-f", "crc"])).toEqual(["crc32", "crc64", "crc16-xmodem"]);
+    expect(names(["-f", "crc"])).toEqual(["crc32", "crc64", "crc24", "crc16-xmodem"]);
     expect(names(["-f", "SHA", "-c", "legacy"])).toEqual(["sha1", "sha0"]);
     expect(run(["info", "SHA3_256"]).stdout).toContain("SHA3-256 (sha3-256)");
   });

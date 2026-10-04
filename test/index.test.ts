@@ -36,6 +36,7 @@ import {
   builtinAlgorithms,
   adler32,
   crc16Xmodem,
+  crc24,
   crc32,
   crc64,
   create,
@@ -333,6 +334,7 @@ describe("digests", () => {
       "ntlm",
       "crc32",
       "crc64",
+      "crc24",
       "crc16-xmodem",
       "adler32",
       "xxhash",
@@ -444,14 +446,16 @@ describe("digests", () => {
       "fc891918",
     );
     expect(create("crc64").hash("123456789").digest).toBe("995dc9bbdf1939fa");
+    expect(create("crc24").hash("123456789").digest).toBe("21cf02");
+    expect(create("crc24").hash("123456789", { encoding: "base64" }).digest).toBe("Ic8C");
     expect(create("adler32").hash("Wikipedia").digest).toBe("11e60398");
     expect(create("xxhash").hash("", { bits: 32 } as XxhashOptions).digest).toBe("02cc5d05");
     expect(create("xxhash").hash("abc", { bits: 32 } as XxhashOptions).digest).toBe("32d153ff");
   });
 
   it.each(CHECKSUM_REFERENCES)(
-    "matches zlib, crccheck and xxhash on %i bytes",
-    (length, adler, bzip2, xz, xxh32Digest, xxh32Seeded, xxh64Digest) => {
+    "matches zlib, crccheck, xxhash and GnuPG on %i bytes",
+    (length, adler, bzip2, xz, xxh32Digest, xxh32Seeded, xxh64Digest, openpgp) => {
       const input = checksumInput(length);
       const xxh32 = (seed?: number) => ({ bits: 32, seed }) as XxhashOptions;
       expect(create("adler32").hash(input).digest).toBe(adler);
@@ -460,14 +464,15 @@ describe("digests", () => {
       expect(create("xxhash").hash(input, xxh32()).digest).toBe(xxh32Digest);
       expect(create("xxhash").hash(input, xxh32(0xdeadbeef)).digest).toBe(xxh32Seeded);
       expect(create("xxhash").hash(input).digest).toBe(xxh64Digest);
+      expect(create("crc24").hash(input).digest).toBe(openpgp);
     },
   );
 
   it.each(ONES_REFERENCES)(
-    "matches zlib and crccheck on %i bytes of 0xff",
+    "matches zlib, crccheck and GnuPG on %i bytes of 0xff",
     (length, ...digests) => {
       const input = new Uint8Array(length).fill(0xff);
-      const checksums = [adler32(input), crc32(input, "bzip2"), crc64(input)];
+      const checksums = [adler32(input), crc32(input, "bzip2"), crc64(input), crc24(input)];
       expect(checksums.map((digest) => digest.toHex())).toEqual(digests);
     },
   );
@@ -486,6 +491,9 @@ describe("digests", () => {
       InvalidOptionError,
     );
     expect(() => create("crc32").hash("abc", { variant: "jamcrc" } as HashOptions)).toThrow(
+      InvalidOptionError,
+    );
+    expect(() => crc24(new Uint8Array(1), "ble" as unknown as "openpgp")).toThrow(
       InvalidOptionError,
     );
     expect(() => xxhash(new Uint8Array(1), 32, 2 ** 32)).toThrow(InvalidOptionError);
@@ -718,6 +726,7 @@ describe("byte functions", () => {
       blake2b: (bytes: Uint8Array) => blake2b(bytes, 64),
       crc32,
       crc64,
+      crc24,
       "crc16-xmodem": crc16Xmodem,
       adler32,
       xxhash,
@@ -1324,7 +1333,15 @@ describe("byte function subpaths", () => {
     keccak: ["keccak256", "sha3_256"],
     blake2b: ["Blake2bHasher", "blake2b"],
     blake256: ["blake256"],
-    crc: ["CRC32_VARIANTS", "CRC64_VARIANTS", "crc16Xmodem", "crc32", "crc64"],
+    crc: [
+      "CRC24_VARIANTS",
+      "CRC32_VARIANTS",
+      "CRC64_VARIANTS",
+      "crc16Xmodem",
+      "crc24",
+      "crc32",
+      "crc64",
+    ],
     adler32: ["adler32"],
     xxhash: ["XXHASH_BITS", "xxhash"],
     hmac: ["hkdf", "hkdfExpand", "hkdfExtract", "hmac", "pbkdf2"],

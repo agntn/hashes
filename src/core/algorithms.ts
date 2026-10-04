@@ -37,6 +37,7 @@ export const builtinAlgorithms = [
   // Non-cryptographic
   "crc32",
   "crc64",
+  "crc24",
   "crc16-xmodem",
   "adler32",
   "xxhash",
