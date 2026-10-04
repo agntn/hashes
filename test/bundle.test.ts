@@ -82,6 +82,8 @@ describe("one byte function bundled with esbuild", () => {
     ["md5", 3, 4_000],
     ["sha1", 1, 3_500],
     ["sha256", 2, 4_000],
+    /* SHA-256's two tables plus its own initial value, and still no registry. */
+    ["Sha224Hasher", 3, 4_500],
     ["keccak256", 1, 6_000],
     ["ripemd160", 5, 5_000],
     ["blake2b", 3, 8_000],

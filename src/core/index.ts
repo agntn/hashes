@@ -60,7 +60,7 @@ export {
 export { Md5Hasher, md5 } from "./md5.ts";
 export { Ripemd160Hasher, hash160, ripemd160 } from "./ripemd160.ts";
 export { Sha1Hasher, sha1 } from "./sha1.ts";
-export { Sha256Hasher, Sha512Hasher, hash256, sha256, sha512 } from "./sha2.ts";
+export { Sha224Hasher, Sha256Hasher, Sha512Hasher, hash256, sha256, sha512 } from "./sha2.ts";
 export { XXHASH_BITS, xxhash, type XxhashBits } from "./xxhash.ts";
 export { algorithms, create, has, register } from "./registry.ts";
 export { normalizeAlgorithmName, resolveAlgorithm } from "./resolve.ts";
