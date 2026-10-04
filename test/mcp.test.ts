@@ -22,6 +22,7 @@ import {
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   TOOL_ARGUMENTS,
+  MAX_SEARCH_BYTES,
   MAX_SEARCH_HASHES,
   hashAlgorithms,
   hashCompute,
@@ -778,19 +779,37 @@ describe("hashes MCP server", () => {
     }
   });
 
-  it("lowers its hash limit for long words, since a hash costs more the longer its text", () => {
-    const answer = hashDigestSearch({
+  it("stops at its byte limit for long words, counting the bytes after casing", () => {
+    const long = hashDigestSearch({
       digest: "00".repeat(32),
       words: Array.from({ length: 12 }, (_, index) => String.fromCodePoint(97 + index).repeat(256)),
       joiners: ["x".repeat(16)],
       minWords: 12,
       algorithms: ["sha256"],
     });
-
-    expect(answer.details).toMatchObject({ tried: 19_704, stopped: true });
-    expect(answer.content[0]!.text).toContain(
-      "The tool stops at 19704 hashes for texts up to 3248 bytes.",
+    const words = Array.from(
+      { length: 12 },
+      (_, index) => `${"\u0390".repeat(255)}${String.fromCodePoint(97 + index)}`,
     );
+    const upper = Buffer.byteLength(words.map((word) => word.toUpperCase()).join(""));
+    const expanded = hashDigestSearch({
+      digest: "00".repeat(32),
+      words,
+      joiners: [""],
+      cases: ["upper"],
+      minWords: 12,
+      algorithms: ["sha256"],
+    });
+
+    expect(long.details).toMatchObject({
+      tried: Math.floor(MAX_SEARCH_BYTES / 3248),
+      stopped: true,
+    });
+    expect(upper).toBeGreaterThan(2 * Buffer.byteLength(words.join("")));
+    expect(expanded.details).toMatchObject({
+      tried: Math.floor(MAX_SEARCH_BYTES / upper),
+      stopped: true,
+    });
   });
 
   it("stops at its hash limit and says how to narrow the search", () => {
@@ -807,7 +826,7 @@ describe("hashes MCP server", () => {
     );
     expect(covered).toMatch(/^Covered 1 to 9 of the words/);
     expect(next).toBe(
-      `The tool stops at ${MAX_SEARCH_HASHES} hashes. Narrow words, minWords, maxWords, joiners, cases, algorithms or rounds, or run hashes search from the CLI, which takes --limit.`,
+      `The tool stops at ${MAX_SEARCH_HASHES} hashes or ${MAX_SEARCH_BYTES} bytes hashed. Narrow words, minWords, maxWords, joiners, cases, algorithms or rounds, or run hashes search from the CLI, which takes --limit.`,
     );
   });
 

@@ -2121,12 +2121,26 @@ describe("searchDigest", () => {
     ).toBeUndefined();
   });
 
-  it("stops at the limit", () => {
+  it("stops at the limit, in hashes or in bytes hashed", () => {
     const found = searchDigest(Buffer.alloc(16), { words: ["a", "b"], limit: 3 });
+    const bytes = searchDigest(Buffer.alloc(32), {
+      words: ["abc", "de"],
+      byteLimit: 5,
+      algorithms: ["sha256"],
+    });
 
     expect(found).toMatchObject({ tried: 3, stopped: true });
     expect(found.recipe).toBeUndefined();
     expect(found.total).toBeGreaterThan(3);
+    expect(bytes).toMatchObject({ tried: 1, stopped: true });
+  });
+
+  it("refuses a scope too large to count exactly, and takes it with fewer words at once", () => {
+    const words = Array.from({ length: 18 }, (_, index) => String.fromCodePoint(97 + index));
+    const options = { words, algorithms: ["sha256"], cases: ["lower" as const], limit: 1 };
+
+    expect(() => searchDigest(Buffer.alloc(32), options)).toThrow("lower it to search the smaller");
+    expect(searchDigest(Buffer.alloc(32), { ...options, maxWords: 12 }).stopped).toBe(true);
   });
 
   it("refuses what it cannot search", () => {

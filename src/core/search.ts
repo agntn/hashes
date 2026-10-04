@@ -41,6 +41,8 @@ export interface SearchDigestOptions {
   readonly chains?: readonly SearchChain[];
   /** Most hashes to compute before giving up. Default: no limit. */
   readonly limit?: number;
+  /** Most bytes to hash, texts and chained digests alike, before giving up. Default: no limit. */
+  readonly byteLimit?: number;
   /** Hears the running count: once at 0 with the total, then every 100,000 hashes. */
   readonly onProgress?: (tried: number, total: number) => void;
 }
@@ -147,47 +149,58 @@ function meet(a: string, b: string): string {
  * @param words - The distinct words.
  * @param cases - The distinct cases.
  * @param maxWords - Largest combination.
- * @returns {number[]} At index k, the cased combinations of k words, before ordering and joining.
+ * @returns {bigint[]} At index k, the cased combinations of k words, before ordering and joining.
  */
 function casedCombinations(
   words: readonly string[],
   cases: readonly SearchCase[],
   maxWords: number,
-): number[] {
-  const bySize: Map<string, number>[] = [new Map([[partition(cases.map(() => "")), 1]])];
+): bigint[] {
+  const bySize: Map<string, bigint>[] = [new Map([[partition(cases.map(() => "")), 1n]])];
   for (const word of words) {
     const split = partition(cases.map((form) => caseWord(word, form)));
     for (let size = Math.min(bySize.length, maxWords) - 1; size >= 0; size--) {
       const next = (bySize[size + 1] ??= new Map());
       for (const [key, count] of bySize[size]!) {
         const joined = meet(key, split);
-        next.set(joined, (next.get(joined) ?? 0) + count);
+        next.set(joined, (next.get(joined) ?? 0n) + count);
       }
     }
   }
   return bySize.map((splits) =>
-    [...splits].reduce((sum, [key, count]) => sum + count * new Set(key.split(",")).size, 0),
+    [...splits].reduce(
+      (sum, [key, count]) => sum + count * BigInt(new Set(key.split(",")).size),
+      0n,
+    ),
   );
 }
 
 /**
- * Counts the hashes a scope holds.
+ * Counts the hashes a scope holds, refusing a scope too large to count exactly.
  *
  * @param scope - What the search covers.
  * @returns {number} Every hash it would compute without a match.
  */
 function scopeSize(scope: SearchScope): number {
   const combinations = casedCombinations(scope.words, scope.cases, scope.maxWords);
-  let texts = 0;
-  let orderings = 1;
+  let texts = 0n;
+  let orderings = 1n;
   for (let size = 1; size <= scope.maxWords; size++) {
-    orderings *= size;
+    orderings *= BigInt(size);
     if (size < scope.minWords) continue;
-    const joiners = size === 1 ? 1 : scope.joiners.length;
-    texts += (combinations[size] ?? 0) * orderings * joiners;
+    const joiners = BigInt(size === 1 ? 1 : scope.joiners.length);
+    texts += (combinations[size] ?? 0n) * orderings * joiners;
   }
   const chained = scope.rounds > 1 ? scope.chains.length * (scope.rounds - 1) : 0;
-  return texts * scope.algorithms.length * (1 + chained);
+  const total = texts * BigInt(scope.algorithms.length * (1 + chained));
+  if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new InvalidOptionError(
+      "maxWords",
+      scope.maxWords,
+      `makes more than ${Number.MAX_SAFE_INTEGER} hashes, lower it to search the smaller combinations`,
+    );
+  }
+  return Number(total);
 }
 
 /**
@@ -479,14 +492,17 @@ class Search {
   readonly #scope: SearchScope;
   readonly #total: number;
   readonly #limit: number;
+  readonly #byteLimit: number;
   readonly #onProgress: SearchDigestOptions["onProgress"];
   #tried = 0;
+  #bytes = 0;
 
   constructor(target: Uint8Array, scope: SearchScope, options: SearchDigestOptions) {
     this.#target = target;
     this.#scope = scope;
     this.#total = scopeSize(scope);
     this.#limit = options.limit ?? Infinity;
+    this.#byteLimit = options.byteLimit ?? Infinity;
     this.#onProgress = options.onProgress;
     this.#onProgress?.(0, this.#total);
   }
@@ -514,11 +530,13 @@ class Search {
   /**
    * Counts one hash about to be computed.
    *
-   * @returns {boolean} Whether the limit still allows it.
+   * @param bytes - How many bytes it hashes.
+   * @returns {boolean} Whether both limits still allow it.
    */
-  #next(): boolean {
-    if (this.#tried >= this.#limit) return false;
+  #next(bytes: number): boolean {
+    if (this.#tried >= this.#limit || this.#bytes + bytes > this.#byteLimit) return false;
     this.#tried++;
+    this.#bytes += bytes;
     if (this.#tried % PROGRESS_INTERVAL === 0) this.#onProgress?.(this.#tried, this.#total);
     return true;
   }
@@ -531,8 +549,9 @@ class Search {
    * @returns {Outcome} The recipe on a match, `limit` when the limit ended it.
    */
   #candidate(candidate: Candidate, hash: Hash): Outcome {
-    if (!this.#next()) return "limit";
-    const first = digestOf(hash, toBytes(candidate.input));
+    const input = toBytes(candidate.input);
+    if (!this.#next(input.length)) return "limit";
+    const first = digestOf(hash, input);
     const recipe = { ...candidate, algorithm: hash.name() };
     if (sameBytes(first, this.#target)) return { ...recipe, rounds: 1 };
     if (this.#scope.rounds === 1) return undefined;
@@ -559,7 +578,7 @@ class Search {
   ): { rounds: number; chain: SearchChain } | "limit" | undefined {
     let digest = first;
     for (let rounds = 2; rounds <= this.#scope.rounds; rounds++) {
-      if (!this.#next()) return "limit";
+      if (!this.#next(chain === "bytes" ? digest.length : digest.length * 2)) return "limit";
       try {
         digest = nextRound(hash, digest, chain);
       } catch (error) {
@@ -582,6 +601,9 @@ class Search {
  */
 export function searchDigest(target: Uint8Array, options: SearchDigestOptions): DigestSearch {
   if (options.limit !== undefined) wholeNumber("limit", options.limit, 1, Number.MAX_SAFE_INTEGER);
+  if (options.byteLimit !== undefined) {
+    wholeNumber("byteLimit", options.byteLimit, 1, Number.MAX_SAFE_INTEGER);
+  }
   const { scope, hashes } = searchScope(target, options);
   return new Search(target, scope, options).run(hashes);
 }

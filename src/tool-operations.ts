@@ -61,7 +61,6 @@ import {
   SALT_PATTERN,
   SEARCH_CASES,
   SEARCH_CHAINS,
-  SEARCH_JOINERS,
   TEXT_ENCODINGS,
   ZERO_PARAMETERS,
 } from "../packages/shared/tool-contract.ts";
@@ -692,35 +691,8 @@ function countArgument(name: string, value: unknown, maximum: number): number | 
 }
 
 /**
- * Lowers the hash limit for long texts, since a hash costs more the longer its input.
- *
- * @param words - The words.
- * @param joiners - The joiners, or nothing for the defaults.
- * @param maxWords - Most words in a combination, or nothing for all.
- * @returns {{ limit: number; longest: number }} The limit and the longest text in bytes.
- */
-function searchLimit(
-  words: readonly string[],
-  joiners: readonly string[] | undefined,
-  maxWords: number | undefined,
-): { limit: number; longest: number } {
-  const size = (text: string): number => toBytes(text).length;
-  const count = Math.min(maxWords ?? words.length, words.length);
-  const longestWords = words
-    .map(size)
-    .toSorted((a, b) => b - a)
-    .slice(0, count);
-  const joiner = Math.max(...(joiners ?? SEARCH_JOINERS).map(size));
-  const longest = longestWords.reduce((sum, length) => sum + length, 0) + (count - 1) * joiner;
-  return {
-    limit: Math.min(MAX_SEARCH_HASHES, Math.floor(MAX_SEARCH_BYTES / Math.max(longest, 64))),
-    longest,
-  };
-}
-
-/**
- * Searches for the transform of the words behind a digest, stopping at `MAX_SEARCH_HASHES`, or
- * fewer hashes when the texts run past 64 bytes.
+ * Searches for the transform of the words behind a digest, stopping at `MAX_SEARCH_HASHES` or
+ * `MAX_SEARCH_BYTES` hashed, whichever comes first, since a long text costs more to hash.
  *
  * @param params - The digest and its encoding, the words, and what to try with them.
  * @returns {ToolResult<DigestSearch>} The recipe on a match, or what the search covered.
@@ -731,14 +703,11 @@ export function hashDigestSearch(params: HashDigestSearchParams): ToolResult<Dig
   const target = assertExpected(digest, encodingArgument(params.encoding), "digest");
   const words = listArgument("words", params.words, MAX_SEARCH_WORDS, MAX_WORD_LENGTH);
   if (words === undefined) throw new MissingOptionError("words");
-  const maxWords = countArgument("maxWords", params.maxWords, MAX_SEARCH_WORDS);
-  const joiners = listArgument("joiners", params.joiners, MAX_SEARCH_JOINERS, MAX_JOINER_LENGTH);
-  const { limit, longest } = searchLimit(words, joiners, maxWords);
   const found = searchDigest(target, {
     words,
     minWords: countArgument("minWords", params.minWords, MAX_SEARCH_WORDS),
-    maxWords,
-    joiners,
+    maxWords: countArgument("maxWords", params.maxWords, MAX_SEARCH_WORDS),
+    joiners: listArgument("joiners", params.joiners, MAX_SEARCH_JOINERS, MAX_JOINER_LENGTH),
     cases: listArgument("cases", params.cases, SEARCH_CASES.length, MAX_ALGORITHM_LENGTH) as
       | SearchCase[]
       | undefined,
@@ -752,12 +721,13 @@ export function hashDigestSearch(params: HashDigestSearchParams): ToolResult<Dig
     chains: listArgument("chains", params.chains, SEARCH_CHAINS.length, MAX_ALGORITHM_LENGTH) as
       | SearchChain[]
       | undefined,
-    limit,
+    limit: MAX_SEARCH_HASHES,
+    byteLimit: MAX_SEARCH_BYTES,
   });
   const { heading, lines } = searchText(found);
   const next = found.stopped
     ? [
-        `The tool stops at ${limit} hashes${limit < MAX_SEARCH_HASHES ? ` for texts up to ${longest} bytes` : ""}. Narrow words, minWords, maxWords, joiners, cases, algorithms or rounds, or run hashes search from the CLI, which takes --limit.`,
+        `The tool stops at ${MAX_SEARCH_HASHES} hashes or ${MAX_SEARCH_BYTES} bytes hashed. Narrow words, minWords, maxWords, joiners, cases, algorithms or rounds, or run hashes search from the CLI, which takes --limit.`,
       ]
     : [];
   const text = [...heading, ...lines, ...next].join("\n");
