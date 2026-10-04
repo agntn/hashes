@@ -31,6 +31,7 @@ import {
   extendDigest,
   extendableAlgorithms,
   identifyDigest,
+  searchDigest,
   blake2b,
   builtinAlgorithms,
   adler32,
@@ -2035,6 +2036,224 @@ describe("identifyDigest", () => {
     expect(() => identifyDigest(new Uint8Array(16) as unknown as string)).toThrow(
       "Invalid option digest=object: must be a string",
     );
+  });
+});
+
+/* Every order of the given words. */
+function ordersOf(words: readonly string[]): string[][] {
+  if (words.length <= 1) return [[...words]];
+  return words.flatMap((word, index) =>
+    ordersOf(words.filter((_, other) => other !== index)).map((rest) => [word, ...rest]),
+  );
+}
+
+/* Every text a search of these words makes, built the long way. */
+function bruteTexts(words: readonly string[], joiners: readonly string[]): Set<string> {
+  const cases = [
+    (word: string) => word,
+    (word: string) => word.toLowerCase(),
+    (word: string) => word.toUpperCase(),
+    (word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+  ];
+  const texts = new Set<string>();
+  for (let mask = 1; mask < 2 ** words.length; mask++) {
+    const subset = words.filter((_, index) => (mask >> index) & 1);
+    for (const form of cases) {
+      for (const order of ordersOf(subset.map(form))) {
+        for (const joiner of order.length === 1 ? [""] : joiners) texts.add(order.join(joiner));
+      }
+    }
+  }
+  return texts;
+}
+
+describe("searchDigest", () => {
+  const md5Hex = (text: string): string => createHash("md5").update(text).digest("hex");
+
+  it("finds the GSMG phase 3.2 password from its three words in any order", () => {
+    const input = "jacquefrescogiveitjustonesecondheisenbergsuncertaintyprinciple";
+    const target = createHash("sha256").update(input).digest();
+
+    expect(target.toString("hex")).toBe(
+      "250f37726d6862939f723edc4f993fde9d33c6004aab4f2203d9ee489d61ce4c",
+    );
+    const found = searchDigest(target, {
+      words: ["heisenbergsuncertaintyprinciple", "giveitjustonesecond", "jacquefresco"],
+    });
+    expect(found.recipe).toEqual({
+      words: ["jacquefresco", "giveitjustonesecond", "heisenbergsuncertaintyprinciple"],
+      joiner: "",
+      case: "as-is",
+      input,
+      algorithm: "sha256",
+      rounds: 1,
+    });
+    expect(found.stopped).toBe(false);
+    expect(found.tried).toBeLessThanOrEqual(found.total);
+  });
+
+  it("counts exactly the distinct texts it hashes, before it starts", () => {
+    const words = ["Moon", "SUN", "star", "ß"];
+    const joiners = ["", "-"];
+    const progress: number[][] = [];
+    const found = searchDigest(Buffer.alloc(32), {
+      words,
+      joiners,
+      algorithms: ["sha256"],
+      onProgress: (tried, total) => progress.push([tried, total]),
+    });
+
+    expect(found.recipe).toBeUndefined();
+    expect(found.stopped).toBe(false);
+    expect(found.total).toBe(bruteTexts(words, joiners).size);
+    expect(found.tried).toBe(found.total);
+    expect(progress).toEqual([[0, found.total]]);
+  });
+
+  it("counts every algorithm, round and chain in the total", () => {
+    const found = searchDigest(Buffer.alloc(32), { words: ["a", "b", "c"], rounds: 3 });
+
+    expect(found.scope.algorithms).toHaveLength(11);
+    expect(found.total).toBe(102 * 11 * (1 + 3 * 2));
+    expect(found.tried).toBe(found.total);
+  });
+
+  it("hashes each digest again, as bytes or as hex in either case", () => {
+    const abc = createHash("sha256").update("abc").digest();
+    const twice = createHash("sha256").update(abc).digest();
+    const upper = createHash("sha1")
+      .update(createHash("sha1").update("abc").digest("hex").toUpperCase())
+      .digest();
+    const thrice = createHash("md5")
+      .update(md5Hex(md5Hex("abc")))
+      .digest();
+
+    expect(
+      searchDigest(twice, { words: ["abc"], rounds: 2, algorithms: ["sha256"] }).recipe,
+    ).toMatchObject({ algorithm: "sha256", rounds: 2, chain: "bytes" });
+    expect(searchDigest(upper, { words: ["abc"], rounds: 2 }).recipe).toMatchObject({
+      algorithm: "sha1",
+      rounds: 2,
+      chain: "hex-upper",
+    });
+    expect(
+      searchDigest(thrice, { words: ["abc"], rounds: 3, chains: ["hex"] }).recipe,
+    ).toMatchObject({ algorithm: "md5", rounds: 3, chain: "hex" });
+    expect(searchDigest(thrice, { words: ["abc"], rounds: 2 }).recipe).toBeUndefined();
+  });
+
+  it("leaves the bytes chain out for NTLM, which hashes UTF-8 text only, and counts it so", () => {
+    const found = searchDigest(Buffer.alloc(16), {
+      words: ["abc"],
+      rounds: 3,
+      algorithms: ["ntlm"],
+    });
+
+    expect(found.recipe).toBeUndefined();
+    expect(found.scope.textOnly).toEqual(["ntlm"]);
+    expect(found).toMatchObject({ stopped: false, tried: found.total });
+    expect(found.total).toBe(3 * (1 + 2 * 2));
+  });
+
+  it("joins with a line feed and capitalizes each word in title case", () => {
+    const target = createHash("sha256").update("Alpha\nBeta").digest();
+
+    expect(searchDigest(target, { words: ["beta", "alpha"] }).recipe).toMatchObject({
+      words: ["alpha", "beta"],
+      joiner: "\n",
+      case: "title",
+      input: "Alpha\nBeta",
+    });
+    expect(
+      searchDigest(target, { words: ["beta", "alpha"], cases: ["as-is", "upper"] }).recipe,
+    ).toBeUndefined();
+  });
+
+  it("tries the option values that change a digest's length, as identify reads them", () => {
+    const xxh32 = create("xxhash").hash("abc", { encoding: "binary", bits: 32 } as HashOptions);
+    const bzip2 = create("crc32").hash("abc", {
+      encoding: "binary",
+      variant: "bzip2",
+    } as HashOptions);
+    const found = searchDigest(xxh32.digest as Uint8Array, { words: ["abc"] });
+
+    expect(found.recipe).toMatchObject({ algorithm: "xxhash", parameters: { bits: 32 } });
+    expect(found.scope.algorithms).toEqual([
+      "crc32",
+      "crc32 variant bzip2",
+      "adler32",
+      "xxhash bits 32",
+    ]);
+    expect(
+      searchDigest(bzip2.digest as Uint8Array, { words: ["abc"], algorithms: ["crc32"] }).recipe,
+    ).toMatchObject({ algorithm: "crc32", parameters: { variant: "bzip2" } });
+  });
+
+  it("refuses two words one of the cases turns into the same text", () => {
+    const digest = Buffer.alloc(32);
+
+    expect(() => searchDigest(digest, { words: ["a", "A"], cases: ["lower"] })).toThrow(
+      'gives the same text as "a" in case lower',
+    );
+    expect(() => searchDigest(digest, { words: ["Moon", "moon"] })).toThrow(InvalidOptionError);
+    expect(
+      searchDigest(digest, {
+        words: ["a", "A"],
+        cases: ["as-is"],
+        joiners: [""],
+        algorithms: ["sha256"],
+      }).total,
+    ).toBe(4);
+  });
+
+  it("stops at the limit, in hashes or in bytes hashed", () => {
+    const found = searchDigest(Buffer.alloc(16), { words: ["a", "b"], limit: 3 });
+    const bytes = searchDigest(Buffer.alloc(32), {
+      words: ["abc", "de"],
+      byteLimit: 5,
+      algorithms: ["sha256"],
+    });
+
+    expect(found).toMatchObject({ tried: 3, stopped: true });
+    expect(found.recipe).toBeUndefined();
+    expect(found.total).toBeGreaterThan(3);
+    expect(bytes).toMatchObject({ tried: 1, stopped: true });
+  });
+
+  it("refuses a scope too large to count exactly, and takes it with fewer words at once", () => {
+    const words = Array.from({ length: 18 }, (_, index) => String.fromCodePoint(97 + index));
+    const options = { words, algorithms: ["sha256"], cases: ["lower" as const], limit: 1 };
+
+    expect(() => searchDigest(Buffer.alloc(32), options)).toThrow("lower it to search the smaller");
+    expect(searchDigest(Buffer.alloc(32), { ...options, maxWords: 12 }).stopped).toBe(true);
+  });
+
+  it("refuses what it cannot search", () => {
+    const digest = Buffer.alloc(32);
+    const refused =
+      (options: Parameters<typeof searchDigest>[1], target = digest) =>
+      () =>
+        searchDigest(target, options);
+
+    expect(refused({ words: [] })).toThrow(InvalidOptionError);
+    expect(refused({ words: ["a", "a"] })).toThrow("is listed twice");
+    expect(refused({ words: [""] })).toThrow("must not be empty");
+    expect(refused({ words: ["a", "b"], maxWords: 3 })).toThrow(InvalidOptionError);
+    expect(refused({ words: ["a", "b"], minWords: 2, maxWords: 1 })).toThrow(InvalidOptionError);
+    expect(refused({ words: ["a"], algorithms: ["md5"] })).toThrow(
+      "makes 16 bytes and the digest is 32",
+    );
+    expect(refused({ words: ["a"], algorithms: ["scrypt"] })).toThrow("is no fixed-length digest");
+    expect(refused({ words: ["a"], algorithms: ["nope"] })).toThrow(UnknownAlgorithmError);
+    expect(refused({ words: ["a"], joiners: [] })).toThrow(InvalidOptionError);
+    expect(refused({ words: ["a"], rounds: 0 })).toThrow(InvalidOptionError);
+    expect(refused({ words: ["a"], limit: 0 })).toThrow(InvalidOptionError);
+    expect(refused({ words: ["a"] }, Buffer.alloc(0))).toThrow("needs at least one byte");
+    expect(refused({ words: ["a"] }, Buffer.alloc(7))).toThrow("no registered digest is that long");
+    const options = JSON.parse('{"words":["a"],"cases":["Lower"]}') as Parameters<
+      typeof searchDigest
+    >[1];
+    expect(refused(options)).toThrow("use any of as-is, lower, upper, title");
   });
 });
 

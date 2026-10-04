@@ -35,11 +35,18 @@ function decodeExpected(
  *
  * @param expected - The digest to compare against, as text.
  * @param encoding - Its encoding.
+ * @param name - The argument that carried it, for the error.
+ * @returns {Uint8Array} Its bytes.
  */
-export function assertExpected(expected: string, encoding: HashResult["encoding"]): void {
-  if (decodeExpected(expected, encoding) !== undefined) return;
+export function assertExpected(
+  expected: string,
+  encoding: HashResult["encoding"],
+  name = "expected",
+): Uint8Array {
+  const bytes = decodeExpected(expected, encoding);
+  if (bytes !== undefined) return bytes;
   const form = encoding === "hex" ? "hex digit pairs, without a 0x prefix" : encoding;
-  throw new InvalidOptionError("expected", `${expected.length} characters`, `must be ${form}`);
+  throw new InvalidOptionError(name, `${expected.length} characters`, `must be ${form}`);
 }
 
 /**

@@ -5,6 +5,7 @@ export const SUBCOMMANDS = [
   "verify",
   "extend",
   "identify",
+  "search",
   "algorithms",
   "info",
   "mcp",

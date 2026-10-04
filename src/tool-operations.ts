@@ -14,6 +14,13 @@ import { checkedParameters, parameterOptions, type ParameterValue } from "./core
 import { algorithmInfos } from "./core/resolve.ts";
 import { extendDigest, secretLengths } from "./core/extend.ts";
 import { identifyDigest, identityText, type DigestIdentity } from "./core/identify.ts";
+import {
+  searchDigest,
+  searchText,
+  type DigestSearch,
+  type SearchCase,
+  type SearchChain,
+} from "./core/search.ts";
 import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
 import {
   InvalidOptionError,
@@ -38,12 +45,22 @@ import {
   MAX_PARAMETERS,
   MAX_ARGON2_WORK,
   MAX_FORGED_LENGTH,
+  MAX_JOINER_LENGTH,
+  MAX_SEARCH_ALGORITHMS,
+  MAX_SEARCH_BYTES,
+  MAX_SEARCH_HASHES,
+  MAX_SEARCH_JOINERS,
+  MAX_SEARCH_ROUNDS,
+  MAX_SEARCH_WORDS,
   MAX_SECRET_LENGTH,
   MAX_SECRET_LENGTHS,
   MAX_SCRYPT_MEMORY,
+  MAX_WORD_LENGTH,
   PARAMETER_LIMITS,
   PARAMETER_NAME_PATTERN,
   SALT_PATTERN,
+  SEARCH_CASES,
+  SEARCH_CHAINS,
   TEXT_ENCODINGS,
   ZERO_PARAMETERS,
 } from "../packages/shared/tool-contract.ts";
@@ -51,6 +68,7 @@ import type { toolSchemas } from "../packages/shared/tool-schemas.ts";
 
 export * from "../packages/shared/tool-contract.ts";
 export type { DigestCandidate, DigestIdentity } from "./core/identify.ts";
+export type { DigestRecipe, DigestSearch, SearchScope } from "./core/search.ts";
 
 /** Text for the model plus details for the harness, shared by every tool surface. */
 export interface ToolResult<Details> {
@@ -90,6 +108,18 @@ export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
     "secretLengthMax",
   ],
   hashes_digest_identify: ["digest"],
+  hashes_digest_search: [
+    "digest",
+    "encoding",
+    "words",
+    "minWords",
+    "maxWords",
+    "joiners",
+    "cases",
+    "algorithms",
+    "rounds",
+    "chains",
+  ],
   hashes_algorithms: ["category", "family", "algorithm"],
 };
 
@@ -102,6 +132,7 @@ export type HashHmacParams = Arguments<Static<typeof toolSchemas.hashes_hmac_com
 export type HashVerifyParams = Arguments<Static<typeof toolSchemas.hashes_verify>>;
 export type HashDigestExtendParams = Arguments<Static<typeof toolSchemas.hashes_digest_extend>>;
 export type HashDigestIdentifyParams = Arguments<Static<typeof toolSchemas.hashes_digest_identify>>;
+export type HashDigestSearchParams = Arguments<Static<typeof toolSchemas.hashes_digest_search>>;
 export type HashAlgorithmsParams = Arguments<Static<typeof toolSchemas.hashes_algorithms>>;
 
 export interface DigestDetails {
@@ -617,6 +648,89 @@ export function hashDigestIdentify(params: HashDigestIdentifyParams): ToolResult
       ]
     : [];
   const text = [heading, ...lines, ...over, ...next].join("\n");
+  return { content: [{ type: "text", text }], details: found };
+}
+
+/**
+ * Checks a list argument: an array of at most `maxItems` strings, each within its length.
+ *
+ * @param name - The argument, for the error.
+ * @param value - The value as passed.
+ * @param maxItems - Most entries.
+ * @param maxLength - Longest entry.
+ * @returns {string[] | undefined} The entries, or nothing when the argument was left out.
+ */
+function listArgument(
+  name: string,
+  value: unknown,
+  maxItems: number,
+  maxLength: number,
+): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new InvalidOptionError(name, value, "must be a list of strings");
+  if (value.length === 0 || value.length > maxItems) {
+    throw new InvalidOptionError(name, `${value.length} entries`, `takes 1 to ${maxItems}`);
+  }
+  return value.map((entry: unknown) => textArgument(name, entry, maxLength));
+}
+
+/**
+ * Checks an optional whole number argument against its tool bounds.
+ *
+ * @param name - The argument, for the error.
+ * @param value - The value as passed.
+ * @param maximum - Largest value.
+ * @returns {number | undefined} The value, or nothing when it was left out.
+ */
+function countArgument(name: string, value: unknown, maximum: number): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > maximum) {
+    throw new InvalidOptionError(name, value, `must be a whole number from 1 to ${maximum}`);
+  }
+  return value;
+}
+
+/**
+ * Searches for the transform of the words behind a digest, stopping at `MAX_SEARCH_HASHES` or
+ * `MAX_SEARCH_BYTES` hashed, whichever comes first, since a long text costs more to hash.
+ *
+ * @param params - The digest and its encoding, the words, and what to try with them.
+ * @returns {ToolResult<DigestSearch>} The recipe on a match, or what the search covered.
+ */
+export function hashDigestSearch(params: HashDigestSearchParams): ToolResult<DigestSearch> {
+  assertArguments("hashes_digest_search", params);
+  const digest = textArgument("digest", params.digest, MAX_EXPECTED_LENGTH).trim();
+  const target = assertExpected(digest, encodingArgument(params.encoding), "digest");
+  const words = listArgument("words", params.words, MAX_SEARCH_WORDS, MAX_WORD_LENGTH);
+  if (words === undefined) throw new MissingOptionError("words");
+  const found = searchDigest(target, {
+    words,
+    minWords: countArgument("minWords", params.minWords, MAX_SEARCH_WORDS),
+    maxWords: countArgument("maxWords", params.maxWords, MAX_SEARCH_WORDS),
+    joiners: listArgument("joiners", params.joiners, MAX_SEARCH_JOINERS, MAX_JOINER_LENGTH),
+    cases: listArgument("cases", params.cases, SEARCH_CASES.length, MAX_ALGORITHM_LENGTH) as
+      | SearchCase[]
+      | undefined,
+    algorithms: listArgument(
+      "algorithms",
+      params.algorithms,
+      MAX_SEARCH_ALGORITHMS,
+      MAX_ALGORITHM_LENGTH,
+    ),
+    rounds: countArgument("rounds", params.rounds, MAX_SEARCH_ROUNDS),
+    chains: listArgument("chains", params.chains, SEARCH_CHAINS.length, MAX_ALGORITHM_LENGTH) as
+      | SearchChain[]
+      | undefined,
+    limit: MAX_SEARCH_HASHES,
+    byteLimit: MAX_SEARCH_BYTES,
+  });
+  const { heading, lines } = searchText(found);
+  const next = found.stopped
+    ? [
+        `The tool stops at ${MAX_SEARCH_HASHES} hashes or ${MAX_SEARCH_BYTES} bytes hashed. Narrow words, minWords, maxWords, joiners, cases, algorithms or rounds, or run hashes search from the CLI, which takes --limit.`,
+      ]
+    : [];
+  const text = [...heading, ...lines, ...next].join("\n");
   return { content: [{ type: "text", text }], details: found };
 }
 

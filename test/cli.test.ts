@@ -49,7 +49,7 @@ describe("hashes CLI", () => {
     const usage = run(["hash", "--help"]);
 
     expect(help.stdout).toContain(
-      "USAGE hashes hash|hmac|verify|extend|identify|algorithms|info|mcp",
+      "USAGE hashes hash|hmac|verify|extend|identify|search|algorithms|info|mcp",
     );
     expect(usage.stdout).toContain("ALGORITHM");
     expect(usage.stdout).toContain(
@@ -130,6 +130,46 @@ describe("hashes CLI", () => {
     const lowered = run(["verify", "sha256", "abc", base64.toLowerCase(), "-e", "base64"]);
     expect(lowered.code).toBe(1);
     expect(lowered.stdout).toMatch(/^MISMATCH/);
+  });
+
+  it("searches for the words behind a digest, the recipe on stdout and the count on stderr", () => {
+    const found = run([
+      "search",
+      sha256("beta-alpha"),
+      "alpha",
+      "beta",
+      "--joiners",
+      '["-"]',
+      "--cases",
+      "as-is",
+      "--algorithms",
+      "sha256",
+    ]);
+    const none = run([
+      "search",
+      sha256("x"),
+      "alpha",
+      "--algorithms",
+      "sha256",
+      "--cases",
+      "lower",
+    ]);
+    const wrong = run(["search", sha256("x"), "alpha", "--algorithms", "sha256,md5"]);
+    const missing = run(["search", sha256("x")]);
+
+    expect(found).toEqual({
+      code: 0,
+      stderr: "Searching 4 hashes\nMATCH after 4 of 4 hashes\n",
+      stdout: 'sha256 of the words "beta", "alpha" joined by "-", case as-is\ninput "beta-alpha"\n',
+    });
+    expect(none).toMatchObject({ code: 1, stdout: "" });
+    expect(none.stderr).toMatch(
+      /^Searching 1 hash\nNO MATCH in 1 hash\nCovered 1 of the words "alpha"/,
+    );
+    expect(wrong).toMatchObject({ code: 1, stdout: "" });
+    expect(wrong.stderr).toContain("makes 16 bytes and the digest is 32");
+    expect(missing).toMatchObject({ code: 1, stdout: "" });
+    expect(missing.stderr).toContain("words (after the digest)");
   });
 
   it("identifies a hash with the candidates on stdout and exits 1 when none fits", () => {

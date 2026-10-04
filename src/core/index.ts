@@ -68,3 +68,15 @@ export {
   type DigestFit,
   type DigestIdentity,
 } from "./identify.ts";
+export {
+  SEARCH_CASES,
+  SEARCH_CHAINS,
+  SEARCH_JOINERS,
+  searchDigest,
+  type DigestRecipe,
+  type DigestSearch,
+  type SearchCase,
+  type SearchChain,
+  type SearchDigestOptions,
+  type SearchScope,
+} from "./search.ts";

@@ -12,6 +12,7 @@ import {
   hashComputeSchema,
   hashDigestExtendSchema,
   hashDigestIdentifySchema,
+  hashDigestSearchSchema,
   hashHmacSchema,
   hashVerifySchema,
 } from "../packages/shared/tool-schemas.ts";
@@ -93,6 +94,21 @@ export const digestIdentifyTool = defineTool({
   execute: async (params) => (await loadOperations()).hashDigestIdentify(params),
 });
 
+export const digestSearchTool = defineTool({
+  name: "hashes_digest_search",
+  title: TOOL_TITLES.hashes_digest_search,
+  description: TOOL_DESCRIPTIONS.hashes_digest_search,
+  snippet:
+    "Use hashes_digest_search when a puzzle's password or key may be a hash of some words you have.",
+  guidelines: [
+    "Each word is used at most once per combination; leave out the lists you are unsure of to try every value.",
+    "NO MATCH covers only the scope it names. Add words, joiners or rounds before calling the idea wrong.",
+  ],
+  effect: "read",
+  input: hashDigestSearchSchema,
+  execute: async (params) => (await loadOperations()).hashDigestSearch(params),
+});
+
 export const algorithmsTool = defineTool({
   name: "hashes_algorithms",
   title: TOOL_TITLES.hashes_algorithms,
@@ -114,5 +130,6 @@ export const hashesTools: readonly ToolDefinition[] = [
   verifyTool,
   digestExtendTool,
   digestIdentifyTool,
+  digestSearchTool,
   algorithmsTool,
 ];
