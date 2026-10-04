@@ -1,8 +1,25 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import oxfmt from "@agntn/ox/oxfmt";
 import oxlint from "@agntn/ox/oxlint";
 import { defineConfig } from "vite-plus";
 
+const { compilerOptions } = JSON.parse(
+  readFileSync(new URL("tsconfig.json", import.meta.url), "utf8"),
+) as { compilerOptions: { target?: string; verbatimModuleSyntax?: boolean } };
+
+/** Root tsconfig for every transform: docs/tsconfig.json only points at a `.nuxt/` CI never has. */
+const transformOverride: object = {
+  tsconfig: {
+    compilerOptions: {
+      target: compilerOptions.target,
+      verbatimModuleSyntax: compilerOptions.verbatimModuleSyntax,
+    },
+  },
+};
+
 export default defineConfig({
+  oxc: { ...transformOverride },
   fmt: {
     ...oxfmt,
     ignorePatterns: ["dist", "coverage", "docs", "CHANGELOG.md"],
@@ -50,5 +67,6 @@ export default defineConfig({
   },
   test: {
     include: ["test/**/*.test.ts"],
+    alias: { "@agntn/hashes/mcp": fileURLToPath(new URL("src/mcp.ts", import.meta.url)) },
   },
 });

@@ -193,6 +193,7 @@ Want HMAC as well? Extend `BlockHash` and hand it a `Hasher`. Anything else exte
 
 ```bash
 pnpm install
+pnpm --dir docs install   # the /mcp test borrows Zod and the toolkit from here
 pnpm dev          # obuild --stub, dist runs straight from src
 pnpm lint         # build, then vp lint and vp fmt --check
 pnpm typecheck    # tsc over the library, the extensions and the tests
