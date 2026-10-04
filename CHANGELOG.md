@@ -1,6 +1,35 @@
 # Changelog
 
 
+## v0.6.5
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.6.4...v0.6.5)
+
+### 🚀 Enhancements
+
+- Resolve an algorithm by its label ([#131](https://github.com/agntn/hashes/pull/131))
+- Search for the words behind a digest ([#128](https://github.com/agntn/hashes/pull/128))
+- **docs:** Hash from any MCP client, no install ([#139](https://github.com/agntn/hashes/pull/139))
+
+### 🔥 Performance
+
+- Slice the CRCs and keep Adler-32 in int32 ([#130](https://github.com/agntn/hashes/pull/130))
+- Skip the DataView on short input ([#132](https://github.com/agntn/hashes/pull/132))
+
+### 🩹 Fixes
+
+- Refuse a KDF factory that returns no hasher ([#127](https://github.com/agntn/hashes/pull/127))
+- **cli:** Refuse options a command doesn't take ([#137](https://github.com/agntn/hashes/pull/137))
+
+### ✅ Tests
+
+- Stop two tests failing at random ([#138](https://github.com/agntn/hashes/pull/138))
+
+### ❤️ Contributors
+
+- Ori ([@oritwoen](https://github.com/oritwoen))
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+
 ## v0.6.4
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.6.3...v0.6.4)
