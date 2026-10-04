@@ -5,7 +5,7 @@ import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
 import { Md4, Md5, Sha1, builtins } from "../src/algorithms/index.ts";
 import { algorithmInfos } from "../src/core/resolve.ts";
-import { Sha224Hasher, Sha512tHasher } from "../src/core/sha2.ts";
+import { Sha512tHasher } from "../src/core/sha2.ts";
 import {
   type AlgorithmInfo,
   DependencyError,
@@ -20,6 +20,7 @@ import {
   Md5Hasher,
   Ripemd160Hasher,
   Sha1Hasher,
+  Sha224Hasher,
   Sha256Hasher,
   Sha3_256Hasher,
   Sha3_512Hasher,
@@ -762,6 +763,7 @@ describe("byte functions", () => {
       [() => new Sha256Hasher(), "sha256", () => new Sha512Hasher(), "sha512"],
       [() => new Md5Hasher(), "md5", () => new Ripemd160Hasher(), "ripemd160"],
       [() => new Sha1Hasher(), "sha1", () => new Sha256Hasher(), "sha256"],
+      [() => new Sha224Hasher(), "sha224", () => new Sha256Hasher(), "sha256"],
       [() => new Sha3_256Hasher(), "sha3-256", () => new Sha3_512Hasher(), "sha3-512"],
     ] as const;
     for (const [left, leftName, right, rightName] of pairs) {
@@ -791,12 +793,13 @@ describe("byte functions", () => {
     expect(hasher.digest()).toEqual(keccak256(message));
   });
 
-  it("run HMAC and PBKDF2 over the SHA-3 hashers as Node does", () => {
+  it("run HMAC and PBKDF2 over the SHA-224 and SHA-3 hashers as Node does", () => {
     const key = new TextEncoder().encode(
       "a key longer than one SHA3-512 block of 72 bytes".repeat(2),
     );
     const salt = new TextEncoder().encode("salt");
     for (const [create, name] of [
+      [() => new Sha224Hasher(), "sha224"],
       [() => new Sha3_256Hasher(), "sha3-256"],
       [() => new Sha3_512Hasher(), "sha3-512"],
     ] as const) {
@@ -1368,7 +1371,7 @@ describe("byte function subpaths", () => {
   const SUBPATHS = {
     sha1: ["Sha1Hasher", "sha1"],
     md5: ["Md5Hasher", "md5"],
-    sha2: ["Sha256Hasher", "Sha512Hasher", "hash256", "sha256", "sha512"],
+    sha2: ["Sha224Hasher", "Sha256Hasher", "Sha512Hasher", "hash256", "sha256", "sha512"],
     ripemd160: ["Ripemd160Hasher", "hash160", "ripemd160"],
     keccak: [
       "Keccak256Hasher",
