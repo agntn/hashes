@@ -2121,6 +2121,43 @@ describe("searchDigest", () => {
     ).toBeUndefined();
   });
 
+  it("tries the option values that change a digest's length, as identify reads them", () => {
+    const xxh32 = create("xxhash").hash("abc", { encoding: "binary", bits: 32 } as HashOptions);
+    const bzip2 = create("crc32").hash("abc", {
+      encoding: "binary",
+      variant: "bzip2",
+    } as HashOptions);
+    const found = searchDigest(xxh32.digest as Uint8Array, { words: ["abc"] });
+
+    expect(found.recipe).toMatchObject({ algorithm: "xxhash", parameters: { bits: 32 } });
+    expect(found.scope.algorithms).toEqual([
+      "crc32",
+      "crc32 variant bzip2",
+      "adler32",
+      "xxhash bits 32",
+    ]);
+    expect(
+      searchDigest(bzip2.digest as Uint8Array, { words: ["abc"], algorithms: ["crc32"] }).recipe,
+    ).toMatchObject({ algorithm: "crc32", parameters: { variant: "bzip2" } });
+  });
+
+  it("refuses two words one of the cases turns into the same text", () => {
+    const digest = Buffer.alloc(32);
+
+    expect(() => searchDigest(digest, { words: ["a", "A"], cases: ["lower"] })).toThrow(
+      'gives the same text as "a" in case lower',
+    );
+    expect(() => searchDigest(digest, { words: ["Moon", "moon"] })).toThrow(InvalidOptionError);
+    expect(
+      searchDigest(digest, {
+        words: ["a", "A"],
+        cases: ["as-is"],
+        joiners: [""],
+        algorithms: ["sha256"],
+      }).total,
+    ).toBe(4);
+  });
+
   it("stops at the limit, in hashes or in bytes hashed", () => {
     const found = searchDigest(Buffer.alloc(16), { words: ["a", "b"], limit: 3 });
     const bytes = searchDigest(Buffer.alloc(32), {

@@ -12,7 +12,9 @@ import { toBytes } from "./digest.ts";
 import { HashError, InvalidOptionError, quoted } from "./errors.ts";
 import { algorithms, create } from "./registry.ts";
 import { resolveAlgorithm } from "./resolve.ts";
+import { lengthChoices } from "./identify.ts";
 import type { Hash } from "./hash.ts";
+import type { HashOptions } from "./types.ts";
 
 export { SEARCH_CASES, SEARCH_CHAINS, SEARCH_JOINERS };
 export type SearchCase = (typeof SEARCH_CASES)[number];
@@ -68,6 +70,8 @@ export interface DigestRecipe {
   /** The text that was hashed, after joining and casing. */
   readonly input: string;
   readonly algorithm: string;
+  /** The option value that set the digest's length, such as `variant: bzip2`; absent by default. */
+  readonly parameters?: Readonly<Record<string, number | string>>;
   readonly rounds: number;
   /** What each round after the first hashed; absent at one round. */
   readonly chain?: SearchChain;
@@ -380,19 +384,45 @@ function wordList(words: readonly string[]): string[] {
   return [...words];
 }
 
+/** One algorithm as the search runs it: a registered digest, or one of its option values. */
+interface Reading {
+  readonly hash: Hash;
+  readonly parameters?: Readonly<Record<string, number | string>>;
+  readonly label: string;
+}
+
+/**
+ * Lists the readings of one digest that make `length` bytes: its default, and each option value
+ * that changes its length, the way `identifyDigest` reads CRC-32/BZIP2 and XXH32.
+ *
+ * @param hash - The algorithm.
+ * @param length - The target's length in bytes.
+ * @returns {Reading[]} The readings that fit.
+ */
+function readingsOf(hash: Hash, length: number): Reading[] {
+  const info = hash.info();
+  const name = hash.name();
+  const found: Reading[] = info.digestLength === length ? [{ hash, label: name }] : [];
+  for (const { option, choice } of lengthChoices(name, info, length)) {
+    found.push({ hash, parameters: { [option]: choice }, label: `${name} ${option} ${choice}` });
+  }
+  return found;
+}
+
 /**
  * Resolves the algorithms to try: the ones named, or every fixed-length digest of the target's
  * length. A KDF draws or takes a salt and is no transform of the words alone, so it is refused.
  *
  * @param named - The algorithms as given, if any.
  * @param length - The target's length in bytes.
- * @returns {Hash[]} The algorithms.
+ * @returns {Reading[]} The algorithms, each option value that fits as one more.
  */
-function searchAlgorithms(named: readonly string[] | undefined, length: number): Hash[] {
+function searchAlgorithms(named: readonly string[] | undefined, length: number): Reading[] {
   if (named === undefined) {
     const fitting = algorithms()
       .map((name) => create(name))
-      .filter((hash) => isFixed(hash) && hash.info().digestLength === length);
+      .filter((hash) => isFixed(hash))
+      .flatMap((hash) => readingsOf(hash, length));
     if (fitting.length === 0) {
       const size = length === 1 ? "1 byte" : `${length} bytes`;
       throw new InvalidOptionError("digest", size, "no registered digest is that long");
@@ -400,20 +430,46 @@ function searchAlgorithms(named: readonly string[] | undefined, length: number):
     return fitting;
   }
   const resolved = distinct("algorithms", named).map((name) => resolveAlgorithm(name));
-  for (const hash of resolved) {
-    const size = hash.info().digestLength;
+  const unique = [...new Map(resolved.map((hash) => [hash.name(), hash])).values()];
+  return unique.flatMap((hash) => {
     if (!isFixed(hash)) {
       throw new InvalidOptionError("algorithms", hash.name(), "is no fixed-length digest");
     }
-    if (size !== length) {
+    const fitting = readingsOf(hash, length);
+    if (fitting.length === 0) {
       throw new InvalidOptionError(
         "algorithms",
         hash.name(),
-        `makes ${size} bytes and the digest is ${length}`,
+        `makes ${hash.info().digestLength} bytes and the digest is ${length}`,
       );
     }
+    return fitting;
+  });
+}
+
+/**
+ * Refuses two words that one of the cases turns into the same text: each would make the other's
+ * texts again, which the exact total cannot see.
+ *
+ * @param words - The distinct words.
+ * @param cases - The cases to try.
+ */
+function assertDistinctCased(words: readonly string[], cases: readonly SearchCase[]): void {
+  for (const form of cases) {
+    const seen = new Map<string, string>();
+    for (const word of words) {
+      const cased = caseWord(word, form);
+      const earlier = seen.get(cased);
+      if (earlier !== undefined) {
+        throw new InvalidOptionError(
+          "words",
+          word,
+          `gives the same text as ${quoted(earlier)} in case ${form}; drop one, or leave ${form} out of cases`,
+        );
+      }
+      seen.set(cased, word);
+    }
   }
-  return [...new Map(resolved.map((hash) => [hash.name(), hash])).values()];
 }
 
 /**
@@ -431,55 +487,58 @@ function isFixed(hash: Hash): boolean {
  *
  * @param target - The digest.
  * @param options - The caller's options.
- * @returns {{ scope: SearchScope; hashes: Hash[] }} The scope and the algorithms in it.
+ * @returns {{ scope: SearchScope; readings: Reading[] }} The scope and the algorithms in it.
  */
 function searchScope(
   target: Uint8Array,
   options: SearchDigestOptions,
-): { scope: SearchScope; hashes: Hash[] } {
+): { scope: SearchScope; readings: Reading[] } {
   if (target.length === 0)
     throw new InvalidOptionError("digest", "(empty)", "needs at least one byte");
   const words = wordList(options.words);
   const maxWords = wholeNumber("maxWords", options.maxWords ?? words.length, 1, words.length);
   const minWords = wholeNumber("minWords", options.minWords ?? 1, 1, maxWords);
-  const hashes = searchAlgorithms(options.algorithms, target.length);
+  const readings = searchAlgorithms(options.algorithms, target.length);
+  const cases = distinct("cases", options.cases ?? SEARCH_CASES, SEARCH_CASES);
+  assertDistinctCased(words, cases);
   const scope: SearchScope = {
     words,
     minWords,
     maxWords,
     joiners: distinct("joiners", options.joiners ?? SEARCH_JOINERS),
-    cases: distinct("cases", options.cases ?? SEARCH_CASES, SEARCH_CASES),
-    algorithms: hashes.map((hash) => hash.name()),
+    cases,
+    algorithms: readings.map((reading) => reading.label),
     rounds: wholeNumber("rounds", options.rounds ?? 1, 1, Number.MAX_SAFE_INTEGER),
     chains: distinct("chains", options.chains ?? SEARCH_CHAINS, SEARCH_CHAINS),
   };
-  return { scope, hashes };
+  return { scope, readings };
 }
 
 /**
  * Hashes a digest again as a chain says.
  *
- * @param hash - The algorithm.
+ * @param reading - The algorithm.
  * @param digest - The previous round's digest.
  * @param chain - What to hash of it.
  * @returns {Uint8Array} The next round's digest.
  */
-function nextRound(hash: Hash, digest: Uint8Array, chain: SearchChain): Uint8Array {
-  if (chain === "bytes") return digestOf(hash, digest);
+function nextRound(reading: Reading, digest: Uint8Array, chain: SearchChain): Uint8Array {
+  if (chain === "bytes") return digestOf(reading, digest);
   const hex = digest.toHex();
-  return digestOf(hash, toBytes(chain === "hex" ? hex : hex.toUpperCase()));
+  return digestOf(reading, toBytes(chain === "hex" ? hex : hex.toUpperCase()));
 }
 
 /**
  * Hashes bytes to raw digest bytes.
  *
- * @param hash - The algorithm.
+ * @param reading - The algorithm, with the option value it runs with.
  * @param bytes - What to hash.
  * @returns {Uint8Array} The digest.
  */
-function digestOf(hash: Hash, bytes: Uint8Array): Uint8Array {
-  const { digest } = hash.hash(bytes, { encoding: "binary" });
-  if (!(digest instanceof Uint8Array)) throw new TypeError(`${hash.name()} returned no bytes`);
+function digestOf(reading: Reading, bytes: Uint8Array): Uint8Array {
+  const options = { ...reading.parameters, encoding: "binary" } as HashOptions;
+  const { digest } = reading.hash.hash(bytes, options);
+  if (!(digest instanceof Uint8Array)) throw new TypeError(`${reading.label} returned no bytes`);
   return digest;
 }
 
@@ -510,14 +569,14 @@ class Search {
   /**
    * Tries every candidate with every algorithm until one matches or the limit ends it.
    *
-   * @param hashes - The algorithms.
+   * @param readings - The algorithms.
    * @returns {DigestSearch} The result.
    */
-  run(hashes: readonly Hash[]): DigestSearch {
+  run(readings: readonly Reading[]): DigestSearch {
     const ended = { total: this.#total, scope: this.#scope };
     for (const candidate of candidatesOf(this.#scope)) {
-      for (const hash of hashes) {
-        const outcome = this.#candidate(candidate, hash);
+      for (const reading of readings) {
+        const outcome = this.#candidate(candidate, reading);
         if (outcome === "limit") return { ...ended, tried: this.#tried, stopped: true };
         if (outcome !== undefined) {
           return { ...ended, tried: this.#tried, recipe: outcome, stopped: false };
@@ -545,18 +604,23 @@ class Search {
    * Hashes one text with one algorithm, then again round after round in each chain.
    *
    * @param candidate - The text and its recipe.
-   * @param hash - The algorithm.
+   * @param reading - The algorithm.
    * @returns {Outcome} The recipe on a match, `limit` when the limit ended it.
    */
-  #candidate(candidate: Candidate, hash: Hash): Outcome {
+  #candidate(candidate: Candidate, reading: Reading): Outcome {
     const input = toBytes(candidate.input);
     if (!this.#next(input.length)) return "limit";
-    const first = digestOf(hash, input);
-    const recipe = { ...candidate, algorithm: hash.name() };
+    const first = digestOf(reading, input);
+    const { parameters } = reading;
+    const recipe = {
+      ...candidate,
+      algorithm: reading.hash.name(),
+      ...(parameters && { parameters }),
+    };
     if (sameBytes(first, this.#target)) return { ...recipe, rounds: 1 };
     if (this.#scope.rounds === 1) return undefined;
     for (const chain of this.#scope.chains) {
-      const outcome = this.#chain(first, hash, chain);
+      const outcome = this.#chain(first, reading, chain);
       if (outcome !== undefined) return outcome === "limit" ? outcome : { ...recipe, ...outcome };
     }
     return undefined;
@@ -567,20 +631,20 @@ class Search {
    * such as raw bytes for NTLM, which hashes UTF-8 text only, ends there without a match.
    *
    * @param first - The first round's digest.
-   * @param hash - The algorithm.
+   * @param reading - The algorithm.
    * @param chain - What each next round hashes.
    * @returns {{ rounds: number; chain: SearchChain } | "limit" | undefined} The round that matched.
    */
   #chain(
     first: Uint8Array,
-    hash: Hash,
+    reading: Reading,
     chain: SearchChain,
   ): { rounds: number; chain: SearchChain } | "limit" | undefined {
     let digest = first;
     for (let rounds = 2; rounds <= this.#scope.rounds; rounds++) {
       if (!this.#next(chain === "bytes" ? digest.length : digest.length * 2)) return "limit";
       try {
-        digest = nextRound(hash, digest, chain);
+        digest = nextRound(reading, digest, chain);
       } catch (error) {
         if (error instanceof HashError) return undefined;
         throw error;
@@ -604,8 +668,8 @@ export function searchDigest(target: Uint8Array, options: SearchDigestOptions): 
   if (options.byteLimit !== undefined) {
     wholeNumber("byteLimit", options.byteLimit, 1, Number.MAX_SAFE_INTEGER);
   }
-  const { scope, hashes } = searchScope(target, options);
-  return new Search(target, scope, options).run(hashes);
+  const { scope, readings } = searchScope(target, options);
+  return new Search(target, scope, options).run(readings);
 }
 
 /**
@@ -631,7 +695,10 @@ function recipeLine(recipe: DigestRecipe): string {
     recipe.words.length > 1
       ? `words ${quotedList(recipe.words)} joined by ${quoted(recipe.joiner)}`
       : `word ${quoted(recipe.words[0]!)}`;
-  return `${recipe.algorithm} of the ${words}, case ${recipe.case}${rounds}`;
+  const parameters = Object.entries(recipe.parameters ?? {})
+    .map(([name, value]) => ` ${name} ${value}`)
+    .join("");
+  return `${recipe.algorithm}${parameters} of the ${words}, case ${recipe.case}${rounds}`;
 }
 
 /**

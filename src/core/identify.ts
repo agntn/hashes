@@ -382,23 +382,38 @@ function readFormat(read: DigestFormat["read"], match: Match): FormatReading | u
  * @returns {DigestCandidate[]} One candidate per such choice, with the option as a parameter.
  */
 function choiceCandidates(name: string, info: AlgorithmInfo, length: number): DigestCandidate[] {
-  const found: DigestCandidate[] = [];
+  return lengthChoices(name, info, length).map(({ option, choice }) => ({
+    name,
+    label: `${info.label} (${option} ${choice})`,
+    fit: "length",
+    algorithm: name,
+    parameters: { [option]: choice },
+  }));
+}
+
+/**
+ * Lists the values of an option with `choices`, other than its default, that make an algorithm's
+ * digest `length` bytes: CRC-32's `bzip2` variant, XXH32 through `bits`. Search tries them too.
+ *
+ * @param name - Registry name.
+ * @param info - Its metadata.
+ * @param length - Bytes the digest must have.
+ * @returns {Array<{ option: string; choice: number | string }>} Each fitting option and value.
+ */
+export function lengthChoices(
+  name: string,
+  info: AlgorithmInfo,
+  length: number,
+): Array<{ option: string; choice: number | string }> {
+  const found: Array<{ option: string; choice: number | string }> = [];
   for (const option of info.options) {
     for (const choice of option.choices ?? []) {
       if (choice === option.default) continue;
-      const parameters = { [option.name]: choice };
       const digest = create(name).hash(new Uint8Array(0), {
-        ...parameters,
+        [option.name]: choice,
         encoding: "binary",
       } as HashOptions);
-      if (digest.digestLength !== length) continue;
-      found.push({
-        name,
-        label: `${info.label} (${option.name} ${choice})`,
-        fit: "length",
-        algorithm: name,
-        parameters,
-      });
+      if (digest.digestLength === length) found.push({ option: option.name, choice });
     }
   }
   return found;
