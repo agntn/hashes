@@ -57,6 +57,29 @@ export function viewOf(data: Uint8Array): DataView {
   return new DataView(data.buffer, data.byteOffset, data.byteLength);
 }
 
+/** Bytes of each pool the block buffers come from: 64 SHA-512 blocks. */
+const POOL_BYTES = 8192;
+
+/** The pool block buffers come from now. */
+let pool: ArrayBuffer | undefined;
+/** Bytes of it handed out, full at first so the first call makes one. */
+let pooled = POOL_BYTES;
+
+/**
+ * Cuts a block buffer from a shared pool: a typed array with its own buffer costs about 900 ns.
+ *
+ * @param length - Bytes, a multiple of 8 up to 8192.
+ * @returns {Uint8Array} Zeroed bytes no other hasher holds.
+ */
+export function poolBytes(length: number): Uint8Array {
+  if (pooled + length > POOL_BYTES) {
+    pool = new ArrayBuffer(POOL_BYTES);
+    pooled = 0;
+  }
+  pooled += length;
+  return new Uint8Array(pool!, pooled - length, length);
+}
+
 /**
  * Throws unless the value is bytes. A string or a plain array would otherwise hash to a digest of
  * something else without a word.
@@ -202,8 +225,8 @@ export abstract class MerkleDamgard extends Hasher {
     this.blockLength = blockLength;
     this.outputLength = outputLength;
     this.littleEndian = littleEndian;
-    this.buffer = new Uint8Array(blockLength);
-    this.bufferView = new DataView(this.buffer.buffer);
+    this.buffer = poolBytes(blockLength);
+    this.bufferView = viewOf(this.buffer);
   }
 
   /**
@@ -214,6 +237,12 @@ export abstract class MerkleDamgard extends Hasher {
    */
   protected abstract compress(view: DataView, offset: number): void;
 
+  /**
+   * Copies short input byte by byte: a subarray or a view over it costs more than the copy.
+   *
+   * @param data - The next bytes.
+   * @returns {this} The same hasher.
+   */
   update(data: Uint8Array): this {
     assertBytes(data, "data");
     const { buffer, blockLength: block } = this;
@@ -221,8 +250,7 @@ export abstract class MerkleDamgard extends Hasher {
     let position = this.position;
     let offset = 0;
     this.length += length;
-    // Short pieces go byte by byte: a subarray per call costs more than copying a block here.
-    if (position > 0) {
+    if (position > 0 || length <= block) {
       while (offset < length && position < block) buffer[position++] = data[offset++]!;
       if (position < block) {
         this.position = position;
@@ -323,7 +351,7 @@ export abstract class Blake2 extends Hasher {
     super();
     this.blockLength = blockLength;
     this.outputLength = outputLength;
-    this.block = new Uint8Array(blockLength);
+    this.block = poolBytes(blockLength);
   }
 
   /**

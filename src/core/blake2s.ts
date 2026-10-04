@@ -2,7 +2,7 @@
  * BLAKE2s (RFC 7693) with a 32-byte output and no key, salt or personalization: 32-bit words,
  * ten rounds, 64-byte blocks.
  */
-import { Blake2 } from "./hasher.ts";
+import { Blake2, viewOf } from "./hasher.ts";
 import { IV256 as IV } from "./sha2.ts";
 
 /** The message word each of the ten rounds feeds each G call. */
@@ -157,7 +157,7 @@ function compress(h: Int32Array, block: DataView, counter: number, last: boolean
 /** BLAKE2s-256. */
 export class Blake2sHasher extends Blake2 {
   protected readonly state = IV.slice();
-  private readonly view = new DataView(this.block.buffer);
+  private readonly view = viewOf(this.block);
 
   constructor() {
     super(64, 32);
