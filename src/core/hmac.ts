@@ -1,6 +1,6 @@
 /** HMAC (RFC 2104) over any `Hasher`, and PBKDF2 (RFC 8018) and HKDF (RFC 5869) over HMAC. */
 import { InvalidOptionError } from "./errors.ts";
-import { type Hasher, assertBytes } from "./hasher.ts";
+import { type Hasher, assertBytes, createHasher } from "./hasher.ts";
 
 /** A hash keyed for HMAC: the inner and outer states after their one padded key block each. */
 interface KeyedHmac {
@@ -17,7 +17,7 @@ interface KeyedHmac {
  * @returns {KeyedHmac} The two keyed states.
  */
 function keyHmac(create: () => Hasher, key: Uint8Array): KeyedHmac {
-  const inner = create();
+  const inner = createHasher(create);
   const block = new Uint8Array(inner.blockLength);
   block.set(key.length > block.length ? create().update(key).digest() : key);
   for (let i = 0; i < block.length; i++) block[i] = block[i]! ^ 0x36;
