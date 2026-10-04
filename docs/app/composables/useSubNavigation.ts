@@ -8,6 +8,7 @@ const NAV_ICONS: Record<string, string> = {
   "/guide/kdf": "i-lucide-hourglass",
   "/guide/extend": "i-lucide-arrow-right-to-line",
   "/guide/identify": "i-lucide-scan-search",
+  "/guide/search": "i-lucide-shuffle",
   "/guide/cli": "i-lucide-terminal",
   "/guide/agents": "i-lucide-bot",
   "/guide/custom": "i-lucide-plus",

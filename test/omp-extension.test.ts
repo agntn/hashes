@@ -21,6 +21,7 @@ import {
   hashAlgorithmsSchema,
   hashDigestExtendSchema,
   hashDigestIdentifySchema,
+  hashDigestSearchSchema,
   hashComputeSchema,
   hashHmacSchema,
   hashVerifySchema,
@@ -50,6 +51,7 @@ const sharedSchemas = {
   hashes_verify: hashVerifySchema,
   hashes_digest_extend: hashDigestExtendSchema,
   hashes_digest_identify: hashDigestIdentifySchema,
+  hashes_digest_search: hashDigestSearchSchema,
   hashes_algorithms: hashAlgorithmsSchema,
 };
 
@@ -129,6 +131,19 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
     { digest: "a".repeat(1_025) },
     { digest: 16 },
     {},
+  ],
+  hashes_digest_search: [
+    { digest: "00".repeat(32), words: ["a"], algorithms: ["sha256"] },
+    { digest: "00".repeat(32), words: ["a", "b"], joiners: ["-"], cases: ["lower"], rounds: 2 },
+    { digest: "00".repeat(32), words: [] },
+    { digest: "00".repeat(32), words: ["a"], minWords: 0 },
+    { digest: "00".repeat(32), words: Array.from({ length: 13 }, (_, index) => `w${index}`) },
+    { digest: "00".repeat(32), words: ["a"], joiners: ["x".repeat(17)] },
+    { digest: "00".repeat(32), words: ["a"], cases: ["Lower"] },
+    { digest: "00".repeat(32), words: ["a"], chains: ["HEX"] },
+    { digest: "00".repeat(32), words: ["a"], rounds: 65 },
+    { digest: "00".repeat(32), words: [""] },
+    { digest: "00".repeat(32) },
   ],
   hashes_verify: [
     { algorithm: "sha256", input: "x", expected: "ab" },

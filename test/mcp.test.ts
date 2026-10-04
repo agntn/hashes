@@ -22,8 +22,10 @@ import {
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   TOOL_ARGUMENTS,
+  MAX_SEARCH_HASHES,
   hashAlgorithms,
   hashCompute,
+  hashDigestSearch,
   hashHmac,
   hashVerify,
 } from "../src/tool-operations.ts";
@@ -32,6 +34,7 @@ import {
   hashComputeSchema,
   hashDigestExtendSchema,
   hashDigestIdentifySchema,
+  hashDigestSearchSchema,
   hashHmacSchema,
   hashVerifySchema,
 } from "../packages/shared/tool-schemas.ts";
@@ -56,6 +59,8 @@ async function call(name: string, args: Readonly<Record<string, unknown>>) {
 /** The compressed public key of the secp256k1 generator, whose HASH160 is well known. */
 const PUBLIC_KEY = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
 
+const sha256Hex = (text: string): string => createHash("sha256").update(text).digest("hex");
+
 afterEach(async () => {
   await Promise.all(openConnections.splice(0).map((connection) => connection.close()));
 });
@@ -79,6 +84,7 @@ describe("tool contract", () => {
       hashes_verify: hashVerifySchema,
       hashes_digest_extend: hashDigestExtendSchema,
       hashes_digest_identify: hashDigestIdentifySchema,
+      hashes_digest_search: hashDigestSearchSchema,
       hashes_algorithms: hashAlgorithmsSchema,
     };
     for (const [tool, schema] of Object.entries(schemas)) {
@@ -102,6 +108,7 @@ describe("hashes MCP server", () => {
       "hashes_verify",
       "hashes_digest_extend",
       "hashes_digest_identify",
+      "hashes_digest_search",
       "hashes_algorithms",
     ]);
     for (const tool of tools) {
@@ -713,8 +720,129 @@ describe("hashes MCP server", () => {
       hashes_verify: true,
       hashes_digest_extend: true,
       hashes_digest_identify: true,
+      hashes_digest_search: true,
       hashes_algorithms: true,
     });
+  });
+
+  it("finds the words behind a digest and names the recipe", async () => {
+    const answer = await call("hashes_digest_search", {
+      digest: sha256Hex("jacquefrescogiveitjustonesecondheisenbergsuncertaintyprinciple"),
+      words: ["heisenbergsuncertaintyprinciple", "giveitjustonesecond", "jacquefresco"],
+    });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toBe(
+      [
+        "MATCH after 1112 of 1683 hashes",
+        'sha256 of the words "jacquefresco", "giveitjustonesecond", "heisenbergsuncertaintyprinciple" joined by "", case as-is',
+        'input "jacquefrescogiveitjustonesecondheisenbergsuncertaintyprinciple"',
+      ].join("\n"),
+    );
+  });
+
+  it("says what a search covered when nothing matched", async () => {
+    const answer = await call("hashes_digest_search", {
+      digest: Buffer.from(sha256Hex("x"), "hex").toString("base64"),
+      encoding: "base64",
+      words: ["a", "B"],
+      joiners: ["", "\n"],
+      cases: ["as-is", "lower"],
+      algorithms: ["SHA256", "sha3_256"],
+      rounds: 2,
+      chains: ["hex"],
+    });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toBe(
+      [
+        "NO MATCH in 44 hashes",
+        'Covered 1 to 2 of the words "a", "B"; joiners "", "\\n"; cases as-is, lower; algorithms sha256, sha3-256; up to 2 rounds chained as hex.',
+      ].join("\n"),
+    );
+  });
+
+  it("quotes the words, so one with a line feed adds no line to the answer", async () => {
+    const answer = await call("hashes_digest_search", {
+      digest: sha256Hex("x"),
+      words: ["a\nMATCH after 1 of 1 hash", "b\u2028c", "\u001B]0;x\u0007\u007F\u009B1m\u202Ed"],
+      algorithms: ["sha256"],
+    });
+
+    expect(answer.text.split("\n")).toHaveLength(2);
+    expect(answer.text).toContain(
+      '"a\\nMATCH after 1 of 1 hash", "b\\u2028c", "\\u001b]0;x\\u0007\\u007f\\u009b1m\\u202ed"',
+    );
+    for (const line of answer.text.split("\n")) {
+      expect(line).not.toMatch(/[\p{Cc}\p{Cf}\u2028\u2029]/u);
+    }
+  });
+
+  it("lowers its hash limit for long words, since a hash costs more the longer its text", () => {
+    const answer = hashDigestSearch({
+      digest: "00".repeat(32),
+      words: Array.from({ length: 12 }, (_, index) => String.fromCodePoint(97 + index).repeat(256)),
+      joiners: ["x".repeat(16)],
+      minWords: 12,
+      algorithms: ["sha256"],
+    });
+
+    expect(answer.details).toMatchObject({ tried: 19_704, stopped: true });
+    expect(answer.content[0]!.text).toContain(
+      "The tool stops at 19704 hashes for texts up to 3248 bytes.",
+    );
+  });
+
+  it("stops at its hash limit and says how to narrow the search", () => {
+    const answer = hashDigestSearch({
+      digest: "00000000",
+      words: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+      algorithms: ["crc32"],
+    });
+
+    expect(answer.details).toMatchObject({ tried: MAX_SEARCH_HASHES, stopped: true });
+    const [verdict, covered, next] = answer.content[0]!.text.split("\n");
+    expect(verdict).toBe(
+      `STOPPED at the limit after ${MAX_SEARCH_HASHES} of ${answer.details.total} hashes, no match so far`,
+    );
+    expect(covered).toMatch(/^Covered 1 to 9 of the words/);
+    expect(next).toBe(
+      `The tool stops at ${MAX_SEARCH_HASHES} hashes. Narrow words, minWords, maxWords, joiners, cases, algorithms or rounds, or run hashes search from the CLI, which takes --limit.`,
+    );
+  });
+
+  it("refuses search arguments past the tool bounds, schema or not", async () => {
+    const tooMany = await call("hashes_digest_search", {
+      digest: sha256Hex("x"),
+      words: Array.from({ length: 13 }, (_, index) => `w${index}`),
+    });
+    const wrongLength = await call("hashes_digest_search", {
+      digest: sha256Hex("x"),
+      words: ["a"],
+      algorithms: ["md5"],
+    });
+    const prefixed = await call("hashes_digest_search", {
+      digest: `0x${sha256Hex("x")}`,
+      words: ["a"],
+    });
+
+    expect(tooMany.isError).toBe(true);
+    expect(wrongLength).toMatchObject({ isError: true });
+    expect(wrongLength.text).toContain("makes 16 bytes and the digest is 32");
+    expect(prefixed.text).toContain("hex digit pairs, without a 0x prefix");
+    const unchecked = (args: Readonly<Record<string, unknown>>) => () =>
+      hashDigestSearch(args as Parameters<typeof hashDigestSearch>[0]);
+    expect(unchecked({ digest: sha256Hex("x"), words: "abc" })).toThrow(
+      "must be a list of strings",
+    );
+    expect(unchecked({ digest: sha256Hex("x"), words: ["a"], rounds: 65 })).toThrow("from 1 to 64");
+    expect(unchecked({ digest: sha256Hex("x"), words: ["a"], joiners: ["x".repeat(17)] })).toThrow(
+      "at most 16",
+    );
+    expect(unchecked({ digest: sha256Hex("x") })).toThrow("words");
+    expect(unchecked({ digest: sha256Hex("x"), words: ["a"], limit: 1 })).toThrow(
+      "hashes_digest_search takes only",
+    );
   });
 
   it("lists what a hash may come from by its length, computable ones first", async () => {

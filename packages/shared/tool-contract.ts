@@ -48,6 +48,25 @@ export const MAX_SECRET_LENGTHS = 64;
 /** Most hex digits of forged messages one length extension call returns. */
 export const MAX_FORGED_LENGTH = 1_000_000;
 
+/** How a search cases the words: as given, lowercase, uppercase, or each word capitalized. */
+export const SEARCH_CASES = ["as-is", "lower", "upper", "title"] as const;
+/** What each round after the first hashes: the digest's bytes, or its hex in either case. */
+export const SEARCH_CHAINS = ["bytes", "hex", "hex-upper"] as const;
+/** Joiners a search tries when the caller names none: nothing, a space, a comma, a line feed. */
+export const SEARCH_JOINERS: readonly string[] = ["", " ", ",", "\n"];
+/** Most words, joiners and algorithms one search call takes, and the longest word and joiner. */
+export const MAX_SEARCH_WORDS = 12;
+export const MAX_WORD_LENGTH = 256;
+export const MAX_SEARCH_JOINERS = 8;
+export const MAX_JOINER_LENGTH = 16;
+export const MAX_SEARCH_ALGORITHMS = 64;
+/** Deepest repetition a search call tries. */
+export const MAX_SEARCH_ROUNDS = 64;
+/** Most hashes one search call computes: about 3.5 s of SHA3-256 on short text. */
+export const MAX_SEARCH_HASHES = 1_000_000;
+/** Most bytes of text one search call hashes, so long words lower the hash limit. */
+export const MAX_SEARCH_BYTES = 64_000_000;
+
 export const TEXT_ENCODINGS = ["hex", "base64", "base64url"] as const;
 export const INPUT_ENCODINGS = ["utf8", "hex", "base64"] as const;
 export const HASH_CATEGORIES = [
@@ -77,6 +96,8 @@ export const TOOL_DESCRIPTIONS = {
     "Forge a digest by length extension: from H(secret || message) and the secret's length, the digest of secret || message || padding || suffix, without the secret. The answer is the message to send in hex, the padding inside it and the new digest, once per secret length tried.",
   hashes_digest_identify:
     "Guess which algorithms a hash may come from by its shape: a prefix such as $2b$, $argon2id$ or $6$, or the byte length of its hex or base64. Each candidate says whether this package computes it; for a format it computes, the salt, costs and digest read out of the string are in the answer, ready for hashes_verify. A guess, not proof.",
+  hashes_digest_search:
+    "Find the transform behind a digest from candidate words: subsets of them in every order, joined, cased, hashed with each algorithm of the digest's length and hashed again up to rounds times. Answers MATCH with the recipe and the text that was hashed, NO MATCH with what the search covered, or STOPPED at the hash limit.",
   hashes_algorithms:
     "List the registered algorithms with family, category, digest size and HMAC support, or describe one algorithm with its options.",
 } as const;
@@ -88,6 +109,7 @@ export const TOOL_TITLES = {
   hashes_verify: "Hash Verify",
   hashes_digest_extend: "Hash Extend",
   hashes_digest_identify: "Hash Identify",
+  hashes_digest_search: "Hash Search",
   hashes_algorithms: "Hash Algorithms",
 } as const;
 
@@ -126,6 +148,17 @@ function parameterDescriptions() {
     secretLengthMax: `Try every secret length from secretLength up to this one, at most ${MAX_SECRET_LENGTHS} lengths. Omit to try secretLength alone`,
     unknownDigest:
       "The hash to identify, as found: hex (a 0x prefix allowed), base64, or a string with a prefix such as $2b$ or $argon2id$",
+    targetDigest: "The digest to explain, written as encoding says",
+    targetEncoding: "Encoding of digest (default hex). Hex takes no 0x prefix",
+    words: `Candidate words, at most ${MAX_SEARCH_WORDS}, each used at most once per combination`,
+    minWords: "Fewest words in a combination (default 1)",
+    maxWords: "Most words in a combination (default all of them)",
+    joiners: `What goes between two words, at most ${MAX_SEARCH_JOINERS}. Default: nothing, a space, a comma and a line feed`,
+    cases: "Cases to try (default all): as-is, lower, upper, or title for each word capitalized",
+    searchAlgorithms: `Fixed-length digests to try, at most ${MAX_SEARCH_ALGORITHMS}. Default: every one as long as digest. A KDF is refused`,
+    rounds: `Deepest repetition, 1 to ${MAX_SEARCH_ROUNDS} (default 1): 2 also hashes each digest once more, as chains says`,
+    chains:
+      "What each round after the first hashes (default all): the digest's bytes, its lowercase hex or its uppercase hex",
     category: "Category to list. Omit to list every category",
     family: `Family to list, case-insensitive: ${BUILTIN_FAMILIES}. Omit to list every family`,
     describe: "Registered algorithm to describe with its options. Omit to list",

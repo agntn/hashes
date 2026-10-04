@@ -21,7 +21,7 @@ docs/
 ├── server/routes/sitemap.xml.ts   # Docus sitemap plus the Vue pages it cannot see
 ├── public/                        # fonts, favicon.svg and the icons and manifest cut from it
 ├── content/index.md               # landing
-├── content/1.guide/               # getting started, hashing, HMAC and verify, KDFs, length extension, identify, CLI, agents, custom, playground
+├── content/1.guide/               # getting started, hashing, HMAC and verify, KDFs, length extension, identify, search, CLI, agents, custom, playground
 └── content/2.algorithms/          # overview, one page per algorithm in listing order
 ```
 

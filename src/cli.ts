@@ -114,6 +114,7 @@ const main = defineCommand({
     verify: () => command(() => import("./commands/verify.ts")),
     extend: () => command(() => import("./commands/extend.ts")),
     identify: () => command(() => import("./commands/identify.ts")),
+    search: () => command(() => import("./commands/search.ts")),
     algorithms: () => command(() => import("./commands/algorithms.ts")),
     info: () => command(() => import("./commands/info.ts")),
     mcp: () => command(loadMcpCommand),

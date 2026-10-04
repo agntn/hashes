@@ -16,10 +16,18 @@ import {
   MAX_KEY_LENGTH,
   MAX_PARAMETER_LENGTH,
   MAX_PARAMETERS,
+  MAX_JOINER_LENGTH,
+  MAX_SEARCH_ALGORITHMS,
+  MAX_SEARCH_JOINERS,
+  MAX_SEARCH_ROUNDS,
+  MAX_SEARCH_WORDS,
   MAX_SECRET_LENGTH,
+  MAX_WORD_LENGTH,
   PARAMETER_NAME_PATTERN,
   PARAMETER_DESCRIPTIONS,
   SALT_PATTERN,
+  SEARCH_CASES,
+  SEARCH_CHAINS,
   TEXT_ENCODINGS,
 } from "./tool-contract.ts";
 
@@ -113,6 +121,55 @@ export const hashDigestIdentifySchema = closed({
   }),
 });
 
+const wordCount = { minimum: 1, maximum: MAX_SEARCH_WORDS } as const;
+
+export const hashDigestSearchSchema = closed({
+  digest: Type.String({
+    minLength: 1,
+    maxLength: MAX_EXPECTED_LENGTH,
+    description: d.targetDigest,
+  }),
+  encoding: Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.targetEncoding })),
+  words: Type.Array(Type.String({ minLength: 1, maxLength: MAX_WORD_LENGTH }), {
+    minItems: 1,
+    maxItems: MAX_SEARCH_WORDS,
+    description: d.words,
+  }),
+  minWords: Type.Optional(Type.Integer({ ...wordCount, description: d.minWords })),
+  maxWords: Type.Optional(Type.Integer({ ...wordCount, description: d.maxWords })),
+  joiners: Type.Optional(
+    Type.Array(Type.String({ maxLength: MAX_JOINER_LENGTH }), {
+      minItems: 1,
+      maxItems: MAX_SEARCH_JOINERS,
+      description: d.joiners,
+    }),
+  ),
+  cases: Type.Optional(
+    Type.Array(Type.Enum(SEARCH_CASES), {
+      minItems: 1,
+      maxItems: SEARCH_CASES.length,
+      description: d.cases,
+    }),
+  ),
+  algorithms: Type.Optional(
+    Type.Array(Type.String({ minLength: 1, maxLength: MAX_ALGORITHM_LENGTH }), {
+      minItems: 1,
+      maxItems: MAX_SEARCH_ALGORITHMS,
+      description: d.searchAlgorithms,
+    }),
+  ),
+  rounds: Type.Optional(
+    Type.Integer({ minimum: 1, maximum: MAX_SEARCH_ROUNDS, description: d.rounds }),
+  ),
+  chains: Type.Optional(
+    Type.Array(Type.Enum(SEARCH_CHAINS), {
+      minItems: 1,
+      maxItems: SEARCH_CHAINS.length,
+      description: d.chains,
+    }),
+  ),
+});
+
 export const hashAlgorithmsSchema = closed({
   category: Type.Optional(Type.Enum(HASH_CATEGORIES, { description: d.category })),
   family: Type.Optional(
@@ -130,5 +187,6 @@ export const toolSchemas = {
   hashes_verify: hashVerifySchema,
   hashes_digest_extend: hashDigestExtendSchema,
   hashes_digest_identify: hashDigestIdentifySchema,
+  hashes_digest_search: hashDigestSearchSchema,
   hashes_algorithms: hashAlgorithmsSchema,
 };
