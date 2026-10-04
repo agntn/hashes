@@ -99,18 +99,22 @@ export function createHasher(create: () => Hasher): Hasher {
 }
 
 /**
- * Tells a hasher by its methods, so one from another copy of this package still passes.
+ * Tells a hasher by its methods and lengths, so one from another copy of this package still
+ * passes. A zero output length would keep `evpBytesToKey` looping forever.
  *
  * @param value - What the factory returned.
- * @returns {boolean} Whether it can update, digest and load.
+ * @returns {boolean} Whether it has every method and a positive length of each kind.
  */
 function isHasher(value: unknown): value is Hasher {
   if (typeof value !== "object" || value === null) return false;
-  const methods = value as Partial<Record<"update" | "digestInto" | "load", unknown>>;
+  const fields = value as Partial<Record<string, unknown>>;
   return (
-    typeof methods.update === "function" &&
-    typeof methods.digestInto === "function" &&
-    typeof methods.load === "function"
+    ["update", "digestInto", "digest", "load"].every(
+      (name) => typeof fields[name] === "function",
+    ) &&
+    [fields.blockLength, fields.outputLength].every(
+      (length) => typeof length === "number" && Number.isSafeInteger(length) && length > 0,
+    )
   );
 }
 

@@ -19,11 +19,11 @@ interface KeyedHmac {
 function keyHmac(create: () => Hasher, key: Uint8Array): KeyedHmac {
   const inner = createHasher(create);
   const block = new Uint8Array(inner.blockLength);
-  block.set(key.length > block.length ? create().update(key).digest() : key);
+  block.set(key.length > block.length ? createHasher(create).update(key).digest() : key);
   for (let i = 0; i < block.length; i++) block[i] = block[i]! ^ 0x36;
   inner.update(block);
   for (let i = 0; i < block.length; i++) block[i] = block[i]! ^ (0x36 ^ 0x5c);
-  const outer = create().update(block);
+  const outer = createHasher(create).update(block);
   return { inner, outer };
 }
 
@@ -71,8 +71,8 @@ export function pbkdf2(
     }
   }
   const keyed = keyHmac(create, password);
-  const inner = create();
-  const outer = create();
+  const inner = createHasher(create);
+  const outer = createHasher(create);
   const length = inner.outputLength;
   const u = new Uint8Array(length);
   const t = new Uint8Array(length);
@@ -131,8 +131,8 @@ export function hkdfExpand(
   if (!Number.isSafeInteger(length) || length < 1 || length > 255 * hashLength) {
     throw new InvalidOptionError("keyLength", length, `must be 1 to ${255 * hashLength} bytes`);
   }
-  const inner = create();
-  const outer = create();
+  const inner = createHasher(create);
+  const outer = createHasher(create);
   const block = new Uint8Array(hashLength);
   const counter = new Uint8Array(1);
   const out = new Uint8Array(length);

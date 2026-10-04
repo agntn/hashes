@@ -31,7 +31,7 @@ export function evpBytesToKey(
     }
   }
   const fresh = createHasher(create);
-  const hasher = create();
+  const hasher = createHasher(create);
   const block = new Uint8Array(hasher.outputLength);
   const out = new Uint8Array(length);
   for (let offset = 0; offset < length; offset += block.length) {
