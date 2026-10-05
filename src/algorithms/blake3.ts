@@ -1,7 +1,6 @@
 /**
  * BLAKE3 in plain TypeScript, after the specification by O'Connor, Aumasson, Neves and
- * Wilcox-O'Hearn. Node has no BLAKE3 digest, so this is the one algorithm the package computes
- * itself. Only the default hash mode with a 32-byte output: no keyed or derive-key mode.
+ * Wilcox-O'Hearn. Only the default hash mode with a 32-byte output: no keyed or derive-key mode.
  */
 import { FixedHash } from "../core/fixed-hash.ts";
 
