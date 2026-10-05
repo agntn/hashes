@@ -1,6 +1,30 @@
 # Changelog
 
 
+## v0.6.6
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.6.5...v0.6.6)
+
+### 🚀 Enhancements
+
+- Add the CRC-24 that closes PGP armor ([#145](https://github.com/agntn/hashes/pull/145))
+- Add SHA-3 hashers you can feed in pieces ([#150](https://github.com/agntn/hashes/pull/150))
+- Ship Sha224Hasher without the registry ([#153](https://github.com/agntn/hashes/pull/153))
+
+### 🩹 Fixes
+
+- **docs:** Stop /mcp echoing raw argument names ([#142](https://github.com/agntn/hashes/pull/142))
+- **docs:** Stop /mcp choking on a bare call ([#144](https://github.com/agntn/hashes/pull/144))
+
+### 📖 Documentation
+
+- Stop BLAKE3 claiming it's the odd one out ([#154](https://github.com/agntn/hashes/pull/154))
+
+### ❤️ Contributors
+
+- Ori ([@oritwoen](https://github.com/oritwoen))
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+
 ## v0.6.5
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.6.4...v0.6.5)
