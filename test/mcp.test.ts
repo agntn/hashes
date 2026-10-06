@@ -893,13 +893,18 @@ describe("hashes MCP server", () => {
   });
 
   it("stops at its hash limit and says how to narrow the search", () => {
-    const answer = hashDigestSearch({
-      digest: "00000000",
-      words: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
-      algorithms: ["crc32"],
-    });
+    const heard: number[] = [];
+    const answer = hashDigestSearch(
+      {
+        digest: "00000000",
+        words: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+        algorithms: ["crc32"],
+      },
+      (tried) => heard.push(tried),
+    );
 
     expect(answer.details).toMatchObject({ tried: MAX_SEARCH_HASHES, stopped: true });
+    expect(heard).toEqual(Array.from({ length: 11 }, (_, index) => index * 100_000));
     const [verdict, covered, next] = answer.content[0]!.text.split("\n");
     expect(verdict).toBe(
       `STOPPED at the limit after ${MAX_SEARCH_HASHES} of ${answer.details.total} hashes, no match so far`,

@@ -20,6 +20,8 @@ export default defineNuxtConfig({
   },
   vite: {
     build: { target: "es2024" },
+    /** The playground's search worker imports the library, and only module workers split chunks. */
+    worker: { format: "es" },
     resolve: {
       /** Bare imports in ../src resolve upwards from the importer and skip docs/node_modules. */
       dedupe: libraryDependencies,
@@ -55,7 +57,7 @@ export default defineNuxtConfig({
       },
       {
         title: "Playground",
-        description: "Hash, HMAC, verify and list the algorithms, in the browser.",
+        description: "Hash, HMAC, verify, extend, identify, search and list the algorithms, in the browser.",
         links: [
           {
             title: "Playground",
