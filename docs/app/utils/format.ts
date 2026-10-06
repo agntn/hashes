@@ -14,6 +14,19 @@ export function shellArg(value: string): string {
   return /^[\w./:@-]+$/u.test(value) ? value : `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
+/** A CLI line. A positional with a leading dash would pass for a flag, so `--` ends the flags. */
+export function commandLine(
+  command: string,
+  positionals: readonly string[],
+  flags: readonly string[] = [],
+): string {
+  const words = positionals.map(shellArg);
+  const set = flags.filter(Boolean);
+  return positionals.some((word) => word.startsWith("-"))
+    ? [command, ...set, "--", ...words].join(" ")
+    : [command, ...words, ...set].join(" ");
+}
+
 /** Option values as CLI flags: `--salt 00ff --N 1024`. */
 export function optionFlags(options: Record<string, unknown>): string {
   return Object.entries(options)

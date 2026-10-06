@@ -36,7 +36,7 @@ import {
   categoryLabel,
   digestBits,
 } from "../../utils/algorithms";
-import { optionFlags, shellArg } from "../../utils/format";
+import { commandLine, optionFlags, shellArg } from "../../utils/format";
 import { jsonTokens, shellTokens } from "../../utils/tokens";
 import type { SearchMessage } from "../../workers/search";
 
@@ -595,11 +595,10 @@ const cliLine = computed(() => {
     ].filter(Boolean);
     return ["hashes algorithms", ...filters].join(" ");
   }
-  if (operation.value === "identify") return `hashes identify ${shellArg(unknownDigest.value)}`;
+  if (operation.value === "identify") return commandLine("hashes identify", [unknownDigest.value]);
   if (operation.value === "search") {
     const list = (value: unknown) => (Array.isArray(value) ? value.join(",") : "");
-    const positionals = [String(args.digest), ...searchWords.value];
-    const flags = [
+    return commandLine("hashes search", [String(args.digest), ...searchWords.value], [
       args.encoding === undefined ? "" : `-e ${String(args.encoding)}`,
       args.minWords === undefined ? "" : `--min-words ${String(args.minWords)}`,
       args.maxWords === undefined ? "" : `--max-words ${String(args.maxWords)}`,
@@ -608,24 +607,17 @@ const cliLine = computed(() => {
       args.algorithms === undefined ? "" : `--algorithms ${list(args.algorithms)}`,
       args.rounds === undefined ? "" : `--rounds ${String(args.rounds)}`,
       args.chains === undefined ? "" : `--chains ${list(args.chains)}`,
-    ].filter(Boolean);
-    const words = positionals.map(shellArg);
-    return positionals.some((word) => word.startsWith("-"))
-      ? ["hashes search", ...flags, "--", ...words].join(" ")
-      : ["hashes search", ...words, ...flags].join(" ");
+    ]);
   }
   if (operation.value === "extend") {
-    return [
-      `hashes extend ${entry.value.slug} ${shellArg(String(args.digest))}`,
+    return commandLine(`hashes extend ${entry.value.slug}`, [String(args.digest)], [
       message.value ? `--message ${shellArg(message.value)}` : "",
       messageEncoding.value === "utf8" ? "" : `--message-encoding ${messageEncoding.value}`,
       `--suffix ${shellArg(suffix.value)}`,
       suffixEncoding.value === "utf8" ? "" : `--suffix-encoding ${suffixEncoding.value}`,
       `--secret-length ${String(args.secretLength)}`,
       args.secretLengthMax === undefined ? "" : `--secret-length-max ${String(args.secretLengthMax)}`,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    ]);
   }
   const flags = [
     inputEncoding.value !== "utf8" ? `--input-encoding ${inputEncoding.value}` : "",
@@ -635,16 +627,15 @@ const cliLine = computed(() => {
       ...(typeof args.salt === "string" ? { salt: args.salt } : {}),
       ...(usesParameters.value ? parameters.value : {}),
     }),
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const head =
+  ];
+  const line =
     operation.value === "hmac"
-      ? `hashes hmac ${entry.value.slug} ${shellArg(input.value)} ${shellArg(key.value)}`
+      ? commandLine(`hashes hmac ${entry.value.slug}`, [input.value, key.value], flags)
       : operation.value === "verify"
-        ? `hashes verify ${entry.value.slug} ${shellArg(input.value)} ${shellArg(expected.value)}`
-        : `hashes ${entry.value.slug} ${shellArg(input.value)}`;
-  return flags ? `${head} ${flags}` : head;
+        ? commandLine(`hashes verify ${entry.value.slug}`, [input.value, expected.value], flags)
+        : commandLine(`hashes ${entry.value.slug}`, [input.value], flags);
+  /* A lone `-` is stdin to the CLI, so a literal dash has to arrive through a pipe. */
+  return input.value === "-" ? `printf %s - | ${line}` : line;
 });
 
 /** The same call as a tool invocation, the JSON an MCP client sends. */
