@@ -241,16 +241,40 @@ const algorithmItems = computed(() =>
     }),
   ),
 );
+/** Reka won't take `""` as a menu value, so "every" goes on the menu as `*`. */
+const EVERY = "*";
+
+/**
+ * A menu model for a filter that's empty for "every": `*` and anything unknown read as `""`.
+ *
+ * @param {Ref<T | "">} state - The filter as the call reads it.
+ * @param {readonly T[]} known - The values the menu offers besides "every".
+ * @returns {WritableComputedRef<string>} The model for `USelectMenu`.
+ */
+function everyModel<T extends string>(
+  state: Ref<T | "">,
+  known: readonly T[],
+): WritableComputedRef<string> {
+  return computed({
+    get: () => state.value || EVERY,
+    set: (value: string) => {
+      state.value = known.find((option) => option === value) ?? "";
+    },
+  });
+}
+const familyModel = everyModel(family, FAMILIES);
+const categoryModel = everyModel(category, hashCategories);
+const describeModel = everyModel(describe, ALGORITHMS.map((algorithm) => algorithm.slug));
 const familyItems = [
-  { label: "every family", value: "" },
+  { label: "every family", value: EVERY },
   ...FAMILIES.map((name) => ({ label: name, value: name })),
 ];
 const categoryItems = [
-  { label: "every category", value: "" },
+  { label: "every category", value: EVERY },
   ...hashCategories.map((key) => ({ label: key, value: key })),
 ];
 const describeItems = [
-  { label: "list, no algorithm", value: "" },
+  { label: "list, no algorithm", value: EVERY },
   ...ALGORITHMS.map((algorithm) => ({
     label: `${algorithm.info.label} · ${algorithm.slug}`,
     value: algorithm.slug,
@@ -1093,7 +1117,7 @@ const shareLink = computed(() => {
                 <dd>
                   <USelectMenu
                     id="playground-family"
-                    v-model="family"
+                    v-model="familyModel"
                     :items="familyItems"
                     value-key="value"
                     variant="none"
@@ -1108,7 +1132,7 @@ const shareLink = computed(() => {
                 <dd>
                   <USelectMenu
                     id="playground-category"
-                    v-model="category"
+                    v-model="categoryModel"
                     :items="categoryItems"
                     value-key="value"
                     variant="none"
@@ -1123,7 +1147,7 @@ const shareLink = computed(() => {
                 <dd>
                   <USelectMenu
                     id="playground-describe"
-                    v-model="describe"
+                    v-model="describeModel"
                     :items="describeItems"
                     value-key="value"
                     variant="none"
