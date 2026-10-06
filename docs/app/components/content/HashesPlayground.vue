@@ -574,9 +574,8 @@ const cliLine = computed(() => {
   if (operation.value === "identify") return `hashes identify ${shellArg(unknownDigest.value)}`;
   if (operation.value === "search") {
     const list = (value: unknown) => (Array.isArray(value) ? value.join(",") : "");
-    return [
-      `hashes search ${shellArg(String(args.digest))}`,
-      ...searchWords.value.map(shellArg),
+    const positionals = [String(args.digest), ...searchWords.value];
+    const flags = [
       args.encoding === undefined ? "" : `-e ${String(args.encoding)}`,
       args.minWords === undefined ? "" : `--min-words ${String(args.minWords)}`,
       args.maxWords === undefined ? "" : `--max-words ${String(args.maxWords)}`,
@@ -585,9 +584,11 @@ const cliLine = computed(() => {
       args.algorithms === undefined ? "" : `--algorithms ${list(args.algorithms)}`,
       args.rounds === undefined ? "" : `--rounds ${String(args.rounds)}`,
       args.chains === undefined ? "" : `--chains ${list(args.chains)}`,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    ].filter(Boolean);
+    const words = positionals.map(shellArg);
+    return positionals.some((word) => word.startsWith("-"))
+      ? ["hashes search", ...flags, "--", ...words].join(" ")
+      : ["hashes search", ...words, ...flags].join(" ");
   }
   if (operation.value === "extend") {
     return [
