@@ -20,6 +20,7 @@ import {
   type DigestSearch,
   type SearchCase,
   type SearchChain,
+  type SearchDigestOptions,
 } from "./core/search.ts";
 import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
 import {
@@ -743,9 +744,13 @@ function countArgument(name: string, value: unknown, maximum: number): number | 
  * `MAX_SEARCH_BYTES` hashed, whichever comes first, since a long text costs more to hash.
  *
  * @param params - The digest and its encoding, the words, and what to try with them.
+ * @param onProgress - Hears the running count, as `searchDigest` reports it.
  * @returns {ToolResult<DigestSearch>} The recipe on a match, or what the search covered.
  */
-export function hashDigestSearch(params: HashDigestSearchParams): ToolResult<DigestSearch> {
+export function hashDigestSearch(
+  params: HashDigestSearchParams,
+  onProgress?: SearchDigestOptions["onProgress"],
+): ToolResult<DigestSearch> {
   assertArguments("hashes_digest_search", params);
   const digest = textArgument("digest", params.digest, MAX_EXPECTED_LENGTH).trim();
   const target = assertExpected(digest, encodingArgument(params.encoding), "digest");
@@ -771,6 +776,7 @@ export function hashDigestSearch(params: HashDigestSearchParams): ToolResult<Dig
       | undefined,
     limit: MAX_SEARCH_HASHES,
     byteLimit: MAX_SEARCH_BYTES,
+    onProgress,
   });
   const { heading, lines } = searchText(found);
   const next = found.stopped

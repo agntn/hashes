@@ -7,7 +7,7 @@ import { TOOLS } from "../utils/tools";
 definePageMeta({ layout: "default" });
 
 const title = "Playground";
-const description = `Hash, HMAC and verify with any of the ${spellOut(ALGORITHMS.length)} algorithms. Extend a digest, identify one, or list them all. In the browser, with the same executors the CLI and the agent tools run.`;
+const description = `Hash, HMAC and verify with any of the ${spellOut(ALGORITHMS.length)} algorithms. Extend a digest, identify one, find the words behind it, or list them all. In the browser, with the same executors the CLI and the agent tools run.`;
 /** The OG pipeline drops commas from its props, so the card gets a version written without them. */
 const cardDescription = `Hash and HMAC and verify with any of the ${spellOut(ALGORITHMS.length)} algorithms. In the browser with the library itself.`;
 

@@ -8,6 +8,9 @@ import {
 } from "@agntn/hashes";
 import {
   INPUT_ENCODINGS,
+  SEARCH_CASES,
+  SEARCH_CHAINS,
+  SEARCH_JOINERS,
   TEXT_ENCODINGS,
   TOOL_ARGUMENTS,
   hashAlgorithms,
@@ -19,6 +22,7 @@ import {
   type DigestCandidate,
   type DigestDetails,
   type DigestIdentity,
+  type DigestSearch,
   type ExtendDetails,
   type ToolName,
   type VerifyDetails,
@@ -34,8 +38,11 @@ import {
 } from "../../utils/algorithms";
 import { optionFlags, shellArg } from "../../utils/format";
 import { jsonTokens, shellTokens } from "../../utils/tokens";
+import type { SearchMessage } from "../../workers/search";
 
-type Operation = "hash" | "hmac" | "verify" | "extend" | "identify" | "algorithms";
+type Operation = "hash" | "hmac" | "verify" | "extend" | "identify" | "search" | "algorithms";
+type SearchCase = (typeof SEARCH_CASES)[number];
+type SearchChain = (typeof SEARCH_CHAINS)[number];
 
 const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: ToolName; about: string }> = [
   {
@@ -67,6 +74,12 @@ const OPERATIONS: ReadonlyArray<{ key: Operation; label: string; tool: ToolName;
     label: "Identify",
     tool: "hashes_digest_identify",
     about: "Guess what made a hash from its prefix or its length. A guess, so verify takes it from there.",
+  },
+  {
+    key: "search",
+    label: "Search",
+    tool: "hashes_digest_search",
+    about: "You have the words and the digest. It tries every order, joiner, case and algorithm in a worker, so the tab stays yours.",
   },
   {
     key: "algorithms",
@@ -136,6 +149,64 @@ const IDENTIFY_SAMPLES: ReadonlyArray<{ label: string; digest: string }> = [
 ];
 const unknownDigest = ref(IDENTIFY_SAMPLES[0]!.digest);
 
+/** A puzzle with its words shuffled, and what the search has to find besides their order. */
+interface SearchSample {
+  label: string;
+  digest: string;
+  words: readonly string[];
+  algorithms?: readonly string[];
+  rounds?: number;
+}
+const SEARCH_SAMPLES: readonly SearchSample[] = [
+  {
+    label: "gsmg 3.2",
+    digest: hashCompute({
+      algorithm: "sha256",
+      input: "jacquefrescogiveitjustonesecondheisenbergsuncertaintyprinciple",
+    }).details.digest,
+    words: ["heisenbergsuncertaintyprinciple", "giveitjustonesecond", "jacquefresco"],
+  },
+  {
+    label: "title case",
+    digest: hashCompute({ algorithm: "md5", input: "Correct Horse Battery Staple" }).details.digest,
+    words: ["staple", "horse", "correct", "battery"],
+  },
+  {
+    label: "2 rounds",
+    digest: hashCompute({
+      algorithm: "sha1",
+      input: "open sesame",
+      parameters: { rounds: 2, chain: "hex" },
+    }).details.digest,
+    words: ["sesame", "open"],
+    rounds: 2,
+  },
+  {
+    label: "9 letters",
+    digest: "00000000",
+    words: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
+    algorithms: ["crc32"],
+  },
+];
+const searchTarget = ref(SEARCH_SAMPLES[0]!.digest);
+const searchEncoding = ref<(typeof TEXT_ENCODINGS)[number]>("hex");
+/** One word per line, since a word may hold a space or a comma. */
+const wordsText = ref(SEARCH_SAMPLES[0]!.words.join("\n"));
+const minWords = ref<string | number>("");
+const maxWords = ref<string | number>("");
+/** Each joiner as its JSON literal, the way the menu keys it. */
+const joiners = ref<string[]>([]);
+const cases = ref<SearchCase[]>([]);
+const searchAlgorithms = ref<string[]>([]);
+const rounds = ref<string | number>("");
+const chains = ref<SearchChain[]>([]);
+const searchWords = computed(() =>
+  wordsText.value
+    .split("\n")
+    .map((word) => word.replace(/\r$/u, ""))
+    .filter((word) => word !== ""),
+);
+
 const entry = computed(() => algorithmEntry(algorithmName.value) ?? ALGORITHMS[0]!);
 const saltOption = computed(() => entry.value.info.options.find((option) => option.name === "salt"));
 const takesSalt = computed(() => saltOption.value !== undefined);
@@ -187,6 +258,22 @@ const describeItems = [
   })),
 ];
 const inputEncodingItems = INPUT_ENCODINGS.map((value) => ({ label: value, value }));
+/** The tool's default joiners and four more, keyed by their JSON, since Reka takes no `""` value. */
+const JOINERS = [...SEARCH_JOINERS, "-", "_", ".", ":"];
+const joinerItems = JOINERS.map((joiner) => ({
+  label: JSON.stringify(joiner),
+  value: JSON.stringify(joiner),
+}));
+const caseItems = SEARCH_CASES.map((value) => ({ label: value, value }));
+const chainItems = SEARCH_CHAINS.map((value) => ({ label: value, value }));
+/** A search hashes words, so a KDF, which needs a salt, isn't on the menu. */
+const searchAlgorithmItems = ALGORITHMS.filter(
+  (algorithm) => algorithm.info.digestLength !== undefined && algorithm.info.category !== "password",
+).map((algorithm) => ({
+  label: `${algorithm.info.label} · ${algorithm.slug}`,
+  value: algorithm.slug as string,
+  icon: algorithm.icon,
+}));
 const encodingItems = TEXT_ENCODINGS.map((value) => ({ label: value, value }));
 
 /**
@@ -226,6 +313,27 @@ function wholeNumber(value: string | number): number | string {
   return raw !== "" && Number.isSafeInteger(number) ? number : raw;
 }
 
+/**
+ * The search call. Every list is a copy, since a worker can't take a reactive array.
+ *
+ * @returns {Record<string, unknown>} The arguments, with empty fields left to the tool's defaults.
+ */
+function searchArgs(): Record<string, unknown> {
+  const args: Record<string, unknown> = { digest: searchTarget.value.trim() };
+  if (searchEncoding.value !== "hex") args.encoding = searchEncoding.value;
+  args.words = [...searchWords.value];
+  if (fieldText(minWords.value)) args.minWords = wholeNumber(minWords.value);
+  if (fieldText(maxWords.value)) args.maxWords = wholeNumber(maxWords.value);
+  if (joiners.value.length > 0) {
+    args.joiners = joiners.value.map((literal) => JSON.parse(literal) as string);
+  }
+  if (cases.value.length > 0) args.cases = [...cases.value];
+  if (searchAlgorithms.value.length > 0) args.algorithms = [...searchAlgorithms.value];
+  if (fieldText(rounds.value)) args.rounds = wholeNumber(rounds.value);
+  if (chains.value.length > 0) args.chains = [...chains.value];
+  return args;
+}
+
 /** The arguments exactly as a tool call would carry them; defaults are left out, like a model would. */
 const toolArgs = computed((): Record<string, unknown> => {
   if (operation.value === "algorithms") {
@@ -236,6 +344,7 @@ const toolArgs = computed((): Record<string, unknown> => {
     };
   }
   if (operation.value === "identify") return { digest: unknownDigest.value };
+  if (operation.value === "search") return searchArgs();
   if (operation.value === "extend") {
     return {
       algorithm: entry.value.slug,
@@ -293,6 +402,19 @@ interface IdentifyAnswer {
   details: DigestIdentity;
   text: string;
 }
+interface SearchAnswer {
+  kind: "search";
+  details: DigestSearch;
+  text: string;
+  /** Milliseconds from the call to the answer, measured in this tab. */
+  took: number;
+}
+interface PendingAnswer {
+  kind: "pending";
+  tried: number;
+  total: number;
+  text: string;
+}
 interface ErrorAnswer {
   kind: "error";
   name: string;
@@ -304,6 +426,8 @@ type Answer =
   | VerifyAnswer
   | ExtendAnswer
   | IdentifyAnswer
+  | SearchAnswer
+  | PendingAnswer
   | ListAnswer
   | DescribeAnswer
   | ErrorAnswer;
@@ -370,7 +494,67 @@ watch([operation, toolArgs], () => {
   }, 250);
 });
 onUnmounted(() => clearTimeout(pending));
-const answer = computed(() => run(request.value.op, request.value.args));
+
+const searchAnswer = shallowRef<Answer>({ kind: "pending", tried: 0, total: 0, text: "Searching" });
+let searcher: Worker | undefined;
+let searching = false;
+
+/** Drops the worker, and with it a search nobody waits for anymore. */
+function stopSearch() {
+  searcher?.terminate();
+  searcher = undefined;
+  searching = false;
+}
+
+/**
+ * Runs a search in a worker, since it may hash for seconds. A new call ends the one still running,
+ * and a message the ended one had already queued finds its worker replaced and goes unheard.
+ *
+ * @param {Record<string, unknown>} args - The search call.
+ */
+function startSearch(args: Record<string, unknown>) {
+  if (searching) stopSearch();
+  const worker = (searcher ??= new Worker(new URL("../../workers/search.ts", import.meta.url), {
+    type: "module",
+  }));
+  searching = true;
+  const started = performance.now();
+  searchAnswer.value = { kind: "pending", tried: 0, total: 0, text: "Searching" };
+  worker.onmessage = ({ data }: MessageEvent<SearchMessage>) => {
+    if (searcher !== worker) return;
+    if (data.type === "progress") {
+      const hashes = data.total === 1 ? "1 hash" : `${data.total} hashes`;
+      searchAnswer.value = { kind: "pending", ...data, text: `Searching ${hashes}` };
+      return;
+    }
+    searching = false;
+    searchAnswer.value =
+      data.type === "done"
+        ? { kind: "search", details: data.details, text: data.text, took: performance.now() - started }
+        : {
+            kind: "error",
+            name: data.name,
+            message: data.message,
+            text: `hashes_digest_search failed: ${data.message}`,
+          };
+  };
+  worker.onerror = (event) => {
+    if (searcher !== worker) return;
+    stopSearch();
+    searchAnswer.value = {
+      kind: "error",
+      name: "Error",
+      message: event.message,
+      text: `hashes_digest_search failed: ${event.message}`,
+    };
+  };
+  worker.postMessage(args);
+}
+onUnmounted(stopSearch);
+
+const answer = computed(() =>
+  request.value.op === "search" ? searchAnswer.value : run(request.value.op, request.value.args),
+);
 const answered = computed(() => OPERATIONS.find((row) => row.key === request.value.op)!);
 const answeredEntry = computed(
   () => algorithmEntry(String(request.value.args.algorithm ?? "")) ?? entry.value,
@@ -388,6 +572,23 @@ const cliLine = computed(() => {
     return ["hashes algorithms", ...filters].join(" ");
   }
   if (operation.value === "identify") return `hashes identify ${shellArg(unknownDigest.value)}`;
+  if (operation.value === "search") {
+    const list = (value: unknown) => (Array.isArray(value) ? value.join(",") : "");
+    return [
+      `hashes search ${shellArg(String(args.digest))}`,
+      ...searchWords.value.map(shellArg),
+      args.encoding === undefined ? "" : `-e ${String(args.encoding)}`,
+      args.minWords === undefined ? "" : `--min-words ${String(args.minWords)}`,
+      args.maxWords === undefined ? "" : `--max-words ${String(args.maxWords)}`,
+      args.joiners === undefined ? "" : `--joiners ${shellArg(JSON.stringify(args.joiners))}`,
+      args.cases === undefined ? "" : `--cases ${list(args.cases)}`,
+      args.algorithms === undefined ? "" : `--algorithms ${list(args.algorithms)}`,
+      args.rounds === undefined ? "" : `--rounds ${String(args.rounds)}`,
+      args.chains === undefined ? "" : `--chains ${list(args.chains)}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
   if (operation.value === "extend") {
     return [
       `hashes extend ${entry.value.slug} ${shellArg(String(args.digest))}`,
@@ -434,6 +635,10 @@ const call = computed(() => {
     return `${answered.value.tool}(${target ? `"${String(target)}"` : ""})`;
   }
   if (request.value.op === "identify") return `${answered.value.tool}("${String(args.digest)}")`;
+  if (request.value.op === "search") {
+    const count = Array.isArray(args.words) ? args.words.length : 0;
+    return `${answered.value.tool}("${String(args.digest)}", ${count} ${count === 1 ? "word" : "words"})`;
+  }
   if (request.value.op === "extend") {
     return `${answered.value.tool}("${String(args.algorithm)}", "${String(args.digest)}")`;
   }
@@ -489,10 +694,98 @@ function readingLabel(found: DigestIdentity): string {
   return `${found.length ?? 0} bytes of ${found.reading}`;
 }
 
+/**
+ * How the search ended, as the tool's first line says it.
+ *
+ * @param {DigestSearch} found - The tool's details.
+ * @returns {string} `MATCH`, `NO MATCH` or `STOPPED`.
+ */
+function searchVerdict(found: DigestSearch): string {
+  if (found.recipe) return "MATCH";
+  return found.stopped ? "STOPPED" : "NO MATCH";
+}
+
+/**
+ * A count of hashes the way the tool writes it.
+ *
+ * @param {number} tried - Hashes computed.
+ * @param {number} total - Hashes in the scope; 0 before the first count.
+ * @returns {string} `1200 of 3855 hashes`.
+ */
+function hashCount(tried: number, total: number): string {
+  return total === 0 ? "counting" : `${tried} of ${total} ${total === 1 ? "hash" : "hashes"}`;
+}
+
+/**
+ * Loads a sample puzzle and clears the fields it doesn't set, so the tool's defaults apply.
+ *
+ * @param {SearchSample} sample - One of the samples.
+ */
+function loadSearchSample(sample: SearchSample) {
+  searchTarget.value = sample.digest;
+  searchEncoding.value = "hex";
+  wordsText.value = sample.words.join("\n");
+  minWords.value = "";
+  maxWords.value = "";
+  joiners.value = [];
+  cases.value = [];
+  searchAlgorithms.value = [...(sample.algorithms ?? [])];
+  rounds.value = sample.rounds === undefined ? "" : String(sample.rounds);
+  chains.value = [];
+}
+
+/**
+ * A list from the address, kept only when every entry is one the form offers.
+ *
+ * @param {unknown} raw - The query value, a JSON array.
+ * @param {readonly string[] | undefined} known - The values the field takes; any string when absent.
+ * @returns {string[] | undefined} The list, or nothing.
+ */
+function queryList(raw: unknown, known?: readonly string[]): string[] | undefined {
+  if (typeof raw !== "string") return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) return undefined;
+  const list = parsed.filter((entry): entry is string => typeof entry === "string");
+  if (list.length !== parsed.length) return undefined;
+  return known && !list.every((entry) => known.includes(entry)) ? undefined : list;
+}
+
+/**
+ * The search fields from the address.
+ *
+ * @param {Record<string, unknown>} query - The route query.
+ */
+function readSearchQuery(query: Record<string, unknown>) {
+  if (typeof query.digest === "string") searchTarget.value = query.digest;
+  const words = queryList(query.words);
+  if (words) wordsText.value = words.join("\n");
+  if (typeof query.minWords === "string") minWords.value = query.minWords;
+  if (typeof query.maxWords === "string") maxWords.value = query.maxWords;
+  if (typeof query.rounds === "string") rounds.value = query.rounds;
+  joiners.value = (queryList(query.joiners, JOINERS) ?? []).map((joiner) => JSON.stringify(joiner));
+  cases.value = (queryList(query.cases, SEARCH_CASES) ?? []) as SearchCase[];
+  searchAlgorithms.value =
+    queryList(query.algorithms, searchAlgorithmItems.map((item) => item.value)) ?? [];
+  chains.value = (queryList(query.chains, SEARCH_CHAINS) ?? []) as SearchChain[];
+  const digestEncoding = String(query.encoding ?? "");
+  if ((TEXT_ENCODINGS as readonly string[]).includes(digestEncoding)) {
+    searchEncoding.value = digestEncoding as (typeof TEXT_ENCODINGS)[number];
+  }
+}
+
 /** What the failed call takes: the algorithm's options, or the tool's own arguments. */
 const takes = computed(() => {
   const tool = answered.value.tool;
-  if (tool === "hashes_digest_extend" || tool === "hashes_digest_identify") {
+  if (
+    tool === "hashes_digest_extend" ||
+    tool === "hashes_digest_identify" ||
+    tool === "hashes_digest_search"
+  ) {
     return TOOL_ARGUMENTS[tool].join(", ");
   }
   return answeredEntry.value.info.options
@@ -503,7 +796,7 @@ const takes = computed(() => {
 /** The cursor and the scan run once per answer, not once per keystroke that changes nothing. */
 const scan = ref(0);
 watch(
-  () => answer.value.text,
+  () => (answer.value.kind === "pending" ? undefined : answer.value.text),
   () => {
     scan.value += 1;
   },
@@ -640,7 +933,9 @@ function readQuery(query: Record<string, unknown>) {
   if (typeof query.category === "string" && (hashCategories as readonly string[]).includes(query.category)) {
     category.value = query.category as HashCategory;
   }
-  if (typeof query.digest === "string") {
+  if (op === "search") {
+    readSearchQuery(query);
+  } else if (typeof query.digest === "string") {
     if (op === "identify") unknownDigest.value = query.digest;
     else knownDigest.value = query.digest;
   }
@@ -669,7 +964,7 @@ function readQuery(query: Record<string, unknown>) {
     keyEncoding.value = keyEncodingValue as (typeof INPUT_ENCODINGS)[number];
   }
   const outEncoding = String(query.encoding ?? "");
-  if ((TEXT_ENCODINGS as readonly string[]).includes(outEncoding)) {
+  if (op !== "search" && (TEXT_ENCODINGS as readonly string[]).includes(outEncoding)) {
     encoding.value = outEncoding as (typeof TEXT_ENCODINGS)[number];
   }
   request.value = { op: operation.value, args: toolArgs.value };
@@ -684,7 +979,7 @@ const shareQuery = computed(() => {
         query[option] = String(setting);
       }
     } else {
-      query[name] = String(value);
+      query[name] = Array.isArray(value) ? JSON.stringify(value) : String(value);
     }
   }
   return query;
@@ -712,6 +1007,14 @@ function applyDeepLink() {
 
 onMounted(() => {
   applyDeepLink();
+  watch(
+    request,
+    ({ op, args }) => {
+      if (op === "search") startSearch(args);
+      else stopSearch();
+    },
+    { immediate: true },
+  );
   watch(shareQuery, (query) => {
     void router.replace({ query });
   });
@@ -967,6 +1270,185 @@ const shareLink = computed(() => {
                 </dd>
               </div>
             </dl>
+            <dl v-else-if="operation === 'search'" class="console-readout-rows">
+              <div>
+                <dt><label for="playground-search-digest">digest</label></dt>
+                <dd>
+                  <UInput
+                    id="playground-search-digest"
+                    v-model="searchTarget"
+                    variant="none"
+                    placeholder="the hash the words should make"
+                    spellcheck="false"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-search-encoding">encoding</label></dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-search-encoding"
+                    v-model="searchEncoding"
+                    :items="encodingItems"
+                    value-key="value"
+                    variant="none"
+                    :search-input="false"
+                    aria-label="encoding"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt><label for="playground-words">words</label></dt>
+                <dd>
+                  <UTextarea
+                    id="playground-words"
+                    v-model="wordsText"
+                    variant="none"
+                    :rows="3"
+                    autoresize
+                    :maxrows="12"
+                    placeholder="one word per line, in any order"
+                    spellcheck="false"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <label for="playground-min-words"
+                    >minWords<span class="playground-optional">?</span></label
+                  >
+                </dt>
+                <dd>
+                  <UInput
+                    id="playground-min-words"
+                    v-model.number="minWords"
+                    variant="none"
+                    type="number"
+                    placeholder="default 1"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <label for="playground-max-words"
+                    >maxWords<span class="playground-optional">?</span></label
+                  >
+                </dt>
+                <dd>
+                  <UInput
+                    id="playground-max-words"
+                    v-model.number="maxWords"
+                    variant="none"
+                    type="number"
+                    placeholder="default all of them"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <label for="playground-joiners"
+                    >joiners<span class="playground-optional">?</span></label
+                  >
+                </dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-joiners"
+                    v-model="joiners"
+                    :items="joinerItems"
+                    value-key="value"
+                    multiple
+                    variant="none"
+                    :search-input="false"
+                    placeholder='default "", " ", ",", "\n"'
+                    aria-label="joiners"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <label for="playground-cases">cases<span class="playground-optional">?</span></label>
+                </dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-cases"
+                    v-model="cases"
+                    :items="caseItems"
+                    value-key="value"
+                    multiple
+                    variant="none"
+                    :search-input="false"
+                    placeholder="default every one"
+                    aria-label="cases"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <label for="playground-search-algorithms"
+                    >algorithms<span class="playground-optional">?</span></label
+                  >
+                </dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-search-algorithms"
+                    v-model="searchAlgorithms"
+                    :items="searchAlgorithmItems"
+                    value-key="value"
+                    multiple
+                    variant="none"
+                    placeholder="default every one as long as the digest"
+                    aria-label="algorithms"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <label for="playground-rounds">rounds<span class="playground-optional">?</span></label>
+                </dt>
+                <dd>
+                  <UInput
+                    id="playground-rounds"
+                    v-model.number="rounds"
+                    variant="none"
+                    type="number"
+                    placeholder="default 1"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <label for="playground-chains">chains<span class="playground-optional">?</span></label>
+                </dt>
+                <dd>
+                  <USelectMenu
+                    id="playground-chains"
+                    v-model="chains"
+                    :items="chainItems"
+                    value-key="value"
+                    multiple
+                    variant="none"
+                    :search-input="false"
+                    placeholder="default every one, from round 2"
+                    aria-label="chains"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+            </dl>
             <dl v-else class="console-readout-rows">
               <div>
                 <dt><label for="playground-algorithm">algorithm</label></dt>
@@ -1129,6 +1611,23 @@ const shareLink = computed(() => {
             />
           </div>
           <div
+            v-else-if="operation === 'search'"
+            class="playground-chips"
+            role="group"
+            aria-label="Sample puzzles"
+          >
+            <UButton
+              v-for="sample in SEARCH_SAMPLES"
+              :key="sample.label"
+              :color="searchTarget === sample.digest ? 'primary' : 'neutral'"
+              variant="chip"
+              icon="i-lucide-shuffle"
+              :label="sample.label"
+              :aria-pressed="searchTarget === sample.digest"
+              @click="loadSearchSample(sample)"
+            />
+          </div>
+          <div
             v-else-if="operation !== 'algorithms'"
             class="playground-chips"
             role="group"
@@ -1159,6 +1658,10 @@ const shareLink = computed(() => {
             <template v-else-if="operation === 'identify'"
               >Every sample is the word <code>password</code>. Verify a candidate and the salt,
               costs and digest come along, read out of the string.</template
+            >
+            <template v-else-if="operation === 'search'"
+              >A chip loads a solved puzzle with its words shuffled. The last one has no answer
+              inside the tool's limit, so sit back and watch the count run out of road.</template
             >
             <template v-else-if="operation === 'algorithms'"
               >Pick an algorithm to see its options the way a model sees them before its first
@@ -1250,6 +1753,12 @@ const shareLink = computed(() => {
         <span v-else-if="answer.kind === 'identify'" class="console-meta"
           >{{ answer.details.candidates.length }} candidates · {{ answer.details.reading }}</span
         >
+        <span v-else-if="answer.kind === 'search'" class="console-meta"
+          >{{ hashCount(answer.details.tried, answer.details.total) }}</span
+        >
+        <span v-else-if="answer.kind === 'pending'" class="console-meta"
+          >{{ hashCount(answer.tried, answer.total) }}</span
+        >
         <span v-else-if="answer.kind === 'list'" class="console-meta"
           >{{ answer.algorithms.length }} algorithms · listing order</span
         >
@@ -1260,7 +1769,11 @@ const shareLink = computed(() => {
         <span class="console-mark" aria-hidden="true" />
       </header>
       <div class="console-ruler" aria-hidden="true">
-        <span :key="scan" class="console-cursor" />
+        <span
+          :key="scan"
+          class="console-cursor"
+          :class="{ 'console-cursor-busy': answer.kind === 'pending' }"
+        />
       </div>
 
       <template v-if="answer.kind === 'digest'">
@@ -1552,6 +2065,144 @@ const shareLink = computed(() => {
         </ol>
       </template>
 
+      <div v-else-if="answer.kind === 'pending'" class="console-band console-subject-band">
+        <div class="console-identity-block">
+          <ConsoleReticle icon="i-lucide-shuffle" />
+          <div class="console-name">
+            <span class="console-label">Search / in a worker</span>
+            <h3 class="console-name-mono">SEARCHING</h3>
+            <p class="console-about">
+              Hashing off the main thread, so scroll, type, change your mind. A new call ends this
+              one.
+            </p>
+          </div>
+        </div>
+        <div class="console-readout">
+          <svg class="console-link" viewBox="0 0 32 40" fill="none" aria-hidden="true">
+            <circle cx="3" cy="12" r="2.5" />
+            <path d="M5.5 12H14L22 20H32" />
+          </svg>
+          <dl class="console-readout-rows">
+            <div>
+              <dt>Hashed</dt>
+              <dd class="console-accent">{{ hashCount(answer.tried, answer.total) }}</dd>
+            </div>
+            <div>
+              <dt>Done</dt>
+              <dd>
+                {{ answer.total === 0 ? "counting" : `${Math.floor((answer.tried / answer.total) * 100)} %` }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <template v-else-if="answer.kind === 'search'">
+        <div class="console-band console-subject-band">
+          <div :key="scan" class="console-scan" aria-hidden="true" />
+          <div class="console-identity-block">
+            <ConsoleReticle
+              :key="searchVerdict(answer.details)"
+              :icon="
+                answer.details.recipe
+                  ? 'i-lucide-search-check'
+                  : answer.details.stopped
+                    ? 'i-lucide-timer-off'
+                    : 'i-lucide-search-x'
+              "
+            />
+            <div class="console-name">
+              <span class="console-label"
+                >Search /
+                <span class="console-label-key">{{
+                  answer.details.recipe?.algorithm ?? `${answer.details.scope.words.length} words`
+                }}</span></span
+              >
+              <h3
+                class="console-name-mono"
+                :class="answer.details.recipe ? 'playground-valid' : 'playground-invalid'"
+              >
+                {{ searchVerdict(answer.details) }}
+              </h3>
+              <p class="console-about">
+                <template v-if="answer.details.recipe"
+                  >Got it. These words, in this order, joined and cased like this, make your
+                  digest.</template
+                >
+                <template v-else-if="answer.details.stopped"
+                  >The tool ran out of hashes before the scope ran out of texts. Narrow it down, or
+                  take the CLI line, which runs as long as you let it.</template
+                >
+                <template v-else
+                  >Every text the scope holds got hashed and none of them fits. Another word, another
+                  joiner, one more round?</template
+                >
+              </p>
+            </div>
+          </div>
+          <div class="console-readout">
+            <svg class="console-link" viewBox="0 0 32 40" fill="none" aria-hidden="true">
+              <circle cx="3" cy="12" r="2.5" />
+              <path d="M5.5 12H14L22 20H32" />
+            </svg>
+            <dl :key="scan" class="console-readout-rows console-animate">
+              <div>
+                <dt>Hashed</dt>
+                <dd class="console-accent">
+                  {{ hashCount(answer.details.tried, answer.details.total) }}
+                </dd>
+              </div>
+              <div>
+                <dt>Took</dt>
+                <dd>{{ Math.round(answer.took) }} ms</dd>
+              </div>
+              <template v-if="answer.details.recipe">
+                <div>
+                  <dt>Joiner</dt>
+                  <dd>{{ JSON.stringify(answer.details.recipe.joiner) }}</dd>
+                </div>
+                <div>
+                  <dt>Case</dt>
+                  <dd>{{ answer.details.recipe.case }}</dd>
+                </div>
+                <div>
+                  <dt>Rounds</dt>
+                  <dd>
+                    {{ answer.details.recipe.rounds
+                    }}{{ answer.details.recipe.chain ? `, chained as ${answer.details.recipe.chain}` : "" }}
+                  </dd>
+                </div>
+              </template>
+              <div v-else>
+                <dt>Algorithms</dt>
+                <dd>
+                  <UTooltip :text="answer.details.scope.algorithms.join(', ')">
+                    <span class="playground-line" tabindex="0">{{
+                      answer.details.scope.algorithms.join(", ")
+                    }}</span>
+                  </UTooltip>
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+        <div v-if="answer.details.recipe" class="console-band">
+          <p class="console-label console-rule-title">
+            <span>Hashed text <span aria-hidden="true">[ recipe.input ]</span></span>
+            <span class="console-mark" aria-hidden="true" />
+            <UButton
+              color="neutral"
+              variant="subtle"
+              :icon="copied === 'out' ? 'i-lucide-check' : 'i-lucide-copy'"
+              :label="copied === 'out' ? 'copied' : 'copy'"
+              :aria-label="copied === 'out' ? 'Copied' : 'Copy the hashed text'"
+              @click="copy('out', answer.details.recipe.input)"
+            />
+          </p>
+          <pre :key="scan" class="console-snippet playground-output"><code>{{ answer.details.recipe.input }}</code></pre>
+        </div>
+      </template>
+
       <ol
         v-else-if="answer.kind === 'list'"
         :key="scan"
@@ -1648,7 +2299,9 @@ const shareLink = computed(() => {
 
       <footer class="console-footer console-footer-plain">
         <ul class="console-links">
-          <li v-if="answer.kind !== 'list' && answered.key !== 'identify'">
+          <li
+            v-if="answer.kind !== 'list' && answered.key !== 'identify' && answered.key !== 'search'"
+          >
             <NuxtLink :to="answeredEntry.to"
               ><span aria-hidden="true">→ </span>{{ answeredEntry.info.label }}</NuxtLink
             >
@@ -1658,7 +2311,9 @@ const shareLink = computed(() => {
               :to="
                 answered.key === 'verify' || answered.key === 'hmac'
                   ? '/guide/verify'
-                  : answered.key === 'extend' || answered.key === 'identify'
+                  : answered.key === 'extend' ||
+                      answered.key === 'identify' ||
+                      answered.key === 'search'
                     ? `/guide/${answered.key}`
                     : answeredEntry.info.category === 'password'
                       ? '/guide/kdf'
