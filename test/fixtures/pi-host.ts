@@ -9,7 +9,7 @@ import {
   ModelRegistry,
   ModelRuntime,
   SessionManager,
-  type ExtensionContext,
+  type ExtensionToolContext,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { onTestFinished } from "vite-plus/test";
@@ -18,7 +18,7 @@ export interface PiTestHost {
   /** Tools the extension registered, keyed by name. */
   readonly tools: ReadonlyMap<string, ToolDefinition>;
   /** The context Pi's runner passes to `execute`. */
-  readonly context: ExtensionContext;
+  readonly context: ExtensionToolContext;
   /** Returns the registered tool, or throws when the extension did not register it. */
   tool(name: string): ToolDefinition;
 }
@@ -66,7 +66,7 @@ export async function loadPiExtension(extensionPath: string): Promise<PiTestHost
 
   return {
     tools,
-    context: runner.createContext(),
+    context: runner.createToolContext("call-1", undefined),
     tool(name) {
       const tool = tools.get(name);
       if (!tool) {
