@@ -55,6 +55,7 @@ import {
   hkdfExtract,
   hmac,
   keccak256,
+  keccakF1600,
   md5,
   normalizeError,
   pbkdf2,
@@ -793,6 +794,43 @@ describe("byte functions", () => {
     expect(hasher.digest()).toEqual(keccak256(message));
   });
 
+  it("run a sponge on keccakF1600 that gives Node's SHA3-256 and SHAKE128", () => {
+    /* Absorbs whole and squeezes `length` bytes, on a state off a word boundary. */
+    const sponge = (message: Uint8Array, rate: number, suffix: number, length: number) => {
+      const padded = new Uint8Array((Math.floor(message.length / rate) + 1) * rate);
+      padded.set(message);
+      padded[message.length] = padded[message.length]! ^ suffix;
+      const last = padded.length - 1;
+      padded[last] = padded[last]! ^ 0x80;
+      const state = new Uint8Array(201).subarray(1);
+      for (let offset = 0; offset < padded.length; offset += rate) {
+        for (let i = 0; i < rate; i++) state[i] = state[i]! ^ padded[offset + i]!;
+        expect(keccakF1600(state)).toBe(state);
+      }
+      const out = new Uint8Array(length);
+      for (let offset = 0; offset < length; offset += rate) {
+        if (offset > 0) keccakF1600(state);
+        out.set(state.subarray(0, Math.min(rate, length - offset)), offset);
+      }
+      return out;
+    };
+    for (const bytes of inputs) {
+      expect(sponge(bytes, 136, 0x06, 32).toHex()).toBe(
+        createHash("sha3-256").update(bytes).digest("hex"),
+      );
+      expect(sponge(bytes, 168, 0x1f, 400).toHex()).toBe(
+        createHash("shake128", { outputLength: 400 }).update(bytes).digest("hex"),
+      );
+    }
+  });
+
+  it("refuse a keccakF1600 state that isn't 200 bytes", () => {
+    expect(() => keccakF1600(new Uint8Array(199))).toThrow(
+      new HashError("state must be 200 bytes, not 199"),
+    );
+    expect(() => keccakF1600(new Uint8Array(201))).toThrow("not 201");
+  });
+
   it("run HMAC and PBKDF2 over the SHA-224 and SHA-3 hashers as Node does", () => {
     const key = new TextEncoder().encode(
       "a key longer than one SHA3-512 block of 72 bytes".repeat(2),
@@ -1034,6 +1072,9 @@ describe("byte functions", () => {
     );
     expect(() => keccak256(loose([1, 2, 3]))).toThrow(
       new HashError("data must be a Uint8Array, not object"),
+    );
+    expect(() => keccakF1600(loose(Array.from({ length: 200 }, () => 0)))).toThrow(
+      new HashError("state must be a Uint8Array, not object"),
     );
     expect(() => blake256(loose(null))).toThrow(
       new HashError("message must be a Uint8Array, not null"),
@@ -1378,6 +1419,7 @@ describe("byte function subpaths", () => {
       "Sha3_256Hasher",
       "Sha3_512Hasher",
       "keccak256",
+      "keccakF1600",
       "sha3_256",
       "sha3_512",
     ],
