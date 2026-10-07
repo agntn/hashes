@@ -116,8 +116,7 @@
   },
   "dependencies": {
     "@agntn/tools": "0.2.1",
-    "@modelcontextprotocol/server": "2.2.0",
-    "citty": "0.2.2"
+    "@modelcontextprotocol/server": "2.2.0"
   },
   "devDependencies": {
     "@agntn/ox": "0.1.0",

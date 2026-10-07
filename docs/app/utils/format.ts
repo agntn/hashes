@@ -27,16 +27,21 @@ export function commandLine(
     : [command, ...words, ...set].join(" ");
 }
 
-/** Option values as CLI flags: `--salt 00ff --N 1024`. */
+/** The CLI flag of an option, kebab case like `runCli`: `keyLength` is `key-length`. */
+export function flagName(name: string): string {
+  return name.replaceAll(/([a-z0-9])([A-Z])/gu, "$1-$2").replaceAll("_", "-").toLowerCase();
+}
+
+/** Option values as CLI flags: `--salt 00ff --n 1024`. */
 export function optionFlags(options: Record<string, unknown>): string {
   return Object.entries(options)
     .filter(([, value]) => value !== undefined && value !== "" && value !== null)
     .map(([name, value]) =>
       typeof value === "boolean"
         ? value
-          ? `--${name}`
-          : `--no-${name}`
-        : `--${name} ${shellArg(String(value))}`,
+          ? `--${flagName(name)}`
+          : `--no-${flagName(name)}`
+        : `--${flagName(name)} ${shellArg(String(value))}`,
     )
     .join(" ");
 }

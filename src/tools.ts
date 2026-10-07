@@ -42,6 +42,7 @@ export const computeTool = defineTool({
   effect: "read",
   idempotent: false,
   input: hashComputeSchema,
+  cli: { command: "hash" },
   execute: async (params) => (await loadOperations()).hashCompute(params),
 });
 
@@ -53,6 +54,7 @@ export const hmacComputeTool = defineTool({
   guidelines: ["hashes_algorithms tells which algorithms have an HMAC mode."],
   effect: "read",
   input: hashHmacSchema,
+  cli: { command: "hmac" },
   execute: async (params) => (await loadOperations()).hashHmac(params),
 });
 
@@ -78,6 +80,11 @@ export const digestExtendTool = defineTool({
   ],
   effect: "read",
   input: hashDigestExtendSchema,
+  cli: {
+    command: "extend",
+    description: "Length extension: from H(secret || message), the digest of a longer message",
+    positional: ["algorithm", "digest"],
+  },
   execute: async (params) => (await loadOperations()).hashDigestExtend(params),
 });
 
@@ -91,6 +98,7 @@ export const digestIdentifyTool = defineTool({
   ],
   effect: "read",
   input: hashDigestIdentifySchema,
+  cli: { command: "identify" },
   execute: async (params) => (await loadOperations()).hashDigestIdentify(params),
 });
 
@@ -106,6 +114,7 @@ export const digestSearchTool = defineTool({
   ],
   effect: "read",
   input: hashDigestSearchSchema,
+  cli: { command: "search" },
   execute: async (params) => (await loadOperations()).hashDigestSearch(params),
 });
 
@@ -120,6 +129,12 @@ export const algorithmsTool = defineTool({
   ],
   effect: "read",
   input: hashAlgorithmsSchema,
+  cli: {
+    aliases: ["info"],
+    description: "List the algorithms, or show one with its options",
+    positional: ["algorithm"],
+    short: { family: "f", category: "c" },
+  },
   execute: async (params) => (await loadOperations()).hashAlgorithms(params),
 });
 

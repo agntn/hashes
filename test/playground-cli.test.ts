@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, scryptSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { commandLine } from "../docs/app/utils/format.ts";
+import { commandLine, optionFlags } from "../docs/app/utils/format.ts";
 
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
@@ -58,6 +58,17 @@ describe("the playground's CLI line", () => {
     );
     expect(search.code).toBe(0);
     expect(search.stdout).toContain('input "-a"');
+  });
+
+  it("spells an algorithm's options as the kebab flags the CLI takes", () => {
+    const options = { salt: "00112233", N: 1024, r: 1, p: 1, keyLength: 16 };
+    const line = commandLine("hashes scrypt", ["pw"], [optionFlags(options)]);
+
+    expect(line).toBe("hashes scrypt pw --salt 00112233 --n 1024 --r 1 --p 1 --key-length 16");
+    expect(shell(line)).toMatchObject({
+      code: 0,
+      stdout: scryptSync("pw", Buffer.from("00112233", "hex"), 16, { N: 1024, r: 1, p: 1 }).toString("hex"),
+    });
   });
 
   it("pipes a lone dash, which the CLI reads as stdin", () => {

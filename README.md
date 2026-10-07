@@ -84,19 +84,19 @@ Same letters, other bytes. The second one exits with 1.
 
 ### Commands
 
-| Command      | What it does                                       | Example                                                               |
-| ------------ | -------------------------------------------------- | --------------------------------------------------------------------- |
-| `hash`       | Digest of text, or of stdin with `-`               | `hashes hash blake3 - < file.bin`                                     |
-| `hmac`       | Keyed digest                                       | `hashes hmac sha256 "message" "secret"`                               |
-| `verify`     | Compare with an expected digest, exit 1 if not     | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592`            |
-| `extend`     | Length extension, one line per secret length       | `hashes extend md5 <digest> --message m --suffix x --secret-length 3` |
-| `identify`   | Candidates for a hash, by prefix or length         | `hashes identify 5d41402abc4b2a76b9719d911017c592`                    |
-| `search`     | The words and the recipe behind a digest           | `hashes search <digest> alpha beta --rounds 2`                        |
-| `algorithms` | The list, `-f` keeps one family, `-c` one category | `hashes algorithms -f sha`                                            |
-| `info`       | One algorithm with its options                     | `hashes info pbkdf2`                                                  |
-| `mcp`        | The MCP server on stdio                            | `hashes mcp`                                                          |
+| Command      | What it does                                                | Example                                                               |
+| ------------ | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| `hash`       | Digest of text, or of stdin with `-`                        | `hashes hash blake3 - < file.bin`                                     |
+| `hmac`       | Keyed digest                                                | `hashes hmac sha256 "message" "secret"`                               |
+| `verify`     | Compare with an expected digest, exit 1 if not              | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592`            |
+| `extend`     | Length extension, a digest per secret length                | `hashes extend md5 <digest> --message m --suffix x --secret-length 3` |
+| `identify`   | Candidates for a hash, by prefix or length                  | `hashes identify 5d41402abc4b2a76b9719d911017c592`                    |
+| `search`     | The words and the recipe behind a digest                    | `hashes search <digest> alpha beta --rounds 2`                        |
+| `algorithms` | The list, `-f` keeps one family, `-c` one category          | `hashes algorithms -f sha`                                            |
+| `info`       | One algorithm with its options, same as `algorithms <name>` | `hashes info pbkdf2`                                                  |
+| `mcp`        | The MCP server on stdio                                     | `hashes mcp`                                                          |
 
-`hash` is the default, so `hashes md5 hello` works. Flags per command: `hashes <command> --help`.
+`hash` is the default, so `hashes md5 hello` works. Flags per command: `hashes <command> --help`. They come straight from the tool schemas, in kebab case (`--key-length`, scrypt's `--n`), and `--json` swaps the text for data in `verify`, `extend`, `identify`, `search` and `algorithms`.
 
 ## 🧠 Library
 
