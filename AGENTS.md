@@ -63,6 +63,7 @@ src/<name>.ts            - byte function subpaths (sha1, md5, sha2, ripemd160, k
 src/tools.ts             - the tool definitions every agent surface serves
 src/tool-operations.ts   - executors behind them
 src/mcp.ts, src/ai.ts    - MCP server and AI SDK tools, through @agntn/tools
+src/server-info.ts       - name, version, description and icons both MCP servers introduce themselves with
 packages/shared/         - tool contract (bounds, descriptions) and argument schemas
 packages/pi/extensions/  - Pi extension
 packages/omp/extensions/ - OMP extension

@@ -6,8 +6,8 @@ import {
 } from "@agntn/tools/mcp";
 import type { CallToolResult, Server, Tool } from "@modelcontextprotocol/server";
 import { MAX_SCRYPT_MEMORY } from "../packages/shared/tool-contract.ts";
+import { serverInfo } from "./server-info.ts";
 import { hashesTools } from "./tools.ts";
-import { version } from "./version.ts";
 
 /** The `tools/list` entries shared by `hashes mcp` and the MCP server of the docs site. */
 export const toolListings: readonly Tool[] = hashesTools.map((tool) => ({
@@ -90,5 +90,5 @@ async function overMemory(
  * @returns {Server} Unconnected MCP server.
  */
 export function createMcpServer(): Server {
-  return createToolServer({ name: "hashes", version }, hashesTools);
+  return createToolServer(serverInfo, hashesTools);
 }
