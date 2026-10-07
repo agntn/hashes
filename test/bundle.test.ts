@@ -85,6 +85,7 @@ describe("one byte function bundled with esbuild", () => {
     /* SHA-256's two tables plus its own initial value, and still no registry. */
     ["Sha224Hasher", 3, 4_500],
     ["keccak256", 1, 6_000],
+    ["keccakF1600", 1, 6_000],
     ["ripemd160", 5, 5_000],
     ["blake2b", 3, 8_000],
     // CRC-32 carries its bzip2 variant and the error a wrong variant throws.

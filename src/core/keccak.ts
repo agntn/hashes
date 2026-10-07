@@ -3,6 +3,7 @@
  * kept from before FIPS 202 changed the padding. The 25 lanes are 64-bit, held as a low then a
  * high 32-bit half, so the state is fifty int32 values.
  */
+import { HashError } from "./errors.ts";
 import { Hasher, assertBytes, viewOf, wordsToBytes } from "./hasher.ts";
 
 /** Domain byte FIPS 202 puts after a SHA-3 message. */
@@ -368,6 +369,23 @@ function permute(s: Int32Array): void {
   s[47] = h23;
   s[48] = l24;
   s[49] = h24;
+}
+
+/**
+ * Bare Keccak-f[1600], for what the sponge won't do, like the STROBE under sr25519's Merlin.
+ *
+ * @param state - 200 bytes, lane `x + 5y` little-endian at byte `8(x + 5y)`, permuted in place.
+ * @returns {Uint8Array} The same `state`.
+ */
+export function keccakF1600(state: Uint8Array): Uint8Array {
+  assertBytes(state, "state");
+  if (state.length !== 200) throw new HashError(`state must be 200 bytes, not ${state.length}`);
+  const view = viewOf(state);
+  const lanes = new Int32Array(50);
+  for (let i = 0; i < 50; i++) lanes[i] = view.getInt32(i << 2, true);
+  permute(lanes);
+  for (let i = 0; i < 50; i++) view.setInt32(i << 2, lanes[i]!, true);
+  return state;
 }
 
 /** A Keccak-f[1600] sponge with a fixed output no longer than one rate block. */
