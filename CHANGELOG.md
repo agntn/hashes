@@ -1,6 +1,25 @@
 # Changelog
 
 
+## v0.6.7
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.6.6...v0.6.7)
+
+### 🚀 Enhancements
+
+- Run hashes_digest_search in the playground ([#159](https://github.com/agntn/hashes/pull/159))
+
+### 🩹 Fixes
+
+- **docs:** Restore the "every" menu options ([#162](https://github.com/agntn/hashes/pull/162))
+- **docs:** Put -- before dashed playground input ([#163](https://github.com/agntn/hashes/pull/163))
+- Let hashes install next to Pi 1.x ([#164](https://github.com/agntn/hashes/pull/164))
+
+### ❤️ Contributors
+
+- Ori ([@oritwoen](https://github.com/oritwoen))
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+
 ## v0.6.6
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.6.5...v0.6.6)
