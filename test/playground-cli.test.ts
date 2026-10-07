@@ -67,7 +67,11 @@ describe("the playground's CLI line", () => {
     expect(line).toBe("hashes scrypt pw --salt 00112233 --n 1024 --r 1 --p 1 --key-length 16");
     expect(shell(line)).toMatchObject({
       code: 0,
-      stdout: scryptSync("pw", Buffer.from("00112233", "hex"), 16, { N: 1024, r: 1, p: 1 }).toString("hex"),
+      stdout: scryptSync("pw", Buffer.from("00112233", "hex"), 16, {
+        N: 1024,
+        r: 1,
+        p: 1,
+      }).toString("hex"),
     });
   });
 
