@@ -611,7 +611,7 @@ const cliLine = computed(() => {
   }
   if (operation.value === "extend") {
     return commandLine(`hashes extend ${entry.value.slug}`, [String(args.digest)], [
-      message.value ? `--message ${shellArg(message.value)}` : "",
+      `--message ${shellArg(message.value)}`,
       messageEncoding.value === "utf8" ? "" : `--message-encoding ${messageEncoding.value}`,
       `--suffix ${shellArg(suffix.value)}`,
       suffixEncoding.value === "utf8" ? "" : `--suffix-encoding ${suffixEncoding.value}`,

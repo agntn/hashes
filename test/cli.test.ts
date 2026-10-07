@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { normalizeMainArgs } from "../src/cli-args.ts";
 import pkg from "../package.json" with { type: "json" };
 
 const switches = new Set([
@@ -32,26 +31,26 @@ function run(args: readonly string[], input?: string) {
 
 const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
 
-describe("normalizeMainArgs", () => {
-  it("makes hash the default subcommand and leaves the rest alone", () => {
-    expect(normalizeMainArgs([])).toEqual(["algorithms"]);
-    expect(normalizeMainArgs(["sha256", "x"])).toEqual(["hash", "sha256", "x"]);
-    expect(normalizeMainArgs(["verify", "md5", "x", "y"])).toEqual(["verify", "md5", "x", "y"]);
-    expect(normalizeMainArgs(["mcp"])).toEqual(["mcp"]);
-    expect(normalizeMainArgs(["--version"])).toEqual(["--version"]);
-    expect(normalizeMainArgs(["-h"])).toEqual(["-h"]);
-  });
-});
-
 describe("hashes CLI", () => {
-  it("prints the usage and citty's errors without colors into a pipe", () => {
+  it("lists every command once, in the order the tools come, without colors", () => {
     const help = run(["--help"]);
     const usage = run(["hash", "--help"]);
+    const commands = help.stdout
+      .split("\n")
+      .filter((line) => line.startsWith("  "))
+      .map((line) => line.trim().split(/\s{2,}/)[0]);
 
-    expect(help.stdout).toContain(
-      "USAGE hashes hash|hmac|verify|extend|identify|search|algorithms|info|mcp",
-    );
-    expect(usage.stdout).toContain("ALGORITHM");
+    expect(commands).toEqual([
+      "hash",
+      "hmac",
+      "verify",
+      "extend",
+      "identify",
+      "search",
+      "algorithms, info",
+      "mcp",
+    ]);
+    expect(usage.stdout).toContain("USAGE hashes hash [OPTIONS] <ALGORITHM> <INPUT>");
     expect(usage.stdout).toContain(
       "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt)",
     );
@@ -76,8 +75,16 @@ describe("hashes CLI", () => {
     );
   });
 
-  it("hashes stdin for -", () => {
+  it("hashes stdin for -, byte for byte, and writes binary digests as bytes", () => {
+    const bytes = Buffer.from([0xff, 0x00, 0xfe]);
+    const piped = spawnSync(process.execPath, ["src/cli.ts", "sha256", "-"], { env, input: bytes });
+    const binary = spawnSync(process.execPath, ["src/cli.ts", "md5", "abc", "-e", "binary"], {
+      env,
+    });
+
     expect(run(["sha256", "-"], "piped bytes").stdout).toBe(`${sha256("piped bytes")}\n`);
+    expect(piped.stdout.toString()).toBe(`${createHash("sha256").update(bytes).digest("hex")}\n`);
+    expect(binary.stdout).toEqual(createHash("md5").update("abc").digest());
   });
 
   it("hashes the bytes --input-encoding hex spells, from the argument or stdin", () => {
@@ -110,7 +117,7 @@ describe("hashes CLI", () => {
     ).toBe(hmac);
     expect(run(["hmac", "sha256", "m", "k", "--key-encoding", "latin1"])).toMatchObject({
       code: 1,
-      stderr: "Invalid option key-encoding=latin1: use one of utf8, hex, base64\n",
+      stderr: "Invalid arguments at /keyEncoding: must be one of utf8, hex, base64\n",
     });
   });
 
@@ -162,6 +169,7 @@ describe("hashes CLI", () => {
     ]);
     const wrong = run(["search", sha256("x"), "alpha", "--algorithms", "sha256,md5"]);
     const missing = run(["search", sha256("x")]);
+    const spaced = run(["search", sha256("a b"), "a b", "--joiners", '[" "]', "--cases", "as-is"]);
 
     expect(found).toEqual({
       code: 0,
@@ -175,7 +183,8 @@ describe("hashes CLI", () => {
     expect(wrong).toMatchObject({ code: 1, stdout: "" });
     expect(wrong.stderr).toContain("makes 16 bytes and the digest is 32");
     expect(missing).toMatchObject({ code: 1, stdout: "" });
-    expect(missing.stderr).toContain("words (after the digest)");
+    expect(missing.stderr).toContain("words");
+    expect(spaced).toMatchObject({ code: 0 });
   });
 
   it("identifies a hash with the candidates on stdout and exits 1 when none fits", () => {
@@ -228,36 +237,33 @@ describe("hashes CLI", () => {
   });
 
   it("refuses a flag or an argument the command does not take", () => {
-    for (const [args, flag, command] of [
-      [["sha256", "abc", "--key", "secret"], "--key", "hash"],
-      [["sha256", "abc", "--rounds", "2", "--typo=3"], "--typo", "hash"],
-      [["verify", "sha256", "abc", sha256("abc"), "--key", "x"], "--key", "verify"],
-      [["hmac", "sha256", "abc", "k", "--salt", "00"], "--salt", "hmac"],
-      [["info", "sha256", "-x"], "-x", "info"],
-      [["search", sha256("x"), "x", "--bogus"], "--bogus", "search"],
+    for (const [args, flag] of [
+      [["sha256", "abc", "--key", "secret"], "--key"],
+      [["sha256", "abc", "--rounds", "2", "--typo=3"], "--typo=3"],
+      [["verify", "sha256", "abc", sha256("abc"), "--key", "x"], "--key"],
+      [["hmac", "sha256", "abc", "k", "--salt", "00"], "--salt"],
+      [["info", "sha256", "-x"], "-x"],
+      [["search", sha256("x"), "x", "--bogus"], "--bogus"],
     ] as const) {
+      const refused = run(args);
+      expect(refused).toMatchObject({ code: 1, stdout: "" });
+      expect(refused.stderr).toMatch(
+        new RegExp(`^Invalid arguments: unknown option "${flag}"; takes `, "u"),
+      );
+    }
+    for (const args of [
+      ["sha256", "hello", "world"],
+      ["identify", "abcd", "ef"],
+      ["sha256", "a", "b\nMATCH"],
+    ]) {
       expect(run(args)).toMatchObject({
         code: 1,
         stdout: "",
-        stderr: `Unknown option ${flag} for ${command}. Text that starts with - goes after --, which ends the options.\n`,
+        stderr: "Invalid arguments: 1 unexpected positional argument\n",
       });
     }
-    expect(run(["sha256", "hello", "world"])).toMatchObject({
-      code: 1,
-      stdout: "",
-      stderr:
-        "Unexpected argument: world. hash takes ALGORITHM INPUT; quote an input with spaces\n",
-    });
-    expect(run(["identify", "abcd", "ef"]).stderr).toBe(
-      "Unexpected argument: ef. identify takes DIGEST; quote an input with spaces\n",
-    );
-    expect(run(["sha256", "a", "b\nMATCH"]).stderr).toBe(
-      'Unexpected argument: "b\\nMATCH". hash takes ALGORITHM INPUT; quote an input with spaces\n',
-    );
     expect(run(["sha256", "--", "--key"]).stdout).toBe(`${sha256("--key")}\n`);
-    expect(run(["sha256", "abc", "--input-encoding", "utf8", "--inputEncoding", "utf8"]).code).toBe(
-      0,
-    );
+    expect(run(["sha256", "abc", "--inputEncoding", "utf8"]).code).toBe(1);
   });
 
   it("passes every advertised option as a flag and refuses one the algorithm lacks", () => {
@@ -271,13 +277,13 @@ describe("hashes CLI", () => {
       "pw",
       "--salt",
       "00112233",
-      "--N",
+      "--n",
       "1024",
       "--r",
       "1",
       "--p",
       "1",
-      "--keyLength",
+      "--key-length",
       "16",
     ]);
     expect(scrypt.stdout).toBe(
@@ -294,7 +300,7 @@ describe("hashes CLI", () => {
       "1",
       "--parallelism",
       "1",
-      "--associatedData",
+      "--associated-data",
       "ff",
     ]);
     expect(argon2.stdout).toBe(
@@ -333,7 +339,7 @@ describe("hashes CLI", () => {
     const okm = Buffer.from(
       hkdfSync("sha256", Buffer.from(ikm, "hex"), "", Buffer.from("f0f1", "hex"), 42),
     ).toString("hex");
-    const args = ["--input-encoding", "hex", "--info", "f0f1", "--keyLength", "42"];
+    const args = ["--input-encoding", "hex", "--info", "f0f1", "--key-length", "42"];
 
     expect(run(["hkdf", ikm, ...args])).toMatchObject({ code: 0, stdout: `${okm}\n`, stderr: "" });
     expect(run(["verify", "hkdf", ikm, okm, ...args])).toMatchObject({ code: 0 });
@@ -351,17 +357,16 @@ describe("hashes CLI", () => {
       stderr: "digest sha256, iterations 1, keyLength 32, ivLength 16, salt 0102030405060708\n",
     });
     expect(
-      run(["evp-bytestokey", "password", "--keyLength", "16", "--ivLength", "0"]),
+      run(["evp-bytestokey", "password", "--key-length", "16", "--iv-length", "0"]),
     ).toMatchObject({ code: 0, stdout: "5f4dcc3b5aa765d61d8327deb882cf99\n", stderr: "" });
   });
 
   it("lists one family or category and describes one algorithm", () => {
     const names = (args: readonly string[]): string[] =>
       run(["algorithms", ...args])
-        .stdout.trim()
-        .split("\n")
-        .slice(1)
-        .map((line) => line.split(/\s+/)[0] ?? "");
+        .stdout.split("\n")
+        .filter((line) => / \[/u.test(line))
+        .map((line) => line.split(" ")[0] ?? "");
     expect(names(["-c", "password"])).toEqual([
       "scrypt",
       "pbkdf2",
@@ -373,7 +378,8 @@ describe("hashes CLI", () => {
     ]);
     expect(names(["-f", "crc"])).toEqual(["crc32", "crc64", "crc24", "crc16-xmodem"]);
     expect(names(["-f", "SHA", "-c", "legacy"])).toEqual(["sha1", "sha0"]);
-    expect(run(["info", "SHA3_256"]).stdout).toContain("SHA3-256 (sha3-256)");
+    expect(run(["info", "SHA3_256"]).stdout).toMatch(/^sha3-256 \[SHA, cryptographic\] 256-bit/u);
+    expect(run([]).stdout).toBe(run(["algorithms"]).stdout);
   });
 
   it("exits quietly when the reader closes the pipe early", async () => {
@@ -433,7 +439,7 @@ function serve(base: string, extraEnv: Readonly<Record<string, string>> = {}) {
   const loaded: unknown = marker === -1 ? [] : JSON.parse(stderr.slice(marker + 8));
   const urls = Array.isArray(loaded) ? loaded.filter((url) => typeof url === "string") : [];
   const source = urls.includes(pathToFileURL(join(base, "src/mcp.ts")).href);
-  const bundle = urls.includes(pathToFileURL(join(base, "dist/_chunks/mcp.mjs")).href);
+  const bundle = urls.includes(pathToFileURL(join(base, "dist/mcp.mjs")).href);
   let from: "bundle" | "source" | "unknown" = "unknown";
   if (source && !bundle) from = "source";
   if (bundle && !source) from = "bundle";

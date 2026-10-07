@@ -58,7 +58,7 @@ Keep AGENTS.md updated with project status.
 ```
 src/core/                - Hash, FixedHash, BlockHash, the hashers and byte functions, HMAC and the KDFs, types, errors, registry, name resolution, digest helpers, verify
 src/algorithms/          - one file per built-in algorithm, plus the builtins list in index.ts
-src/commands/            - citty subcommands
+src/cli-commands.ts      - the CLI's own hash, hmac, verify, identify and search
 src/<name>.ts            - byte function subpaths (sha1, md5, sha2, ripemd160, keccak, blake2b, blake256, crc, adler32, xxhash, hmac, evp, scrypt, argon2, bcrypt)
 src/tools.ts             - the tool definitions every agent surface serves
 src/tool-operations.ts   - executors behind them
@@ -87,8 +87,8 @@ docs/                    - the hashes.agntn.dev site, its own pnpm project, outs
 - No `as any`, `@ts-ignore`, or `@ts-expect-error`.
 - Every bound a tool schema declares is enforced again in the executor, and every tool argument table in `TOOL_ARGUMENTS` matches its schema keys.
 - Tool schemas are closed (`additionalProperties: false`); an undeclared key is an error on every surface.
-- The CLI refuses an option or an argument its subcommand doesn't declare (`command()` in `src/cli.ts`, #134), since citty parses with `strict: false` and keeps both. The message matches `@agntn/encodings`.
-- An algorithm's options besides `encoding` and `key` (salt, seed, KDF costs) reach every surface from one place: `info().options`, checked by `checkedParameters` in `src/core/options.ts`. The CLI turns them into flags, the tools take them as `parameters`, and a name the algorithm does not declare is an error, never dropped. Tool calls also cap KDF costs (`PARAMETER_LIMITS`, `MAX_SCRYPT_MEMORY`, `MAX_ARGON2_WORK`); the library leaves them to the caller. A capped parameter starts at 1 unless `ZERO_PARAMETERS` lists it, as it does `ivLength`.
+- The CLI is `runCli` from `@agntn/tools/cli` over `hashesTools` (#158), so every flag is a schema property in kebab case (`--key-length`, scrypt's `--n`) and an undeclared option or argument is refused before anything runs. `extend` and `algorithms` (with `info` as its alias) are generated from their tools. `hash`, `hmac`, `verify`, `identify` and `search` are defined in `src/cli-commands.ts` and replace the tool commands of the same name, since the tool can't do what they do: read stdin as bytes, write `-e binary`, print the digest alone, exit 1 on an empty identify or search, and search past the tool cap up to `--limit`. A bare `hashes mcp` serves `createMcpServer` itself, because `mcp: true` in `@agntn/tools` 0.2.1 can't take the server's description and icons.
+- An algorithm's options besides `encoding` and `key` (salt, seed, KDF costs) reach every surface from one place: `info().options`, checked by `checkedParameters` in `src/core/options.ts`. The CLI turns them into kebab flags, the tools take them as `parameters`, and a name the algorithm does not declare is an error, never dropped. Tool calls also cap KDF costs (`PARAMETER_LIMITS`, `MAX_SCRYPT_MEMORY`, `MAX_ARGON2_WORK`); the library leaves them to the caller. A capped parameter starts at 1 unless `ZERO_PARAMETERS` lists it, as it does `ivLength`.
 - An MCP client sees only `content`, so every fact a follow-up call needs (a KDF's salt and cost) is in the text.
 - The CLI prints the digest alone on stdout; a salted digest's parameters go to stderr.
 - `pnpm install` hung in `importing_started` with pnpm 11.26 and the default import method on this machine; `--config.package-import-method=hardlink` works.
