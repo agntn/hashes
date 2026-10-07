@@ -1,8 +1,10 @@
 import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
+import { existsSync } from "node:fs";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { callTool, createMcpServer, toolListings } from "../src/mcp.ts";
 import { Pbkdf2 } from "../src/algorithms/index.ts";
+import { serverInfo } from "../src/server-info.ts";
 import {
   type AlgorithmInfo,
   Hash,
@@ -99,6 +101,16 @@ describe("tool contract", () => {
 });
 
 describe("hashes MCP server", () => {
+  it("introduces itself with a description and icons the site serves", async () => {
+    const client = await connectTestClient();
+
+    expect(client.getServerVersion()).toEqual(serverInfo);
+    for (const icon of serverInfo.icons) {
+      const file = new URL(`../docs/public${new URL(icon.src).pathname}`, import.meta.url);
+      expect(existsSync(file), icon.src).toBe(true);
+    }
+  });
+
   it("advertises read-only tools with closed schemas", async () => {
     const client = await connectTestClient();
 
