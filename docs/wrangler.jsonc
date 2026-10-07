@@ -21,5 +21,16 @@
       "enabled": true,
       "invocation_logs": true
     }
+  },
+  "previews": {
+    "vars": {
+      "NUXT_SITE_URL": "https://hashes.agntn.dev"
+    },
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_id": "d4ea3546-0a01-4905-b44c-4d2faf29d608"
+      }
+    ]
   }
 }
