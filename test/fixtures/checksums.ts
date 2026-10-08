@@ -2,10 +2,11 @@
  * Outputs of independent implementations for the compression checksums, frozen so the tests need
  * no Python. Made with CPython 3.12.13 `zlib.adler32`, crccheck 1.3.1 (`Crc32Bzip2`, `Crc64Xz`),
  * the xxhash 4.0.1 binding of the reference C library (`xxh32`, `xxh64`) and the armor checksum
- * of GnuPG 2.4.9 `gpg --enarmor`, which crccheck 1.3.1 `Crc24OpenPgp` matches.
+ * of GnuPG 2.4.9 `gpg --enarmor`, which crccheck 1.3.1 `Crc24OpenPgp` matches. CRC-16/XMODEM is
+ * CPython 3.14.7 `binascii.crc_hqx` from zero, and crccheck 1.3.1 `Crc16Xmodem` agrees.
  *
  * Each row is a length, then Adler-32, CRC-32/BZIP2, CRC-64/XZ, XXH32, XXH32 with seed 0xdeadbeef,
- * XXH64 and CRC-24/OPENPGP, in hex, of `checksumInput(length)`.
+ * XXH64, CRC-24/OPENPGP and CRC-16/XMODEM, in hex, of `checksumInput(length)`.
  */
 export const CHECKSUM_REFERENCES = [
   [
@@ -17,6 +18,7 @@ export const CHECKSUM_REFERENCES = [
     "c372c6cb",
     "ef46db3751d8e999",
     "b704ce",
+    "0000",
   ],
   [
     1,
@@ -27,6 +29,7 @@ export const CHECKSUM_REFERENCES = [
     "ce5c70ac",
     "5e7901b3cf7c2ea4",
     "6049af",
+    "5004",
   ],
   [
     3,
@@ -37,6 +40,7 @@ export const CHECKSUM_REFERENCES = [
     "887326f8",
     "27fef228fd79c02e",
     "8181e4",
+    "220a",
   ],
   [
     4,
@@ -47,6 +51,7 @@ export const CHECKSUM_REFERENCES = [
     "fabf1445",
     "e07c670c54f837cd",
     "b15a6c",
+    "a2a1",
   ],
   [
     5,
@@ -57,6 +62,7 @@ export const CHECKSUM_REFERENCES = [
     "8aca7905",
     "8224461d9fedfc5c",
     "b0fa6d",
+    "425a",
   ],
   [
     15,
@@ -67,6 +73,7 @@ export const CHECKSUM_REFERENCES = [
     "c7d8c58f",
     "ce38bbce4310be91",
     "6136ca",
+    "20d1",
   ],
   [
     16,
@@ -77,6 +84,7 @@ export const CHECKSUM_REFERENCES = [
     "d4eeebc4",
     "dfdca3cf28c8f3c9",
     "5f4427",
+    "366f",
   ],
   [
     17,
@@ -87,6 +95,7 @@ export const CHECKSUM_REFERENCES = [
     "9a36634f",
     "62d960c0725680f6",
     "a3e4b2",
+    "0d46",
   ],
   [
     31,
@@ -97,6 +106,7 @@ export const CHECKSUM_REFERENCES = [
     "11b21031",
     "fcf89eb5c85add50",
     "2bb15a",
+    "e07f",
   ],
   [
     32,
@@ -107,6 +117,7 @@ export const CHECKSUM_REFERENCES = [
     "3dbdf15d",
     "a601809d8d34a7b6",
     "458016",
+    "b226",
   ],
   [
     33,
@@ -117,6 +128,7 @@ export const CHECKSUM_REFERENCES = [
     "5d8844ec",
     "089fbc1eaba27dc8",
     "8b11fe",
+    "64bb",
   ],
   [
     63,
@@ -127,6 +139,7 @@ export const CHECKSUM_REFERENCES = [
     "490e204a",
     "d236b15110047742",
     "86cb7a",
+    "4599",
   ],
   [
     64,
@@ -137,6 +150,7 @@ export const CHECKSUM_REFERENCES = [
     "87a2c203",
     "634ec8f60763cd9b",
     "c3c997",
+    "6c0e",
   ],
   [
     65,
@@ -147,6 +161,7 @@ export const CHECKSUM_REFERENCES = [
     "f457e07e",
     "fe510b1e6d3e3706",
     "ddd084",
+    "057f",
   ],
   [
     100,
@@ -157,6 +172,7 @@ export const CHECKSUM_REFERENCES = [
     "0ceedb5d",
     "1b11804e06d5c5d2",
     "501dc8",
+    "4b38",
   ],
   [
     1000,
@@ -167,6 +183,7 @@ export const CHECKSUM_REFERENCES = [
     "cc6535dc",
     "a9215845f780fdac",
     "6df952",
+    "5993",
   ],
   [
     5552,
@@ -177,6 +194,7 @@ export const CHECKSUM_REFERENCES = [
     "4bf7e0ad",
     "ff7270d1825581ad",
     "97ff81",
+    "ed92",
   ],
   [
     5553,
@@ -187,6 +205,7 @@ export const CHECKSUM_REFERENCES = [
     "5c16ecb2",
     "faffbd3643247dee",
     "f6b1ef",
+    "73d2",
   ],
   [
     65537,
@@ -197,16 +216,17 @@ export const CHECKSUM_REFERENCES = [
     "773a1665",
     "b153aa201990e2c9",
     "64a0d1",
+    "3616",
   ],
 ] as const;
 
-/** Adler-32, CRC-32/BZIP2, CRC-64/XZ and CRC-24 of `length` 0xff bytes, the largest Adler sums. */
+/** Adler-32 and the four CRCs of `length` 0xff bytes, the largest Adler sums. */
 export const ONES_REFERENCES = [
-  [3854, "3c26ffc5", "7e0a75d2", "4bbb82f39c72251a", "11d7c9"],
-  [3855, "3cf900d3", "d64f6f12", "81f5abe4f5f10851", "494e4a"],
-  [7708, "d2a9ff98", "1a651936", "4598e4790504d103", "cac779"],
-  [7709, "d34f00a6", "06823b59", "b8efe20dd2e2fbe5", "1b4c7a"],
-  [65536, "77970ef2", "727ed57b", "503d557d404f3e95", "8cf36e"],
+  [3854, "3c26ffc5", "7e0a75d2", "4bbb82f39c72251a", "11d7c9", "2623"],
+  [3855, "3cf900d3", "d64f6f12", "81f5abe4f5f10851", "494e4a", "7954"],
+  [7708, "d2a9ff98", "1a651936", "4598e4790504d103", "cac779", "c1d5"],
+  [7709, "d34f00a6", "06823b59", "b8efe20dd2e2fbe5", "1b4c7a", "029d"],
+  [65536, "77970ef2", "727ed57b", "503d557d404f3e95", "8cf36e", "1d0f"],
 ] as const;
 
 /**

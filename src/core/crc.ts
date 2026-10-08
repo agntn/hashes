@@ -26,10 +26,10 @@ export type Crc24Variant = (typeof CRC24_VARIANTS)[number];
 
 /** Allocated empty and filled on first use, since a module constant keeps the hot loops fast. */
 const CRC32_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
-const CRC16_XMODEM_TABLE = /* @__PURE__ */ new Uint16Array(256);
+const CRC16_XMODEM_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC32_BZIP2_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC64_XZ_TABLES = /* @__PURE__ */ new Uint32Array(512 * 8);
-const CRC24_OPENPGP_TABLE = /* @__PURE__ */ new Uint32Array(256);
+const CRC24_OPENPGP_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 
 let crc32Filled = false;
 let crc16XmodemFilled = false;
@@ -57,38 +57,43 @@ function fillCrc32Tables(): void {
 }
 
 /**
- * Fills the CRC-16/XMODEM table, each byte's remainder: polynomial 0x1021, not reflected.
+ * Fills slicing tables for an unreflected CRC held in the top bits, so CRC-24 and CRC-16 slice
+ * like CRC-32/BZIP2.
+ *
+ * @param tables - The eight tables to fill, 256 entries each.
+ * @param polynomial - The polynomial, shifted to the top of 32 bits.
  */
-function fillCrc16XmodemTable(): void {
-  if (crc16XmodemFilled) return;
-  const table = CRC16_XMODEM_TABLE;
-  for (let index = 0; index < 256; index++) {
-    let value = index << 8;
-    for (let bit = 0; bit < 8; bit++) {
-      value = value & 0x8000 ? ((value << 1) ^ 0x1021) & 0xffff : (value << 1) & 0xffff;
-    }
-    table[index] = value;
-  }
-  crc16XmodemFilled = true;
-}
-
-/**
- * Fills the CRC-32/BZIP2 tables for slicing by eight: polynomial 0x04c11db7, not reflected.
- */
-function fillCrc32Bzip2Tables(): void {
-  if (crc32Bzip2Filled) return;
-  const tables = CRC32_BZIP2_TABLES;
+function fillTopTables(tables: Int32Array, polynomial: number): void {
   for (let index = 0; index < 256; index++) {
     let value = index << 24;
-    for (let bit = 0; bit < 8; bit++)
-      value = value & 0x80000000 ? (value << 1) ^ 0x04c11db7 : value << 1;
+    for (let bit = 0; bit < 8; bit++) value = value < 0 ? (value << 1) ^ polynomial : value << 1;
     tables[index] = value;
   }
   for (let index = 0; index < 256 * 7; index++) {
     const value = tables[index]!;
     tables[index + 256] = (value << 8) ^ tables[value >>> 24]!;
   }
+}
+
+/** Fills the CRC-16/XMODEM tables: polynomial 0x1021, not reflected. */
+function fillCrc16XmodemTables(): void {
+  if (crc16XmodemFilled) return;
+  fillTopTables(CRC16_XMODEM_TABLES, 0x10210000);
+  crc16XmodemFilled = true;
+}
+
+/** Fills the CRC-32/BZIP2 tables: polynomial 0x04c11db7, not reflected. */
+function fillCrc32Bzip2Tables(): void {
+  if (crc32Bzip2Filled) return;
+  fillTopTables(CRC32_BZIP2_TABLES, 0x04c11db7);
   crc32Bzip2Filled = true;
+}
+
+/** Fills the CRC-24/OPENPGP tables: polynomial 0x864cfb, not reflected. */
+function fillCrc24OpenpgpTables(): void {
+  if (crc24OpenpgpFilled) return;
+  fillTopTables(CRC24_OPENPGP_TABLES, 0x864cfb00);
+  crc24OpenpgpFilled = true;
 }
 
 /**
@@ -121,19 +126,6 @@ function fillCrc64XzTables(): void {
     tables[index + 513] = ((low >>> 8) | (high << 24)) ^ tables[next + 1]!;
   }
   crc64XzFilled = true;
-}
-
-/** Fills the CRC-24/OPENPGP table, each byte's remainder: polynomial 0x864cfb, not reflected. */
-function fillCrc24OpenpgpTable(): void {
-  if (crc24OpenpgpFilled) return;
-  const table = CRC24_OPENPGP_TABLE;
-  for (let index = 0; index < 256; index++) {
-    let value = index << 16;
-    for (let bit = 0; bit < 8; bit++)
-      value = value & 0x800000 ? (value << 1) ^ 0x1864cfb : value << 1;
-    table[index] = value;
-  }
-  crc24OpenpgpFilled = true;
 }
 
 /**
@@ -169,8 +161,21 @@ export function crc32(data: Uint8Array, variant: Crc32Variant = "iso-hdlc"): Uin
       t[data[i + 7]!]!;
   }
   for (; i < data.length; i++) crc = (crc >>> 8) ^ t[(crc ^ data[i]!) & 0xff]!;
-  const digest = new Uint8Array(4);
-  new DataView(digest.buffer).setInt32(0, ~crc);
+  return put(new Uint8Array(4), 0, ~crc);
+}
+
+/**
+ * Writes the top bytes of a register big-endian. A `DataView` costs a short CRC more than the CRC.
+ *
+ * @param digest - Where the bytes go.
+ * @param offset - Index of the first one.
+ * @param value - The register, its checksum in the top bits.
+ * @returns {Uint8Array} The digest.
+ */
+function put(digest: Uint8Array, offset: number, value: number): Uint8Array {
+  for (let shift = 24; offset < digest.length && shift >= 0; shift -= 8) {
+    digest[offset++] = value >>> shift;
+  }
   return digest;
 }
 
@@ -200,9 +205,7 @@ function crc32Bzip2(data: Uint8Array): Uint8Array {
       t[data[i + 7]!]!;
   }
   for (; i < data.length; i++) crc = (crc << 8) ^ t[((crc >>> 24) ^ data[i]!) & 0xff]!;
-  const digest = new Uint8Array(4);
-  new DataView(digest.buffer).setInt32(0, ~crc);
-  return digest;
+  return put(new Uint8Array(4), 0, ~crc);
 }
 
 /**
@@ -246,11 +249,7 @@ export function crc64(data: Uint8Array, variant: Crc64Variant = "xz"): Uint8Arra
     low = ((low >>> 8) | (high << 24)) ^ t[index + 1]!;
     high = (high >>> 8) ^ t[index]!;
   }
-  const digest = new Uint8Array(8);
-  const view = new DataView(digest.buffer);
-  view.setInt32(0, ~high);
-  view.setInt32(4, ~low);
-  return digest;
+  return put(put(new Uint8Array(8), 0, ~high), 4, ~low);
 }
 
 /**
@@ -265,11 +264,26 @@ export function crc24(data: Uint8Array, variant: Crc24Variant = "openpgp"): Uint
   if (variant !== "openpgp") {
     throw new InvalidOptionError("variant", variant, `use one of ${CRC24_VARIANTS.join(", ")}`);
   }
-  fillCrc24OpenpgpTable();
-  const table = CRC24_OPENPGP_TABLE;
-  let crc = 0xb704ce;
-  for (const byte of data) crc = ((crc << 8) & 0xffffff) ^ table[((crc >>> 16) ^ byte) & 0xff]!;
-  return new Uint8Array([crc >>> 16, (crc >>> 8) & 0xff, crc & 0xff]);
+  fillCrc24OpenpgpTables();
+  const t = CRC24_OPENPGP_TABLES;
+  const end = data.length - (data.length & 7);
+  let crc = 0xb704ce00;
+  let i = 0;
+  for (; i < end; i += 8) {
+    const high =
+      crc ^ ((data[i]! << 24) | (data[i + 1]! << 16) | (data[i + 2]! << 8) | data[i + 3]!);
+    crc =
+      t[1792 + (high >>> 24)]! ^
+      t[1536 + ((high >>> 16) & 0xff)]! ^
+      t[1280 + ((high >>> 8) & 0xff)]! ^
+      t[1024 + (high & 0xff)]! ^
+      t[768 + data[i + 4]!]! ^
+      t[512 + data[i + 5]!]! ^
+      t[256 + data[i + 6]!]! ^
+      t[data[i + 7]!]!;
+  }
+  for (; i < data.length; i++) crc = (crc << 8) ^ t[((crc >>> 24) ^ data[i]!) & 0xff]!;
+  return put(new Uint8Array(3), 0, crc);
 }
 
 /**
@@ -280,9 +294,24 @@ export function crc24(data: Uint8Array, variant: Crc24Variant = "openpgp"): Uint
  */
 export function crc16Xmodem(data: Uint8Array): Uint8Array {
   assertBytes(data, "data");
-  fillCrc16XmodemTable();
-  const table = CRC16_XMODEM_TABLE;
+  fillCrc16XmodemTables();
+  const t = CRC16_XMODEM_TABLES;
+  const end = data.length - (data.length & 7);
   let crc = 0;
-  for (const byte of data) crc = ((crc << 8) & 0xffff) ^ table[((crc >>> 8) ^ byte) & 0xff]!;
-  return new Uint8Array([crc >>> 8, crc & 0xff]);
+  let i = 0;
+  for (; i < end; i += 8) {
+    const high =
+      crc ^ ((data[i]! << 24) | (data[i + 1]! << 16) | (data[i + 2]! << 8) | data[i + 3]!);
+    crc =
+      t[1792 + (high >>> 24)]! ^
+      t[1536 + ((high >>> 16) & 0xff)]! ^
+      t[1280 + ((high >>> 8) & 0xff)]! ^
+      t[1024 + (high & 0xff)]! ^
+      t[768 + data[i + 4]!]! ^
+      t[512 + data[i + 5]!]! ^
+      t[256 + data[i + 6]!]! ^
+      t[data[i + 7]!]!;
+  }
+  for (; i < data.length; i++) crc = (crc << 8) ^ t[((crc >>> 24) ^ data[i]!) & 0xff]!;
+  return put(new Uint8Array(2), 0, crc);
 }
