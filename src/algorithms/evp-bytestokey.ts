@@ -1,4 +1,5 @@
 import {
+  isInputList,
   assertOneRound,
   assertPositiveIntegers,
   ENCODING_OPTION,
@@ -134,11 +135,17 @@ export class EvpBytesToKey extends Hash {
   /**
    * Derives the key and the IV after it from the password.
    *
-   * @param input - Text or bytes.
+   * @param input - Text or bytes, or a list of them.
    * @param options - Encoding, salt, digest, iterations and lengths.
-   * @returns {HashResult} The key followed by the IV.
+   * @returns {HashResult | HashResult[]} The key followed by the IV, one per input for a list.
    */
-  hash(input: HashInput, options?: Readonly<EvpBytesToKeyOptions>): HashResult {
+  hash(input: HashInput, options?: Readonly<EvpBytesToKeyOptions>): HashResult;
+  hash(inputs: readonly HashInput[], options?: Readonly<EvpBytesToKeyOptions>): HashResult[];
+  hash(
+    input: HashInput | readonly HashInput[],
+    options?: Readonly<EvpBytesToKeyOptions>,
+  ): HashResult | HashResult[] {
+    if (isInputList(input)) return input.map((one) => this.hash(one, options));
     return guarded(this.key, () => {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
       assertOneRound(options, `${this.key} sets its cost with its own parameters`);

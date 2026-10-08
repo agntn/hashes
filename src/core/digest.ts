@@ -97,6 +97,18 @@ export function parameterText(options: Readonly<Record<string, unknown>>): strin
 }
 
 /**
+ * Tells a list of inputs from one input, since bytes are a `Uint8Array`, never an array.
+ *
+ * @param input - One input, or a list of them.
+ * @returns {boolean} Whether it's a list.
+ */
+export function isInputList(
+  input: HashInput | readonly HashInput[],
+): input is readonly HashInput[] {
+  return Array.isArray(input);
+}
+
+/**
  * Reads the input as bytes: a string as UTF-8, bytes as they are.
  *
  * @param input - Text or bytes.

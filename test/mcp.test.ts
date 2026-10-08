@@ -444,7 +444,16 @@ describe("hashes MCP server", () => {
         };
       }
 
-      hash(input: HashInput, options?: Readonly<HashOptions & { salt?: string }>): HashResult {
+      hash(input: HashInput, options?: Readonly<HashOptions & { salt?: string }>): HashResult;
+      hash(
+        inputs: readonly HashInput[],
+        options?: Readonly<HashOptions & { salt?: string }>,
+      ): HashResult[];
+      hash(
+        input: HashInput | readonly HashInput[],
+        options?: Readonly<HashOptions & { salt?: string }>,
+      ): HashResult | HashResult[] {
+        if (Array.isArray(input)) return input.map((one: HashInput) => this.hash(one, options));
         const salt = options?.salt ?? crypto.getRandomValues(new Uint8Array(32)).toHex();
         const digest = createHash("sha256").update(salt).update(String(input)).digest("hex");
         return {

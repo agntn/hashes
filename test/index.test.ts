@@ -1983,9 +1983,9 @@ describe("extendDigest", () => {
   });
 });
 
-describe("Hash.hashMany", () => {
+describe("hash with a list", () => {
   it("hashes every input with the same options, in order", () => {
-    const results = create("sha256").hashMany(["a", new Uint8Array([0, 255])], {
+    const results = create("sha256").hash(["a", new Uint8Array([0, 255])], {
       encoding: "base64",
     });
 
@@ -1998,7 +1998,7 @@ describe("Hash.hashMany", () => {
   });
 
   it("draws a salt per password, like hashing each on its own", () => {
-    const [first, second] = new Scrypt().hashMany(["same", "same"], { N: 1024 });
+    const [first, second] = new Scrypt().hash(["same", "same"], { N: 1024 });
 
     expect(first?.options["salt"]).not.toBe(second?.options["salt"]);
     expect(first?.digest).not.toBe(second?.digest);
@@ -2007,9 +2007,32 @@ describe("Hash.hashMany", () => {
   it("works for an algorithm registered from outside", () => {
     class Md5Again extends Md5 {}
 
-    expect(new Md5Again().hashMany(["x"]).map((result) => result.digest)).toEqual([
+    expect(new Md5Again().hash(["x"]).map((result) => result.digest)).toEqual([
       createHash("md5").update("x").digest("hex"),
     ]);
+  });
+
+  it("gives every KDF and HMAC the list, and a single input a single result", () => {
+    const salt = "73616c7473616c74";
+    for (const name of ["pbkdf2", "scrypt", "argon2id", "bcrypt", "hkdf", "evp-bytestokey"]) {
+      const options = {
+        salt: name === "bcrypt" ? salt.repeat(2) : salt,
+        ...(name === "pbkdf2" ? { iterations: 1 } : {}),
+        ...(name === "scrypt" ? { N: 16 } : {}),
+        ...(name === "argon2id" ? { memory: 32, iterations: 1 } : {}),
+        ...(name === "bcrypt" ? { cost: 4 } : {}),
+      } as HashOptions;
+      const algorithm = create(name);
+      const list = algorithm.hash(["a", "b"], options).map((result) => result.digest);
+
+      expect([name, list]).toEqual([
+        name,
+        [algorithm.hash("a", options).digest, algorithm.hash("b", options).digest],
+      ]);
+    }
+    expect(create("sha1").hash(["a"], { key: "k" })[0]?.digest).toBe(
+      createHmac("sha1", "k").update("a").digest("hex"),
+    );
   });
 });
 

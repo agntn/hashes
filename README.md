@@ -106,7 +106,7 @@ import { create, resolveAlgorithm, digestMatches } from "@agntn/hashes";
 create("sha256").hash("abc").digest; // "ba7816bf8f01cfea..."
 create("sha256").hash("message", { key: "secret" }).operation; // "hmac"
 create("sha256").hash("abc", { rounds: 2 }).digest; // "4f8b42c22dd3729b...", hash256 by another name
-create("sha256").hashMany(["hello", "world"]).length; // 2, one result per input, same order
+create("sha256").hash(["hello", "world"]).length; // 2, a list gets one result per input
 
 const blake3 = resolveAlgorithm("BLAKE3");
 blake3.hash(new Uint8Array([1, 2, 3]), { encoding: "base64" });
