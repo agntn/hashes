@@ -613,7 +613,7 @@ function assertBatchCost(
  * @param noun - The noun in the singular.
  * @returns {string} Such as `1 input` or `3 inputs`.
  */
-function counted(count: number, noun: string): string {
+export function counted(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
@@ -634,7 +634,7 @@ function algorithmArgument(value: unknown): Hash {
  * @param encoding - Its text encoding.
  * @returns {DigestDetails} The details.
  */
-function digestDetails(result: HashResult, encoding: TextEncoding): DigestDetails {
+export function digestDetails(result: HashResult, encoding: TextEncoding): DigestDetails {
   return {
     algorithm: result.algorithm,
     operation: result.operation,
@@ -689,7 +689,7 @@ function inputLabel(text: string): string {
  * @param run - Hashes the input.
  * @returns {T | BatchError} The result, or the reason there is none.
  */
-function settled<T>(run: () => T): T | BatchError {
+export function settled<T>(run: () => T): T | BatchError {
   try {
     return run();
   } catch (error) {
@@ -737,7 +737,7 @@ function ownText(details: DigestDetails, shared: Readonly<Record<string, unknown
  * @param prefixes - What goes before each digest, such as its verdict.
  * @returns {string[]} The heading's parameters and one line per input.
  */
-function digestLines(
+export function digestLines(
   items: readonly (DigestDetails | BatchError)[],
   texts: readonly string[],
   prefixes: readonly string[] = [],
@@ -896,17 +896,42 @@ export function hashVerify(
   if (!inputs.list) return verifyResult(verdict(inputs.value), algorithm.name());
   assertBatchCost(algorithm, options, inputs.values.length);
   const items = inputs.values.map((input) => settled(() => verdict(input)));
+  const { text, matches, hashedAny } = verifyListText(
+    items,
+    inputs.texts,
+    algorithm.name(),
+    expected,
+  );
+  return listResult(text, { expected, matches, items }, hashedAny);
+}
+
+/**
+ * Lays out verdicts on candidate inputs: the match count, the expected digest, a line per input.
+ *
+ * @param items - Every verdict, or the refusal of its input.
+ * @param texts - The inputs as passed, for their labels.
+ * @param name - The algorithm.
+ * @param expected - The expected digest.
+ * @returns {{ text: string; matches: number; hashedAny: boolean }} The text, the count of
+ *   matches and whether any input got a digest.
+ */
+export function verifyListText(
+  items: readonly (VerifyDetails | BatchError)[],
+  texts: readonly string[],
+  name: string,
+  expected: string,
+): { text: string; matches: number; hashedAny: boolean } {
   const matches = items.filter((item) => !("error" in item) && item.match).length;
   const verdicts = items.map((item) =>
     "match" in item && item.match ? "match     " : "mismatch  ",
   );
-  const { about, lines } = digestLines(items, inputs.texts, verdicts);
+  const { about, lines } = digestLines(items, texts, verdicts);
   const heading =
     matches > 0
-      ? `MATCH: ${matches} of ${counted(items.length, "input")} ${matches === 1 ? "gives" : "give"} the expected ${algorithm.name()} digest`
-      : `MISMATCH: none of ${counted(items.length, "input")} gives the expected ${algorithm.name()} digest`;
+      ? `MATCH: ${matches} of ${counted(items.length, "input")} ${matches === 1 ? "gives" : "give"} the expected ${name} digest`
+      : `MISMATCH: none of ${counted(items.length, "input")} gives the expected ${name} digest`;
   const text = [heading, `expected ${shown(expected)}`, ...lines].join("\n");
-  return listResult(text, { expected, matches, items }, about !== undefined);
+  return { text, matches, hashedAny: about !== undefined };
 }
 
 /**
