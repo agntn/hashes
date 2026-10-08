@@ -10,6 +10,8 @@ import {
   HASH_CATEGORIES,
   INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
+  MAX_BATCH_DIGESTS,
+  MAX_BATCH_INPUTS,
   MAX_EXPECTED_LENGTH,
   MAX_FAMILY_LENGTH,
   MAX_INPUT_LENGTH,
@@ -48,7 +50,11 @@ const algorithm = Type.String({
   maxLength: MAX_ALGORITHM_LENGTH,
   description: d.algorithm,
 });
-const input = Type.String({ maxLength: MAX_INPUT_LENGTH, description: d.input });
+const oneInput = Type.String({ maxLength: MAX_INPUT_LENGTH });
+const input = Type.Union(
+  [oneInput, Type.Array(oneInput, { minItems: 1, maxItems: MAX_BATCH_INPUTS })],
+  { description: d.input },
+);
 const inputEncoding = Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.inputEncoding }));
 const encoding = Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.encoding }));
 const salt = Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.salt }));
@@ -113,12 +119,13 @@ export const hashDigestExtendSchema = closed({
   secretLengthMax: Type.Optional(Type.Integer({ ...secretLength, description: d.secretLengthMax })),
 });
 
+const unknownDigest = Type.String({ minLength: 1, maxLength: MAX_EXPECTED_LENGTH });
+
 export const hashDigestIdentifySchema = closed({
-  digest: Type.String({
-    minLength: 1,
-    maxLength: MAX_EXPECTED_LENGTH,
-    description: d.unknownDigest,
-  }),
+  digest: Type.Union(
+    [unknownDigest, Type.Array(unknownDigest, { minItems: 1, maxItems: MAX_BATCH_DIGESTS })],
+    { description: d.unknownDigest },
+  ),
 });
 
 const wordCount = { minimum: 1, maximum: MAX_SEARCH_WORDS } as const;

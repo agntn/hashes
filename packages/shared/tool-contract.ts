@@ -15,6 +15,9 @@ export const SALT_PATTERN = "^(?:[0-9A-Fa-f]{2}){1,256}$";
 /** Most parameters a call may pass, and the pattern of their names. */
 export const MAX_PARAMETERS = 8;
 export const PARAMETER_NAME_PATTERN = "^[A-Za-z][A-Za-z0-9]{0,31}$";
+/** Longest list of inputs and of hashes to identify; a list still shares one call's limits. */
+export const MAX_BATCH_INPUTS = 64;
+export const MAX_BATCH_DIGESTS = 16;
 /** Longest text parameter. HKDF info for a TLS 1.3 label runs past 64 hex digits. */
 export const MAX_PARAMETER_LENGTH = 1_024;
 
@@ -87,15 +90,15 @@ export const HMAC_ALGORITHMS =
 /** What each tool does, the same text on every surface. */
 export const TOOL_DESCRIPTIONS = {
   hashes_compute:
-    "Hash text or bytes with any registered algorithm. The answer is the digest, then the algorithm, encoding, length and, for a KDF, the salt and parameters needed to reproduce it.",
+    "Hash text or bytes with any registered algorithm. The answer is the digest, then the algorithm, encoding, length and, for a KDF, the salt and parameters needed to reproduce it. Pass a list of inputs to hash them all in one call: one line each, digest then input, in the order given.",
   hashes_hmac_compute:
-    "Compute an HMAC of text or bytes with a key, using an algorithm that has an HMAC mode.",
+    "Compute an HMAC of text or bytes with a key, using an algorithm that has an HMAC mode. A list of inputs gets one HMAC each under the same key.",
   hashes_verify:
-    "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt, pbkdf2, argon2 and bcrypt need the salt the expected digest was made with.",
+    "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt, pbkdf2, argon2 and bcrypt need the salt the expected digest was made with. Pass a list of candidate inputs to learn which of them gives the expected digest.",
   hashes_digest_extend:
     "Forge a digest by length extension: from H(secret || message) and the secret's length, the digest of secret || message || padding || suffix, without the secret. The answer is the message to send in hex, the padding inside it and the new digest, once per secret length tried.",
   hashes_digest_identify:
-    "Guess which algorithms a hash may come from by its shape: a prefix such as $2b$, $argon2id$ or $6$, or the byte length of its hex or base64. Each candidate says whether this package computes it; for a format it computes, the salt, costs and digest read out of the string are in the answer, ready for hashes_verify. A guess, not proof.",
+    "Guess which algorithms a hash may come from by its shape: a prefix such as $2b$, $argon2id$ or $6$, or the byte length of its hex or base64. Each candidate says whether this package computes it; for a format it computes, the salt, costs and digest read out of the string are in the answer, ready for hashes_verify. A guess, not proof. Pass a list to identify several hashes in one call.",
   hashes_digest_search:
     "Find the transform behind a digest from candidate words: subsets of them in every order, joined, cased, hashed with each algorithm of the digest's length and hashed again up to rounds times. Answers MATCH with the recipe and the text that was hashed, NO MATCH with what the search covered, or STOPPED at the hash limit.",
   hashes_algorithms:
@@ -123,7 +126,7 @@ function parameterDescriptions() {
   return {
     algorithm: `Algorithm name or label, case and punctuation ignored: ${BUILTIN_ALGORITHMS}`,
     hmacAlgorithm: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
-    input: "Input to hash, read as inputEncoding says",
+    input: `Input to hash, read as inputEncoding says, or a list of up to ${MAX_BATCH_INPUTS} inputs hashed with the same options. A list shares the limits of one input: ${MAX_INPUT_LENGTH} characters in all, and a KDF cost times the count stays within the cost one call may take`,
     inputEncoding:
       "How to read input (default utf8). hex and base64 hash the bytes they spell, such as a public key or a raw transaction. hex takes no 0x prefix",
     key: "HMAC key, read as keyEncoding says",
@@ -146,8 +149,7 @@ function parameterDescriptions() {
     suffixEncoding: "How to read suffix (default utf8): utf8, or hex and base64 for bytes",
     secretLength: "Length of the secret in bytes",
     secretLengthMax: `Try every secret length from secretLength up to this one, at most ${MAX_SECRET_LENGTHS} lengths. Omit to try secretLength alone`,
-    unknownDigest:
-      "The hash to identify, as found: hex (a 0x prefix allowed), base64, or a string with a prefix such as $2b$ or $argon2id$",
+    unknownDigest: `The hash to identify, as found: hex (a 0x prefix allowed), base64, or a string with a prefix such as $2b$ or $argon2id$. Or a list of up to ${MAX_BATCH_DIGESTS} of them`,
     targetDigest: "The digest to explain, written as encoding says",
     targetEncoding: "Encoding of digest (default hex). Hex takes no 0x prefix",
     words: `Candidate words, at most ${MAX_SEARCH_WORDS}, each used at most once per combination. Two that one of the cases makes the same text are refused`,

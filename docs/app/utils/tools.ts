@@ -40,7 +40,7 @@ export function hmacText(params: HashHmacParams): string {
  * @param {HashVerifyParams} params - The tool arguments.
  * @returns {{ text: string; match: boolean; digest: string }} `content[0].text` and the details it came from.
  */
-export function verifyAnswer(params: HashVerifyParams): {
+export function verifyAnswer(params: HashVerifyParams & { readonly input: string }): {
   text: string;
   match: boolean;
   digest: string;

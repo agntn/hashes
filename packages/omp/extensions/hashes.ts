@@ -44,16 +44,31 @@ export function preview(value: unknown): string {
  * @returns {string} The call summary.
  */
 function describeDigestCall(args: Readonly<Record<string, unknown>>): string {
-  return `${sanitizeLine(args["algorithm"])} ${preview(args["input"])}`;
+  const input = args["input"];
+  const what = Array.isArray(input) ? `${input.length} inputs` : preview(input);
+  return `${sanitizeLine(args["algorithm"])} ${what}`;
 }
 
 /**
- * Summarizes a digest result: the algorithm and the digest.
+ * Reads the entries of a list result.
+ *
+ * @param result - Tool result from the host.
+ * @returns {unknown[] | undefined} The entries, or nothing for a single answer.
+ */
+function listItems(result: OmpResultView): unknown[] | undefined {
+  const items = (result.details as { items?: unknown } | undefined)?.items;
+  return Array.isArray(items) ? items : undefined;
+}
+
+/**
+ * Summarizes a digest result: the algorithm and the digest, or how many digests a list got.
  *
  * @param result - Tool result from the host.
  * @returns {string[]} The summary, or nothing without a digest.
  */
 function describeDigest(result: OmpResultView): string[] {
+  const items = listItems(result);
+  if (items !== undefined) return [`${items.length} digests`];
   const { details } = result;
   if (typeof details !== "object" || details === null || !("digest" in details)) return [];
   const { algorithm, digest } = details as { algorithm?: unknown; digest?: unknown };
@@ -67,6 +82,11 @@ function describeDigest(result: OmpResultView): string[] {
  * @returns {string[]} The verdict, or nothing without one.
  */
 function describeVerdict(result: OmpResultView): string[] {
+  const items = listItems(result);
+  if (items !== undefined) {
+    const matches = (result.details as { matches?: unknown }).matches;
+    return [`${typeof matches === "number" ? matches : 0} of ${items.length} match`];
+  }
   const { details } = result;
   if (typeof details !== "object" || details === null || !("match" in details)) return [];
   return [details.match ? "match" : "mismatch"];

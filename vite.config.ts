@@ -37,6 +37,7 @@ export default defineConfig({
               from: "file",
               name: [
                 "AlgorithmInfo",
+                "BatchError",
                 "DigestCandidate",
                 "DigestDetails",
                 "DigestIdentity",
@@ -45,6 +46,7 @@ export default defineConfig({
                 "HashOptions",
                 "HashResult",
                 "ToolResult",
+                "VerifyDetails",
               ],
             },
             { from: "lib", name: ["DataView", "Int32Array", "Uint32Array", "Uint8Array"] },

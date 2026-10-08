@@ -3,7 +3,7 @@ import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } 
 import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
-import { Md4, Md5, Sha1, builtins } from "../src/algorithms/index.ts";
+import { Md4, Md5, Scrypt, Sha1, builtins } from "../src/algorithms/index.ts";
 import { algorithmInfos } from "../src/core/resolve.ts";
 import { Sha512tHasher } from "../src/core/sha2.ts";
 import {
@@ -1983,7 +1983,49 @@ describe("extendDigest", () => {
   });
 });
 
+describe("Hash.hashMany", () => {
+  it("hashes every input with the same options, in order", () => {
+    const results = create("sha256").hashMany(["a", new Uint8Array([0, 255])], {
+      encoding: "base64",
+    });
+
+    expect(results.map((result) => result.digest)).toEqual([
+      createHash("sha256").update("a").digest("base64"),
+      createHash("sha256")
+        .update(Buffer.from([0, 255]))
+        .digest("base64"),
+    ]);
+  });
+
+  it("draws a salt per password, like hashing each on its own", () => {
+    const [first, second] = new Scrypt().hashMany(["same", "same"], { N: 1024 });
+
+    expect(first?.options["salt"]).not.toBe(second?.options["salt"]);
+    expect(first?.digest).not.toBe(second?.digest);
+  });
+
+  it("works for an algorithm registered from outside", () => {
+    class Md5Again extends Md5 {}
+
+    expect(new Md5Again().hashMany(["x"]).map((result) => result.digest)).toEqual([
+      createHash("md5").update("x").digest("hex"),
+    ]);
+  });
+});
+
 describe("identifyDigest", () => {
+  it("reads a list into one identity per hash, in order", () => {
+    const md5 = createHash("md5").update("x").digest("hex");
+    const found = identifyDigest([
+      md5,
+      "$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy",
+    ]);
+
+    expect(found.map((identity) => identity.reading)).toEqual(["hex", "format"]);
+    expect(found[0]).toEqual(identifyDigest(md5));
+    expect(() => identifyDigest(["00", ""])).toThrow("must not be empty");
+  });
+
   /** `password` as mkpasswd, openssl passwd, htpasswd, argon2, passlib and Django wrote it. */
   const FORMATS: readonly (readonly [string, string, string | undefined])[] = [
     ["$2b$05$QsIsJOmzLmIuvm2cp78uNewLvFwT6DZugTSNTOPcOuByusi7cqLHy", "bcrypt", "bcrypt"],

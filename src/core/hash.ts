@@ -32,6 +32,17 @@ export abstract class Hash {
 
   /** Compute the hash (or HMAC) of the input. */
   abstract hash(input: HashInput, options?: HashOptions): HashResult;
+
+  /**
+   * Hashes every input with the same options, in order, a KDF drawing a fresh salt for each.
+   *
+   * @param inputs - Text or bytes, one entry per digest.
+   * @param options - What `hash` takes, shared by every input.
+   * @returns {HashResult[]} One result per input.
+   */
+  hashMany(inputs: readonly HashInput[], options?: Parameters<this["hash"]>[1]): HashResult[] {
+    return inputs.map((input) => this.hash(input, options));
+  }
 }
 
 /** What an algorithm tells about itself besides its name, options and HMAC support. */

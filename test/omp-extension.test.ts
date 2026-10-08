@@ -80,6 +80,10 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
       parameters: { a: 1, b: 1, c: 1, d: 1, e: 1, f: 1, g: 1, h: 1, i: 1 },
     },
     { algorithm: "sha256" },
+    { algorithm: "sha256", input: ["a", "b"] },
+    { algorithm: "sha256", input: [] },
+    { algorithm: "sha256", input: Array.from({ length: 65 }, () => "x") },
+    { algorithm: "sha256", input: ["a", 1] },
   ],
   hashes_hmac_compute: [
     { algorithm: "sha256", input: "x", key: "" },
@@ -126,6 +130,9 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
   ],
   hashes_digest_identify: [
     { digest: "00".repeat(16) },
+    { digest: ["00".repeat(16), "$2b$05$x"] },
+    { digest: ["00".repeat(16), ""] },
+    { digest: Array.from({ length: 17 }, () => "00") },
     { digest: "$2b$05$x" },
     { digest: "" },
     { digest: "a".repeat(1_025) },
@@ -296,5 +303,29 @@ describe("omp hashes extension", () => {
     expect(digest).toBe("success:status.done accent(Hash Compute) accent([read]) dim(sha256 abcd)");
     expect(verdict).toBe("success:status.done accent(Hash Verify) accent([read]) dim(mismatch)");
     expect(failed).toBe("error:status.error accent(Hash Algorithms) accent([read])");
+  });
+
+  it("counts a list on the status line instead of previewing its entries", async () => {
+    const options = { expanded: false, isPartial: false };
+    const compute = await registerTool("hashes_compute");
+    const call = renderedText(
+      compute.renderCall?.({ algorithm: "sha256", input: ["a", "b", "c"] }, options, theme),
+    );
+    const digests = renderedText(
+      compute.renderResult?.({ content: [], details: { items: [{}, {}, {}] } }, options, theme),
+    );
+    const verdicts = renderedText(
+      (await registerTool("hashes_verify")).renderResult?.(
+        { content: [], details: { matches: 1, items: [{}, {}] } },
+        options,
+        theme,
+      ),
+    );
+
+    expect(call).toBe("success:status.done accent(Hash Compute): muted(sha256 3 inputs)");
+    expect(digests).toBe("success:status.done accent(Hash Compute) accent([read]) dim(3 digests)");
+    expect(verdicts).toBe(
+      "success:status.done accent(Hash Verify) accent([read]) dim(1 of 2 match)",
+    );
   });
 });
