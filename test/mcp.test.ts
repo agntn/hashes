@@ -21,6 +21,8 @@ import {
   BUILTIN_FAMILIES,
   EXTENDABLE_ALGORITHMS,
   HMAC_ALGORITHMS,
+  MAX_BATCH_DIGESTS,
+  MAX_BATCH_INPUTS,
   MAX_EXPECTED_LENGTH,
   MAX_INPUT_LENGTH,
   TOOL_ARGUMENTS,
@@ -28,6 +30,7 @@ import {
   MAX_SEARCH_HASHES,
   hashAlgorithms,
   hashCompute,
+  hashDigestIdentify,
   hashDigestSearch,
   hashHmac,
   hashVerify,
@@ -1205,6 +1208,185 @@ describe("hashes MCP server", () => {
     expect(answer.isError).toBe(true);
     expect(answer.text).not.toContain("\n");
     expect(answer.text).not.toContain(ESC);
+  });
+});
+
+describe("lists of inputs", () => {
+  const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
+
+  it("hash every input in order, one line each, digest then input", async () => {
+    const words = ["hello", "world", "a b\nMATCH"];
+    const answer = await call("hashes_compute", { algorithm: "SHA-256", input: words });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text.split("\n")).toEqual([
+      "3 inputs, sha256, hex, 32 bytes",
+      `${sha256("hello")}  "hello"`,
+      `${sha256("world")}  "world"`,
+      `${sha256("a b\nMATCH")}  "a b\\nMATCH"`,
+    ]);
+  });
+
+  it("keep a list of one a list, and a plain string a single answer", () => {
+    const list = hashCompute({ algorithm: "md5", input: ["x"] });
+    expect(list.content[0]?.text.split("\n")).toEqual([
+      "1 input, md5, hex, 16 bytes",
+      `${createHash("md5").update("x").digest("hex")}  "x"`,
+    ]);
+    expect(hashCompute({ algorithm: "md5", input: "x" }).content[0]?.text).toBe(
+      `${createHash("md5").update("x").digest("hex")}\nmd5, hex, 16 bytes`,
+    );
+  });
+
+  it("read each entry as inputEncoding says and name a bad one by its place", async () => {
+    const answer = await call("hashes_compute", {
+      algorithm: "sha256",
+      input: ["00ff", "6869"],
+      inputEncoding: "hex",
+    });
+    expect(answer.text).toContain(
+      createHash("sha256")
+        .update(Buffer.from([0, 255]))
+        .digest("hex"),
+    );
+    expect(answer.text).toContain(sha256("hi"));
+
+    const bad = await call("hashes_compute", {
+      algorithm: "sha256",
+      input: ["00", "zz"],
+      inputEncoding: "hex",
+    });
+    expect(bad).toMatchObject({ isError: true });
+    expect(bad.text).toContain("input 2");
+  });
+
+  it("HMAC every input under the same key", async () => {
+    const answer = await call("hashes_hmac_compute", {
+      algorithm: "sha256",
+      input: ["a", "b"],
+      key: "k",
+    });
+    const hmac = (text: string) => createHmac("sha256", "k").update(text).digest("hex");
+
+    expect(answer.text.split("\n")).toEqual([
+      "2 inputs, HMAC-sha256, hex, 32 bytes",
+      `${hmac("a")}  "a"`,
+      `${hmac("b")}  "b"`,
+    ]);
+  });
+
+  it("tell which candidate gives the expected digest", async () => {
+    const match = await call("hashes_verify", {
+      algorithm: "sha256",
+      input: ["hello", "world"],
+      expected: sha256("world").toUpperCase(),
+    });
+    const miss = await call("hashes_verify", {
+      algorithm: "sha256",
+      input: ["hello"],
+      expected: sha256("world"),
+    });
+
+    expect(match.text.split("\n")).toEqual([
+      "MATCH: 1 of 2 inputs gives the expected sha256 digest",
+      `expected ${sha256("world").toUpperCase()}`,
+      `mismatch  ${sha256("hello")}  "hello"`,
+      `match     ${sha256("world")}  "world"`,
+    ]);
+    expect(miss.isError).toBe(false);
+    expect(miss.text).toMatch(/^MISMATCH: none of 1 input gives/);
+  });
+
+  it("put a drawn salt on each line and the shared costs in the heading", () => {
+    const answer = hashCompute({ algorithm: "scrypt", input: ["a", "b"], parameters: { N: 1024 } });
+    const [heading, ...lines] = answer.content[0]?.text.split("\n") ?? [];
+
+    expect(heading).toBe("2 inputs, scrypt, hex, 64 bytes, N 1024, r 8, p 1, keyLength 64");
+    for (const [index, line] of lines.entries()) {
+      const [digest, label, salt] = line.split("  ");
+      const password = ["a", "b"][index] ?? "";
+      const expected = scryptSync(
+        password,
+        Buffer.from(salt?.replace("salt ", "") ?? "", "hex"),
+        64,
+        {
+          N: 1024,
+        },
+      );
+      expect([digest, label]).toEqual([expected.toString("hex"), `"${password}"`]);
+    }
+  });
+
+  it("give a refused input its own line, and fail the call only when every input is refused", () => {
+    const some = hashCompute({ algorithm: "ntlm", input: ["ff", "6869"], inputEncoding: "hex" });
+    const none = hashCompute({ algorithm: "ntlm", input: ["ff"], inputEncoding: "hex" });
+
+    expect(some.isError).toBeUndefined();
+    expect(some.content[0]?.text.split("\n")[1]).toBe(
+      'ERROR  "ff"  ntlm hashes text, and the input is not valid UTF-8',
+    );
+    expect(none.isError).toBe(true);
+    expect(none.details).toEqual({
+      items: [{ error: "ntlm hashes text, and the input is not valid UTF-8" }],
+    });
+  });
+
+  it("cost no more than the costliest single call", () => {
+    expect(() =>
+      hashCompute({ algorithm: "pbkdf2", input: Array.from({ length: 17 }, () => "x") }),
+    ).toThrow("with iterations 600000 one call hashes at most 16 inputs");
+    expect(() =>
+      hashCompute({ algorithm: "sha256", input: ["a", "b"], parameters: { rounds: 600_000 } }),
+    ).toThrow("with rounds 600000 one call hashes at most 1 input");
+    expect(() =>
+      hashCompute({ algorithm: "bcrypt", input: ["a", "b"], parameters: { cost: 16 } }),
+    ).toThrow("with cost 16 one call hashes at most 1 input");
+    expect(() =>
+      hashVerify({
+        algorithm: "argon2id",
+        input: ["a", "b"],
+        expected: "00",
+        salt: "00".repeat(8),
+        parameters: { memory: 262_144, iterations: 4 },
+      }),
+    ).toThrow("with memory 262144 one call hashes at most 1 input");
+    expect(() =>
+      hashCompute({ algorithm: "md5", input: ["x".repeat(600_000), "y".repeat(600_000)] }),
+    ).toThrow(`1200000 characters in all: a list takes at most ${MAX_INPUT_LENGTH}`);
+  });
+
+  it("refuse an empty, an overlong or a mixed list before hashing anything", async () => {
+    for (const input of [[], Array.from({ length: MAX_BATCH_INPUTS + 1 }, () => "x"), ["a", 1]]) {
+      expect(await call("hashes_compute", { algorithm: "sha256", input })).toMatchObject({
+        isError: true,
+      });
+      expect(() => hashCompute({ algorithm: "sha256", input } as never)).toThrow("input");
+    }
+  });
+
+  it("identify every hash of a list, with the next step once", async () => {
+    const md5 = createHash("md5").update("x").digest("hex");
+    const answer = await call("hashes_digest_identify", { digest: [md5, ` ${sha256("x")}\n`] });
+    const blocks = answer.text.split("\n\n");
+
+    expect(blocks).toHaveLength(3);
+    expect(blocks[0]).toMatch(
+      new RegExp(`^"${md5}"\n16 bytes in hex.*\nmd5: MD5, computable`, "u"),
+    );
+    expect(blocks[1]).toMatch(new RegExp(`^"${sha256("x")}"\n32 bytes in hex.*\nsha256:`, "u"));
+    expect(blocks[2]).toMatch(/^Next: hashes_verify/);
+    expect(hashDigestIdentify({ digest: [md5] }).details).toMatchObject({
+      items: [{ reading: "hex", length: 16 }],
+    });
+  });
+
+  it("refuse a blank or an overlong list of hashes", async () => {
+    expect(() => hashDigestIdentify({ digest: ["00", "  "] })).toThrow(
+      "Invalid option digest 2=(empty): must not be empty",
+    );
+    const many = Array.from({ length: MAX_BATCH_DIGESTS + 1 }, () => "00");
+    expect(await call("hashes_digest_identify", { digest: many })).toMatchObject({ isError: true });
+    expect(() => hashDigestIdentify({ digest: many })).toThrow("takes 1 to 16");
   });
 });
 

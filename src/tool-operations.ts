@@ -9,7 +9,7 @@
 
 import type { Static } from "@agntn/tools";
 import { decodeInput, parameterText, toBytes } from "./core/digest.ts";
-import { shown } from "./core/errors.ts";
+import { HashError, quoted, shown } from "./core/errors.ts";
 import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";
 import { algorithmInfos } from "./core/resolve.ts";
 import { extendDigest, secretLengths } from "./core/extend.ts";
@@ -38,6 +38,8 @@ import {
   DIGEST_PATTERN,
   INPUT_ENCODINGS,
   MAX_ALGORITHM_LENGTH,
+  MAX_BATCH_DIGESTS,
+  MAX_BATCH_INPUTS,
   MAX_EXPECTED_LENGTH,
   MAX_FAMILY_LENGTH,
   MAX_INPUT_LENGTH,
@@ -75,6 +77,8 @@ export type { DigestRecipe, DigestSearch, SearchScope } from "./core/search.ts";
 export interface ToolResult<Details> {
   content: Array<{ type: "text"; text: string }>;
   details: Details;
+  /** Set when not one input of a list could be hashed. */
+  isError?: boolean;
 }
 
 /** Encodings a tool can return: text only, since a tool answers in text. */
@@ -163,6 +167,28 @@ export interface ExtendDetails {
   extensions: Extension[];
 }
 
+/** An input of a list that has no digest, and why. */
+export interface BatchError {
+  error: string;
+}
+
+/** The digest of every input of a list, in the order given. */
+export interface DigestBatchDetails {
+  items: Array<DigestDetails | BatchError>;
+}
+
+/** How every candidate input of a list compares with the one expected digest. */
+export interface VerifyBatchDetails {
+  expected: string;
+  matches: number;
+  items: Array<VerifyDetails | BatchError>;
+}
+
+/** The identity of every hash of a list, in the order given. */
+export interface IdentifyBatchDetails {
+  items: DigestIdentity[];
+}
+
 export interface AlgorithmsDetails {
   algorithms: AlgorithmInfo[];
 }
@@ -249,6 +275,42 @@ function decodedArgument(
 function inputArgument(value: unknown, encoding: unknown): HashInput {
   const text = textArgument("input", value, MAX_INPUT_LENGTH);
   return decodedArgument("input", text, "inputEncoding", encoding);
+}
+
+/** One input, or a list of them hashed with the same options. */
+type Inputs =
+  | { readonly list: false; readonly text: string; readonly value: HashInput }
+  | {
+      readonly list: true;
+      readonly texts: readonly string[];
+      readonly values: readonly HashInput[];
+    };
+
+/**
+ * Reads one input or a list, which shares the length limit of a single input.
+ *
+ * @param value - The input or the list as passed.
+ * @param encoding - The inputEncoding argument as passed.
+ * @returns {Inputs} What to hash, with the text of each entry for its line.
+ */
+function inputsArgument(value: unknown, encoding: unknown): Inputs {
+  if (!Array.isArray(value)) {
+    const input = inputArgument(value, encoding);
+    return { list: false, text: value as string, value: input };
+  }
+  const texts = listArgument("input", value, MAX_BATCH_INPUTS, MAX_INPUT_LENGTH) ?? [];
+  const total = texts.reduce((sum, text) => sum + text.length, 0);
+  if (total > MAX_INPUT_LENGTH) {
+    throw new InvalidOptionError(
+      "input",
+      `${total} characters in all`,
+      `a list takes at most ${MAX_INPUT_LENGTH}`,
+    );
+  }
+  const values = texts.map((text, index) =>
+    decodedArgument(`input ${index + 1}`, text, "inputEncoding", encoding),
+  );
+  return { list: true, texts, values };
 }
 
 /**
@@ -467,6 +529,87 @@ function assertArgon2Work(
   }
 }
 
+/** What one input of a list costs, against the most one call may spend. */
+interface BatchWork {
+  readonly name: string;
+  readonly value: number;
+  readonly work: number;
+  readonly limit: number;
+}
+
+/**
+ * Reads the tool limit of a cost parameter.
+ *
+ * @param name - The parameter.
+ * @returns {number} Its limit.
+ */
+function limitOf(name: string): number {
+  return PARAMETER_LIMITS[name] ?? 1;
+}
+
+/**
+ * Prices one input against the limit that bounds its algorithm's time.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The checked options.
+ * @returns {BatchWork | undefined} The cost and its limit, or nothing when it's free.
+ */
+function batchWork(
+  algorithm: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+): BatchWork | undefined {
+  const all = costs(algorithm, options);
+  const at = (name: string): number => all.get(name) ?? 0;
+  if (all.has("N")) {
+    const work = 128 * at("N") * at("r") * at("p");
+    return { name: "N", value: at("N"), work, limit: MAX_SCRYPT_MEMORY * limitOf("p") };
+  }
+  if (all.has("memory")) {
+    const work = at("memory") * at("iterations");
+    return { name: "memory", value: at("memory"), work, limit: MAX_ARGON2_WORK };
+  }
+  if (all.has("cost")) {
+    return { name: "cost", value: at("cost"), work: 2 ** at("cost"), limit: 2 ** limitOf("cost") };
+  }
+  const name = ["iterations", "rounds"].find((each) => all.has(each));
+  if (name === undefined) return undefined;
+  return { name, value: at(name), work: at(name), limit: limitOf(name) };
+}
+
+/**
+ * Keeps a list at one call's cost, so 64 inputs can't buy 64 times the PBKDF2 iterations.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The checked options.
+ * @param count - How many inputs the call hashes.
+ */
+function assertBatchCost(
+  algorithm: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+  count: number,
+): void {
+  if (count === 1) return;
+  const batch = batchWork(algorithm, options);
+  if (batch === undefined || batch.work * count <= batch.limit) return;
+  const fits = Math.max(1, Math.floor(batch.limit / batch.work));
+  throw new InvalidOptionError(
+    "input",
+    `${count} inputs`,
+    `with ${batch.name} ${batch.value} one call hashes at most ${counted(fits, "input")}; split the list or lower ${batch.name}`,
+  );
+}
+
+/**
+ * Counts a noun in English.
+ *
+ * @param count - How many.
+ * @param noun - The noun in the singular.
+ * @returns {string} Such as `1 input` or `3 inputs`.
+ */
+function counted(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 /**
  * Resolves the algorithm argument.
  *
@@ -502,47 +645,211 @@ function digestDetails(result: HashResult, encoding: TextEncoding): DigestDetail
  * @returns {string} The digest, then its algorithm, encoding, length and parameters.
  */
 function digestText(details: DigestDetails): string {
-  const parameters = parameterText(details.options);
+  return `${details.digest}\n${aboutText(details, details.options)}`;
+}
+
+/**
+ * Names the algorithm, encoding, length and the given parameters of a digest.
+ *
+ * @param details - The digest details.
+ * @param options - The parameters to name.
+ * @returns {string} One line.
+ */
+function aboutText(details: DigestDetails, options: Readonly<Record<string, unknown>>): string {
+  const parameters = parameterText(options);
   const label = details.operation === "hmac" ? `HMAC-${details.algorithm}` : details.algorithm;
   const about = `${label}, ${details.encoding}, ${details.digestLength} bytes`;
-  return `${details.digest}\n${parameters ? `${about}, ${parameters}` : about}`;
+  return parameters ? `${about}, ${parameters}` : about;
+}
+
+/** Longest stretch of an input its line repeats. */
+const LABEL_LENGTH = 64;
+
+/**
+ * Quotes an input for its line in a list, so a space or a line feed in it stays visible.
+ *
+ * @param text - The input as passed.
+ * @returns {string} The input in quotes, cut after `LABEL_LENGTH` characters.
+ */
+function inputLabel(text: string): string {
+  if (text.length <= LABEL_LENGTH) return quoted(text);
+  return `${quoted(text.slice(0, LABEL_LENGTH))}… (${text.length} characters)`;
+}
+
+/**
+ * Turns the refusal of one input into its own entry; anything but a `HashError` is a bug.
+ *
+ * @param run - Hashes the input.
+ * @returns {T | BatchError} The result, or the reason there is none.
+ */
+function settled<T>(run: () => T): T | BatchError {
+  try {
+    return run();
+  } catch (error) {
+    if (error instanceof HashError) return { error: error.message };
+    throw error;
+  }
+}
+
+/**
+ * The options every digest of a list shares, so the heading names them once.
+ *
+ * @param items - The digests.
+ * @returns {Record<string, unknown>} The shared options; a drawn salt differs and stays out.
+ */
+function sharedOptions(items: readonly DigestDetails[]): Record<string, unknown> {
+  const [first, ...rest] = items;
+  if (first === undefined) return {};
+  return Object.fromEntries(
+    Object.entries(first.options).filter(([name, value]) =>
+      rest.every((item) => String(item.options[name]) === String(value)),
+    ),
+  );
+}
+
+/**
+ * The options of one digest that the heading of its list leaves out.
+ *
+ * @param details - The digest.
+ * @param shared - What the heading names.
+ * @returns {string} Its own parameters, or an empty string.
+ */
+function ownText(details: DigestDetails, shared: Readonly<Record<string, unknown>>): string {
+  return parameterText(
+    Object.fromEntries(
+      Object.entries(details.options).filter(([name]) => !Object.hasOwn(shared, name)),
+    ),
+  );
+}
+
+/**
+ * Lays out a list the way `sha256sum` does, digest then input, under one heading.
+ *
+ * @param items - Every entry, hashed or refused.
+ * @param texts - The inputs as passed, for their labels.
+ * @param prefixes - What goes before each digest, such as its verdict.
+ * @returns {string[]} The heading's parameters and one line per input.
+ */
+function digestLines(
+  items: readonly (DigestDetails | BatchError)[],
+  texts: readonly string[],
+  prefixes: readonly string[] = [],
+): { about: string | undefined; lines: string[] } {
+  const digests = items.filter((item): item is DigestDetails => !("error" in item));
+  const shared = sharedOptions(digests);
+  const [first] = digests;
+  const lines = items.map((item, index) => {
+    const label = inputLabel(texts[index] ?? "");
+    if ("error" in item) return `ERROR  ${label}  ${item.error}`;
+    const own = ownText(item, shared);
+    const digest = `${prefixes[index] ?? ""}${item.digest}`;
+    return [digest, label, ...(own ? [own] : [])].join("  ");
+  });
+  return { about: first === undefined ? undefined : aboutText(first, shared), lines };
+}
+
+/**
+ * The answer to a list of inputs: a heading, a line per input, and an error only when none hashed.
+ *
+ * @param text - The heading and the lines.
+ * @param details - The details for the harness.
+ * @param hashedAny - Whether any input got a digest.
+ * @returns {ToolResult<T>} The result.
+ */
+function listResult<T>(text: string, details: T, hashedAny: boolean): ToolResult<T> {
+  const content = [{ type: "text" as const, text }];
+  return hashedAny ? { content, details } : { content, details, isError: true };
 }
 
 /**
  * Hashes text with any registered algorithm. A KDF without a salt draws a random one and the
  * answer names it, since the digest cannot be reproduced without it.
  *
- * @param params - Algorithm, input and its encoding, digest encoding and, for a KDF, the salt in hex.
- * @returns {ToolResult<DigestDetails>} The digest.
+ * A list of inputs gets a digest each, with the same options.
+ *
+ * @param params - Algorithm, input or inputs and their encoding, digest encoding and, for a KDF,
+ *   the salt in hex.
+ * @returns {ToolResult<DigestDetails | DigestBatchDetails>} The digest, or one per input.
  */
-export function hashCompute(params: HashComputeParams): ToolResult<DigestDetails> {
+export function hashCompute(
+  params: HashComputeParams & { readonly input: string },
+): ToolResult<DigestDetails>;
+export function hashCompute(
+  params: HashComputeParams,
+): ToolResult<DigestDetails | DigestBatchDetails>;
+export function hashCompute(
+  params: HashComputeParams,
+): ToolResult<DigestDetails | DigestBatchDetails> {
   assertArguments("hashes_compute", params);
   const algorithm = algorithmArgument(params.algorithm);
-  const input = inputArgument(params.input, params.inputEncoding);
+  const inputs = inputsArgument(params.input, params.inputEncoding);
   const encoding = encodingArgument(params.encoding);
   const options = algorithmOptions(algorithm, params.salt, params.parameters);
-  const result = algorithm.hash(input, { encoding, ...options } as HashOptions);
-  const details = digestDetails(result, encoding);
+  const digest = (input: HashInput): DigestDetails =>
+    digestDetails(algorithm.hash(input, { encoding, ...options } as HashOptions), encoding);
+  if (!inputs.list) return digestResult(digest(inputs.value));
+  assertBatchCost(algorithm, options, inputs.values.length);
+  return digestListResult(
+    inputs.values.map((input) => settled(() => digest(input))),
+    inputs.texts,
+  );
+}
+
+/**
+ * The answer to one input: the digest, then what made it.
+ *
+ * @param details - The digest.
+ * @returns {ToolResult<DigestDetails>} The result.
+ */
+function digestResult(details: DigestDetails): ToolResult<DigestDetails> {
   return { content: [{ type: "text", text: digestText(details) }], details };
+}
+
+/**
+ * The answer to a list of inputs: what made the digests once, then a line per input.
+ *
+ * @param items - Every entry, hashed or refused.
+ * @param texts - The inputs as passed.
+ * @returns {ToolResult<DigestBatchDetails>} The result.
+ */
+function digestListResult(
+  items: readonly (DigestDetails | BatchError)[],
+  texts: readonly string[],
+): ToolResult<DigestBatchDetails> {
+  const { about, lines } = digestLines(items, texts);
+  const heading = `${counted(items.length, "input")}, ${about ?? "none hashed"}`;
+  return listResult([heading, ...lines].join("\n"), { items: [...items] }, about !== undefined);
 }
 
 /**
  * Computes an HMAC with an algorithm that offers it.
  *
- * @param params - Algorithm, input and its encoding, key and its encoding, digest encoding.
- * @returns {ToolResult<DigestDetails>} The HMAC.
+ * A list of inputs gets an HMAC each under the same key.
+ *
+ * @param params - Algorithm, input or inputs and their encoding, key and its encoding, digest
+ *   encoding.
+ * @returns {ToolResult<DigestDetails | DigestBatchDetails>} The HMAC, or one per input.
  */
-export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDetails> {
+export function hashHmac(
+  params: HashHmacParams & { readonly input: string },
+): ToolResult<DigestDetails>;
+export function hashHmac(params: HashHmacParams): ToolResult<DigestDetails | DigestBatchDetails>;
+export function hashHmac(params: HashHmacParams): ToolResult<DigestDetails | DigestBatchDetails> {
   assertArguments("hashes_hmac_compute", params);
   const algorithm = algorithmArgument(params.algorithm);
-  const input = inputArgument(params.input, params.inputEncoding);
+  const inputs = inputsArgument(params.input, params.inputEncoding);
   const key = keyArgument(params.key, params.keyEncoding);
   const encoding = encodingArgument(params.encoding);
   if (!algorithm.info().hmac) {
     throw new InvalidOptionError("algorithm", algorithm.name(), "has no HMAC mode");
   }
-  const details = digestDetails(algorithm.hash(input, { encoding, key }), encoding);
-  return { content: [{ type: "text", text: digestText(details) }], details };
+  const tag = (input: HashInput): DigestDetails =>
+    digestDetails(algorithm.hash(input, { encoding, key }), encoding);
+  if (!inputs.list) return digestResult(tag(inputs.value));
+  return digestListResult(
+    inputs.values.map((input) => settled(() => tag(input))),
+    inputs.texts,
+  );
 }
 
 /**
@@ -550,27 +857,63 @@ export function hashHmac(params: Readonly<HashHmacParams>): ToolResult<DigestDet
  * case; base64 and base64url do not. An expected digest that is not valid in its encoding is an
  * error, not a mismatch. A KDF needs the salt the expected digest was made with.
  *
- * @param params - Algorithm, input and its encoding, expected digest and its encoding and, for
- *   a KDF, the salt.
- * @returns {ToolResult<VerifyDetails>} Whether the digests match, with both of them.
+ * A list of candidate inputs gets a verdict each, so one call tells which of them it was.
+ *
+ * @param params - Algorithm, input or inputs and their encoding, expected digest and its encoding
+ *   and, for a KDF, the salt.
+ * @returns {ToolResult<VerifyDetails | VerifyBatchDetails>} Whether the digests match, with both
+ *   of them, or a verdict per input.
  */
-export function hashVerify(params: HashVerifyParams): ToolResult<VerifyDetails> {
+export function hashVerify(
+  params: HashVerifyParams & { readonly input: string },
+): ToolResult<VerifyDetails>;
+export function hashVerify(
+  params: HashVerifyParams,
+): ToolResult<VerifyDetails | VerifyBatchDetails>;
+export function hashVerify(
+  params: HashVerifyParams,
+): ToolResult<VerifyDetails | VerifyBatchDetails> {
   assertArguments("hashes_verify", params);
   const algorithm = algorithmArgument(params.algorithm);
-  const input = inputArgument(params.input, params.inputEncoding);
+  const inputs = inputsArgument(params.input, params.inputEncoding);
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
   if (expected === "") throw new InvalidOptionError("expected", "", "must not be empty");
   const encoding = encodingArgument(params.encoding);
   assertExpected(expected, encoding);
   const options = algorithmOptions(algorithm, params.salt, params.parameters);
   assertDrawnOptions(algorithm.info(), options);
-  const result = algorithm.hash(input, { encoding, ...options } as HashOptions);
-  const details = { ...digestDetails(result, encoding), expected };
-  const match = digestMatches(result, expected);
-  const text = match
-    ? `MATCH: ${algorithm.name()} digest equals the expected value\n${details.digest}`
-    : `MISMATCH: ${algorithm.name()} digest differs\nexpected ${shown(expected)}\nactual   ${details.digest}`;
-  return { content: [{ type: "text", text }], details: { ...details, match } };
+  const verdict = (input: HashInput): VerifyDetails => {
+    const result = algorithm.hash(input, { encoding, ...options } as HashOptions);
+    return { ...digestDetails(result, encoding), expected, match: digestMatches(result, expected) };
+  };
+  if (!inputs.list) return verifyResult(verdict(inputs.value), algorithm.name());
+  assertBatchCost(algorithm, options, inputs.values.length);
+  const items = inputs.values.map((input) => settled(() => verdict(input)));
+  const matches = items.filter((item) => !("error" in item) && item.match).length;
+  const verdicts = items.map((item) =>
+    "match" in item && item.match ? "match     " : "mismatch  ",
+  );
+  const { about, lines } = digestLines(items, inputs.texts, verdicts);
+  const heading =
+    matches > 0
+      ? `MATCH: ${matches} of ${counted(items.length, "input")} ${matches === 1 ? "gives" : "give"} the expected ${algorithm.name()} digest`
+      : `MISMATCH: none of ${counted(items.length, "input")} gives the expected ${algorithm.name()} digest`;
+  const text = [heading, `expected ${shown(expected)}`, ...lines].join("\n");
+  return listResult(text, { expected, matches, items }, about !== undefined);
+}
+
+/**
+ * The answer to one input: MATCH with the digest, or MISMATCH with both.
+ *
+ * @param details - The verdict.
+ * @param name - The algorithm.
+ * @returns {ToolResult<VerifyDetails>} The result.
+ */
+function verifyResult(details: VerifyDetails, name: string): ToolResult<VerifyDetails> {
+  const text = details.match
+    ? `MATCH: ${name} digest equals the expected value\n${details.digest}`
+    : `MISMATCH: ${name} digest differs\nexpected ${shown(details.expected)}\nactual   ${details.digest}`;
+  return { content: [{ type: "text", text }], details };
 }
 
 /**
@@ -668,12 +1011,52 @@ export function hashDigestExtend(params: HashDigestExtendParams): ToolResult<Ext
 /**
  * Lists the algorithms a hash may come from, with the next call for each one this package computes.
  *
- * @param params - The hash as found.
- * @returns {ToolResult<DigestIdentity>} How it was read and the candidates, most likely first.
+ * A list gets a block per hash and the next step once.
+ *
+ * @param params - The hash as found, or a list of them.
+ * @returns {ToolResult<DigestIdentity | IdentifyBatchDetails>} How it was read and the candidates,
+ *   most likely first, or that for every hash of the list.
  */
-export function hashDigestIdentify(params: HashDigestIdentifyParams): ToolResult<DigestIdentity> {
+export function hashDigestIdentify(
+  params: HashDigestIdentifyParams & { readonly digest: string },
+): ToolResult<DigestIdentity>;
+export function hashDigestIdentify(
+  params: HashDigestIdentifyParams,
+): ToolResult<DigestIdentity | IdentifyBatchDetails>;
+export function hashDigestIdentify(
+  params: HashDigestIdentifyParams,
+): ToolResult<DigestIdentity | IdentifyBatchDetails> {
   assertArguments("hashes_digest_identify", params);
-  const found = identifyDigest(textArgument("digest", params.digest, MAX_EXPECTED_LENGTH));
+  if (!Array.isArray(params.digest)) {
+    const found = identifyDigest(textArgument("digest", params.digest, MAX_EXPECTED_LENGTH));
+    const { text, next } = identityBlock(found);
+    return { content: [{ type: "text", text: [text, ...next].join("\n") }], details: found };
+  }
+  const digests =
+    listArgument("digest", params.digest, MAX_BATCH_DIGESTS, MAX_EXPECTED_LENGTH) ?? [];
+  const blank = digests.findIndex((digest) => digest.trim() === "");
+  if (blank !== -1)
+    throw new InvalidOptionError(`digest ${blank + 1}`, "(empty)", "must not be empty");
+  const items = identifyDigest(digests);
+  const blocks = items.map((found, index) => ({
+    ...identityBlock(found),
+    digest: digests[index] ?? "",
+  }));
+  const next = [...new Set(blocks.flatMap((block) => block.next))];
+  const text = [
+    ...blocks.map((block) => `${quoted(block.digest.trim())}\n${block.text}`),
+    ...(next.length > 0 ? [next.join("\n")] : []),
+  ].join("\n\n");
+  return { content: [{ type: "text", text }], details: { items } };
+}
+
+/**
+ * The lines about one hash, and the next step when a candidate can be checked.
+ *
+ * @param found - The identity.
+ * @returns {{ text: string; next: string[] }} The heading, candidates and limits, then the step.
+ */
+function identityBlock(found: DigestIdentity): { text: string; next: string[] } {
   const { heading, lines } = identityText(found);
   const refusals = found.candidates.map((candidate) =>
     candidate.algorithm === undefined
@@ -696,8 +1079,7 @@ export function hashDigestIdentify(params: HashDigestIdentifyParams): ToolResult
           : "Next: hashes_verify a known input with each computable candidate. Only a MATCH settles it.",
       ]
     : [];
-  const text = [heading, ...lines, ...over, ...next].join("\n");
-  return { content: [{ type: "text", text }], details: found };
+  return { text: [heading, ...lines, ...over].join("\n"), next };
 }
 
 /**

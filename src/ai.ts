@@ -5,19 +5,24 @@ import { toAiTool, type AiToolOutput } from "@agntn/tools/ai";
 import type { Tool } from "ai";
 import type {
   AlgorithmsDetails,
+  DigestBatchDetails,
   DigestDetails,
   DigestIdentity,
   DigestSearch,
   ExtendDetails,
   HashAlgorithmsParams,
-  HashComputeParams,
   HashDigestExtendParams,
-  HashDigestIdentifyParams,
-  HashHmacParams,
-  HashVerifyParams,
+  IdentifyBatchDetails,
+  VerifyBatchDetails,
   VerifyDetails,
 } from "./tool-operations.ts";
-import type { hashDigestSearchSchema } from "../packages/shared/tool-schemas.ts";
+import type {
+  hashComputeSchema,
+  hashDigestIdentifySchema,
+  hashDigestSearchSchema,
+  hashHmacSchema,
+  hashVerifySchema,
+} from "../packages/shared/tool-schemas.ts";
 import {
   algorithmsTool,
   computeTool,
@@ -28,17 +33,21 @@ import {
   verifyTool,
 } from "./tools.ts";
 
-export const hashComputeTool: Tool<HashComputeParams, AiToolOutput<DigestDetails>> = toAiTool(
-  computeTool,
-);
+/** Typed by the schema like search, since a list of inputs comes over as a plain array. */
+export const hashComputeTool: Tool<
+  Static<typeof hashComputeSchema>,
+  AiToolOutput<DigestDetails | DigestBatchDetails>
+> = toAiTool(computeTool);
 
-export const hashHmacTool: Tool<HashHmacParams, AiToolOutput<DigestDetails>> = toAiTool(
-  hmacComputeTool,
-);
+export const hashHmacTool: Tool<
+  Static<typeof hashHmacSchema>,
+  AiToolOutput<DigestDetails | DigestBatchDetails>
+> = toAiTool(hmacComputeTool);
 
-export const hashVerifyTool: Tool<HashVerifyParams, AiToolOutput<VerifyDetails>> = toAiTool(
-  verifyTool,
-);
+export const hashVerifyTool: Tool<
+  Static<typeof hashVerifySchema>,
+  AiToolOutput<VerifyDetails | VerifyBatchDetails>
+> = toAiTool(verifyTool);
 
 export const hashDigestExtendTool: Tool<
   HashDigestExtendParams,
@@ -46,8 +55,8 @@ export const hashDigestExtendTool: Tool<
 > = toAiTool(digestExtendTool);
 
 export const hashDigestIdentifyTool: Tool<
-  HashDigestIdentifyParams,
-  AiToolOutput<DigestIdentity>
+  Static<typeof hashDigestIdentifySchema>,
+  AiToolOutput<DigestIdentity | IdentifyBatchDetails>
 > = toAiTool(digestIdentifyTool);
 
 /** Typed by the schema, since the SDK hands its lists over as plain arrays. */

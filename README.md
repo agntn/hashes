@@ -106,6 +106,7 @@ import { create, resolveAlgorithm, digestMatches } from "@agntn/hashes";
 create("sha256").hash("abc").digest; // "ba7816bf8f01cfea..."
 create("sha256").hash("message", { key: "secret" }).operation; // "hmac"
 create("sha256").hash("abc", { rounds: 2 }).digest; // "4f8b42c22dd3729b...", hash256 by another name
+create("sha256").hashMany(["hello", "world"]).length; // 2, one result per input, same order
 
 const blake3 = resolveAlgorithm("BLAKE3");
 blake3.hash(new Uint8Array([1, 2, 3]), { encoding: "base64" });
@@ -154,7 +155,7 @@ claude mcp add --transport http hashes https://hashes.agntn.dev/mcp
 
 Everything you send there passes through a Cloudflare worker. Fine for test vectors, not for your real password.
 
-The tools: `hashes_compute`, `hashes_hmac_compute`, `hashes_verify`, `hashes_digest_extend`, `hashes_digest_identify`, `hashes_digest_search` and `hashes_algorithms`. The same ones in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding` and `keyEncoding`, same as the CLI flags. A model that isn't sure calls `hashes_algorithms` first.
+The tools: `hashes_compute`, `hashes_hmac_compute`, `hashes_verify`, `hashes_digest_extend`, `hashes_digest_identify`, `hashes_digest_search` and `hashes_algorithms`. The same ones in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding` and `keyEncoding`, same as the CLI flags. A model that isn't sure calls `hashes_algorithms` first. Got a pile of words? `input` takes a list, up to 64 of them, and the answer comes back like `sha256sum` output. Ten digests, one call. `hashes_verify` with a list tells which candidate matched.
 
 ## 🚫 What this does not do
 

@@ -485,10 +485,25 @@ function base64Bytes(text: string): Uint8Array | undefined {
  * Lists the algorithms a hash may come from by its prefix or byte length, most likely first.
  * A format this package computes comes with the salt, costs and digest read out of the string.
  *
+ * @param text - The hash as found, or a list of them.
+ * @returns {DigestIdentity} How it was read and the candidates, one identity per hash for a list.
+ */
+export function identifyDigest(text: string): DigestIdentity;
+export function identifyDigest(texts: readonly string[]): DigestIdentity[];
+export function identifyDigest(
+  text: string | readonly string[],
+): DigestIdentity | DigestIdentity[] {
+  if (Array.isArray(text)) return text.map((each: string) => identifyOne(each));
+  return identifyOne(text as string);
+}
+
+/**
+ * Reads one hash for `identifyDigest`.
+ *
  * @param text - The hash as found.
  * @returns {DigestIdentity} How it was read and the candidates.
  */
-export function identifyDigest(text: string): DigestIdentity {
+function identifyOne(text: string): DigestIdentity {
   if (typeof text !== "string") {
     throw new InvalidOptionError("digest", typeof text, "must be a string");
   }

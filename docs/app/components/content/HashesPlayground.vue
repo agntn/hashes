@@ -478,7 +478,7 @@ function run(op: Operation, args: Record<string, unknown>): Answer {
         : { kind: "list", algorithms: result.details.algorithms, text };
     }
     if (op === "verify") {
-      const result = hashVerify(args as Parameters<typeof hashVerify>[0]);
+      const result = hashVerify(args as Parameters<typeof hashVerify>[0] & { input: string });
       return { kind: "verify", details: result.details, text: result.content[0]!.text };
     }
     if (op === "extend") {
@@ -486,13 +486,13 @@ function run(op: Operation, args: Record<string, unknown>): Answer {
       return { kind: "extend", details: result.details, text: result.content[0]!.text };
     }
     if (op === "identify") {
-      const result = hashDigestIdentify(args as Parameters<typeof hashDigestIdentify>[0]);
+      const result = hashDigestIdentify(args as Parameters<typeof hashDigestIdentify>[0] & { digest: string });
       return { kind: "identify", details: result.details, text: result.content[0]!.text };
     }
     const result =
       op === "hmac"
-        ? hashHmac(args as Parameters<typeof hashHmac>[0])
-        : hashCompute(args as Parameters<typeof hashCompute>[0]);
+        ? hashHmac(args as Parameters<typeof hashHmac>[0] & { input: string })
+        : hashCompute(args as Parameters<typeof hashCompute>[0] & { input: string });
     return { kind: "digest", details: result.details, text: result.content[0]!.text };
   } catch (error) {
     if (!(error instanceof HashError)) throw error;
