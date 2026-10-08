@@ -460,8 +460,8 @@ describe("digests", () => {
   });
 
   it.each(CHECKSUM_REFERENCES)(
-    "matches zlib, crccheck, xxhash and GnuPG on %i bytes",
-    (length, adler, bzip2, xz, xxh32Digest, xxh32Seeded, xxh64Digest, openpgp) => {
+    "matches zlib, crccheck, xxhash, GnuPG and binascii on %i bytes",
+    (length, adler, bzip2, xz, xxh32Digest, xxh32Seeded, xxh64Digest, openpgp, xmodem) => {
       const input = checksumInput(length);
       const xxh32 = (seed?: number) => ({ bits: 32, seed }) as XxhashOptions;
       expect(create("adler32").hash(input).digest).toBe(adler);
@@ -471,14 +471,21 @@ describe("digests", () => {
       expect(create("xxhash").hash(input, xxh32(0xdeadbeef)).digest).toBe(xxh32Seeded);
       expect(create("xxhash").hash(input).digest).toBe(xxh64Digest);
       expect(create("crc24").hash(input).digest).toBe(openpgp);
+      expect(create("crc16-xmodem").hash(input).digest).toBe(xmodem);
     },
   );
 
   it.each(ONES_REFERENCES)(
-    "matches zlib, crccheck and GnuPG on %i bytes of 0xff",
+    "matches zlib, crccheck, GnuPG and binascii on %i bytes of 0xff",
     (length, ...digests) => {
       const input = new Uint8Array(length).fill(0xff);
-      const checksums = [adler32(input), crc32(input, "bzip2"), crc64(input), crc24(input)];
+      const checksums = [
+        adler32(input),
+        crc32(input, "bzip2"),
+        crc64(input),
+        crc24(input),
+        crc16Xmodem(input),
+      ];
       expect(checksums.map((digest) => digest.toHex())).toEqual(digests);
     },
   );
