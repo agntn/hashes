@@ -17,7 +17,13 @@ import { INPUT_ENCODINGS, TEXT_ENCODINGS } from "../packages/shared/tool-contrac
 import { ENCODING_OPTION, decodeInput, parameterText, type InputEncoding } from "./core/digest.ts";
 import { shown } from "./core/errors.ts";
 import { identifyDigest, identityText } from "./core/identify.ts";
-import { searchDigest, searchText, type SearchCase, type SearchChain } from "./core/search.ts";
+import {
+  searchDigest,
+  searchText,
+  type SearchCase,
+  type SearchChain,
+  type SearchDigestOptions,
+} from "./core/search.ts";
 import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
 import {
   InvalidOptionError,
@@ -346,7 +352,8 @@ export const searchCommand = defineTool({
   input: closed({
     digest: Type.String({
       minLength: 1,
-      description: "The digest, in hex unless --encoding says otherwise; the words follow it",
+      description:
+        "The digest, in hex unless --encoding says otherwise, or several split by commas and searched in one pass; the words follow it",
     }),
     words: Type.String({
       minLength: 1,
@@ -385,9 +392,14 @@ export const searchCommand = defineTool({
   }),
   cli: { command: "search", positional: ["digest"], rest: "words", short: { encoding: "e" } },
   execute: (params) => {
-    const target = assertExpected(params.digest, params.encoding ?? "hex", "digest");
+    const encoding = params.encoding ?? "hex";
+    const digests = params.digest.split(",").map((digest) => digest.trim());
+    const targets =
+      digests.length === 1
+        ? assertExpected(digests[0]!, encoding, "digest")
+        : digests.map((digest, index) => assertExpected(digest, encoding, `digest ${index + 1}`));
     const progress = new Progress();
-    const result = searchDigest(target, {
+    const options: SearchDigestOptions = {
       words: params.words.split(" ").filter((word) => word !== ""),
       minWords: params.minWords,
       maxWords: params.maxWords,
@@ -398,10 +410,16 @@ export const searchCommand = defineTool({
       chains: readList(params.chains) as SearchChain[] | undefined,
       limit: params.limit ?? DEFAULT_LIMIT,
       onProgress: progress.show,
-    });
+    };
+    const result = Array.isArray(targets)
+      ? searchDigest(targets, options)
+      : searchDigest(targets, options);
     progress.clear();
     const { heading, lines } = searchText(result);
     for (const line of heading) process.stderr.write(`${line}\n`);
+    if ("items" in result && result.items.some((item) => item.recipe === undefined)) {
+      process.exitCode = 1;
+    }
     return found(lines, result);
   },
 });

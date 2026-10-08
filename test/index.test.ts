@@ -2500,6 +2500,101 @@ describe("searchDigest", () => {
     >[1];
     expect(refused(options)).toThrow("use any of as-is, lower, upper, title");
   });
+
+  describe("over a list of digests", () => {
+    const sha256Of = (text: string): Buffer => createHash("sha256").update(text).digest();
+    const md5Of = (text: string): Buffer => createHash("md5").update(text).digest();
+    const words = ["alpha", "beta", "gamma", "delta"];
+
+    it("hashes each text once for every digest of its length", () => {
+      const first = sha256Of("gammaalpha");
+      const second = sha256Of("Beta,Delta");
+      const options = { words, algorithms: ["sha256"] };
+      const alone = [first, second].map((target) => searchDigest(target, options));
+      const together = searchDigest([first, second], options);
+
+      expect(together.items.map((item) => item.recipe?.input)).toEqual([
+        "gammaalpha",
+        "Beta,Delta",
+      ]);
+      expect(together.items.map((item) => item.recipe)).toEqual(alone.map((found) => found.recipe));
+      expect(together).toMatchObject({
+        tried: Math.max(...alone.map((found) => found.tried)),
+        total: alone[0]!.total,
+        stopped: false,
+      });
+    });
+
+    it("picks the algorithms per length and counts every length in the total", () => {
+      const long = sha256Of("gammaalpha");
+      const short = md5Of("beta delta");
+      const found = searchDigest([long, short], { words });
+      const totals = [long, short].map((target) => searchDigest(target, { words }).total);
+
+      expect(found.items.map((item) => [item.digest, item.recipe?.algorithm])).toEqual([
+        [long.toString("hex"), "sha256"],
+        [short.toString("hex"), "md5"],
+      ]);
+      expect(found.items[0]!.scope.algorithms).toContain("sha3-256");
+      expect(found.items[1]!.scope.algorithms).toContain("md4");
+      expect(found.total).toBe(totals[0]! + totals[1]!);
+      expect(
+        searchDigest([long, short], { words, algorithms: ["md5", "sha256"] }).items.map(
+          (item) => item.scope.algorithms,
+        ),
+      ).toEqual([["sha256"], ["md5"]]);
+    });
+
+    it("goes on after a match until every digest has a recipe, deeper rounds included", () => {
+      const once = sha256Of("abc");
+      const twice = createHash("sha256").update(once).digest();
+      const found = searchDigest([once, twice, once], {
+        words: ["abc"],
+        algorithms: ["sha256"],
+        rounds: 3,
+        chains: ["bytes"],
+      });
+
+      expect(found.items.map((item) => [item.recipe?.rounds, item.recipe?.chain])).toEqual([
+        [1, undefined],
+        [2, "bytes"],
+        [1, undefined],
+      ]);
+      expect(found).toMatchObject({ tried: 2, total: 9, stopped: false });
+    });
+
+    it("keeps the recipes it found when the limit ends the search", () => {
+      const found = searchDigest([md5Of("a"), Buffer.alloc(16)], {
+        words: ["a", "b", "c"],
+        limit: 50,
+      });
+
+      expect(found).toMatchObject({ tried: 50, stopped: true });
+      expect(found.items[0]!.recipe).toMatchObject({ input: "a", algorithm: "md5" });
+      expect(found.items[1]!.recipe).toBeUndefined();
+    });
+
+    it("names the digest of the list it refuses", () => {
+      const options = { words: ["a"] };
+      const sha = sha256Of("a");
+
+      expect(() => searchDigest([], options)).toThrow("needs at least one digest");
+      expect(() => searchDigest([sha, Buffer.alloc(0)], options)).toThrow(
+        "digest 2=(empty): needs at least one byte",
+      );
+      expect(() => searchDigest([sha, Buffer.alloc(7)], options)).toThrow(
+        "digest 2=7 bytes: no registered digest is that long",
+      );
+      expect(() => searchDigest([sha, md5Of("a")], { words: ["a"], algorithms: ["md5"] })).toThrow(
+        "digest 1=32 bytes: none of the algorithms makes that many bytes",
+      );
+      expect(() => searchDigest([sha, md5Of("a")], { words: ["a"], algorithms: ["sha1"] })).toThrow(
+        "makes 20 bytes and no digest of the list is that long",
+      );
+      const strings = JSON.parse('["00"]') as Uint8Array[];
+      expect(() => searchDigest(strings, options)).toThrow("digest 1=string: must be a Uint8Array");
+    });
+  });
 });
 
 describe("digestMatches", () => {

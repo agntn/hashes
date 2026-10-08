@@ -130,12 +130,13 @@ export const hashDigestIdentifySchema = closed({
 
 const wordCount = { minimum: 1, maximum: MAX_SEARCH_WORDS } as const;
 
+const targetDigest = Type.String({ minLength: 1, maxLength: MAX_EXPECTED_LENGTH });
+
 export const hashDigestSearchSchema = closed({
-  digest: Type.String({
-    minLength: 1,
-    maxLength: MAX_EXPECTED_LENGTH,
-    description: d.targetDigest,
-  }),
+  digest: Type.Union(
+    [targetDigest, Type.Array(targetDigest, { minItems: 1, maxItems: MAX_BATCH_DIGESTS })],
+    { description: d.targetDigest },
+  ),
   encoding: Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.targetEncoding })),
   words: Type.Array(Type.String({ minLength: 1, maxLength: MAX_WORD_LENGTH }), {
     minItems: 1,

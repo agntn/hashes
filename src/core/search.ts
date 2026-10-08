@@ -92,6 +92,28 @@ export interface DigestSearch {
   readonly scope: SearchScope;
 }
 
+/** One digest of a list and what explained it. */
+export interface DigestSearchItem {
+  /** The digest in lowercase hex. */
+  readonly digest: string;
+  /** Set when a candidate gave this digest. */
+  readonly recipe?: DigestRecipe;
+  /** What the search covered for it: the algorithms of its length. */
+  readonly scope: SearchScope;
+}
+
+/** How a search for several digests at once ended. */
+export interface DigestSearchBatch {
+  /** Hashes the scope holds, every length of the list together. */
+  readonly total: number;
+  /** Hashes computed before it ended. */
+  readonly tried: number;
+  /** Whether the limit ended it before every digest had a recipe or the scope ran out. */
+  readonly stopped: boolean;
+  /** One per digest, in the order given. */
+  readonly items: readonly DigestSearchItem[];
+}
+
 /** One text to hash and how it was made. */
 interface Candidate {
   readonly words: readonly string[];
@@ -182,12 +204,12 @@ function casedCombinations(
 }
 
 /**
- * Counts the hashes a scope holds, refusing a scope too large to count exactly.
+ * Counts the texts a scope makes, a text two splits make once per split.
  *
  * @param scope - What the search covers.
- * @returns {number} Every hash it would compute without a match.
+ * @returns {bigint} Every text it hashes.
  */
-function scopeSize(scope: SearchScope): number {
+function textCount(scope: SearchScope): bigint {
   const combinations = casedCombinations(scope.words, scope.cases, scope.maxWords);
   let texts = 0n;
   let orderings = 1n;
@@ -197,15 +219,37 @@ function scopeSize(scope: SearchScope): number {
     const joiners = BigInt(size === 1 ? 1 : scope.joiners.length);
     texts += (combinations[size] ?? 0n) * orderings * joiners;
   }
-  const perText = scope.algorithms.reduce((sum, label) => {
+  return texts;
+}
+
+/**
+ * Counts the hashes one text costs: each algorithm once, then each of its chains round by round.
+ *
+ * @param scope - What the search covers for one digest length.
+ * @returns {bigint} The hashes per text.
+ */
+function hashesPerText(scope: SearchScope): bigint {
+  const hashes = scope.algorithms.reduce((sum, label) => {
     const chains = chainsFor(scope, scope.textOnly.includes(label)).length;
     return sum + 1 + (scope.rounds > 1 ? chains * (scope.rounds - 1) : 0);
   }, 0);
-  const total = texts * BigInt(perText);
+  return BigInt(hashes);
+}
+
+/**
+ * Counts the hashes a search holds over its lengths, refusing a total too large to be exact.
+ *
+ * @param scopes - What the search covers, per digest length.
+ * @returns {number} Every hash it would compute without a match.
+ */
+function searchSize(scopes: readonly SearchScope[]): number {
+  const [first] = scopes;
+  const perText = scopes.reduce((sum, scope) => sum + hashesPerText(scope), 0n);
+  const total = textCount(first!) * perText;
   if (total > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new InvalidOptionError(
       "maxWords",
-      scope.maxWords,
+      first!.maxWords,
       `makes more than ${Number.MAX_SAFE_INTEGER} hashes, lower it to search the smaller combinations`,
     );
   }
@@ -454,37 +498,77 @@ function readingsOf(hash: Hash, length: number): Reading[] {
 }
 
 /**
- * Resolves the algorithms to try: the ones named, or every fixed-length digest of the target's
- * length. A KDF draws or takes a salt and is no transform of the words alone, so it is refused.
+ * Writes a digest length the way an error names it.
  *
- * @param named - The algorithms as given, if any.
- * @param length - The target's length in bytes.
- * @returns {Reading[]} The algorithms, each option value that fits as one more.
+ * @param length - The length in bytes.
+ * @returns {string} `1 byte` or `<n> bytes`.
  */
-function searchAlgorithms(named: readonly string[] | undefined, length: number): Reading[] {
-  if (named === undefined) {
-    const fitting = algorithms()
-      .map((name) => create(name))
-      .filter((hash) => isFixed(hash))
-      .flatMap((hash) => readingsOf(hash, length));
+function byteSize(length: number): string {
+  return length === 1 ? "1 byte" : `${length} bytes`;
+}
+
+/**
+ * Lists every registered fixed-length digest for each length, with the option values that fit.
+ *
+ * @param lengths - The distinct digest lengths, in bytes.
+ * @param names - The digest each length is named by in an error.
+ * @returns {Reading[][]} The readings of each length, in the order of `lengths`.
+ */
+function defaultReadings(lengths: readonly number[], names: readonly string[]): Reading[][] {
+  const fixed = algorithms()
+    .map((name) => create(name))
+    .filter((hash) => isFixed(hash));
+  return lengths.map((length, index) => {
+    const fitting = fixed.flatMap((hash) => readingsOf(hash, length));
     if (fitting.length === 0) {
-      const size = length === 1 ? "1 byte" : `${length} bytes`;
-      throw new InvalidOptionError("digest", size, "no registered digest is that long");
+      throw new InvalidOptionError(
+        names[index]!,
+        byteSize(length),
+        "no registered digest is that long",
+      );
     }
     return fitting;
-  }
+  });
+}
+
+/**
+ * Reads the named algorithms per length; each must fit some length, and each length needs one.
+ *
+ * @param named - The algorithms as given.
+ * @param lengths - The distinct digest lengths, in bytes.
+ * @param names - The digest each length is named by in an error.
+ * @returns {Reading[][]} The readings of each length, in the order of `lengths`.
+ */
+function namedReadings(
+  named: readonly string[],
+  lengths: readonly number[],
+  names: readonly string[],
+): Reading[][] {
   const resolved = distinct("algorithms", named).map((name) => resolveAlgorithm(name));
   const unique = [...new Map(resolved.map((hash) => [hash.name(), hash])).values()];
-  return unique.flatMap((hash) => {
+  const fits = unique.map((hash) => {
     if (!isFixed(hash)) {
       throw new InvalidOptionError("algorithms", hash.name(), "is no fixed-length digest");
     }
-    const fitting = readingsOf(hash, length);
-    if (fitting.length === 0) {
+    const perLength = lengths.map((length) => readingsOf(hash, length));
+    if (perLength.every((fitting) => fitting.length === 0)) {
+      const digest =
+        lengths.length === 1 ? `the digest is ${lengths[0]}` : "no digest of the list is that long";
       throw new InvalidOptionError(
         "algorithms",
         hash.name(),
-        `makes ${hash.info().digestLength} bytes and the digest is ${length}`,
+        `makes ${hash.info().digestLength} bytes and ${digest}`,
+      );
+    }
+    return perLength;
+  });
+  return lengths.map((length, index) => {
+    const fitting = fits.flatMap((perLength) => perLength[index]!);
+    if (fitting.length === 0) {
+      throw new InvalidOptionError(
+        names[index]!,
+        byteSize(length),
+        "none of the algorithms makes that many bytes",
       );
     }
     return fitting;
@@ -526,37 +610,70 @@ function isFixed(hash: Hash): boolean {
   return hash.info().options.some((option) => option.name === "rounds");
 }
 
+/** The digests of one length, the algorithms that make that many bytes, and what they cover. */
+interface Group {
+  readonly scope: SearchScope;
+  readonly readings: readonly Reading[];
+  /** Where its digests sit in the list. */
+  readonly targets: readonly number[];
+}
+
 /**
- * Checks the options and fills in the defaults.
+ * Checks the digests, refusing an empty one.
  *
- * @param target - The digest.
- * @param options - The caller's options.
- * @returns {{ scope: SearchScope; readings: Reading[] }} The scope and the algorithms in it.
+ * @param targets - The digests.
+ * @returns {string[]} The name each digest goes by in an error: `digest`, or `digest 2` in a list.
  */
-function searchScope(
-  target: Uint8Array,
-  options: SearchDigestOptions,
-): { scope: SearchScope; readings: Reading[] } {
-  if (target.length === 0)
-    throw new InvalidOptionError("digest", "(empty)", "needs at least one byte");
+function digestNames(targets: readonly Uint8Array[]): string[] {
+  const names =
+    targets.length === 1 ? ["digest"] : targets.map((_, index) => `digest ${index + 1}`);
+  targets.forEach((target, index) => {
+    if (target.length === 0)
+      throw new InvalidOptionError(names[index]!, "(empty)", "needs at least one byte");
+  });
+  return names;
+}
+
+/**
+ * Checks the options and fills in the defaults, one group per digest length.
+ *
+ * @param targets - The digests.
+ * @param options - The caller's options.
+ * @returns {Group[]} The groups, in the order their lengths first appear.
+ */
+function searchGroups(targets: readonly Uint8Array[], options: SearchDigestOptions): Group[] {
+  const names = digestNames(targets);
   const words = wordList(options.words);
   const maxWords = wholeNumber("maxWords", options.maxWords ?? words.length, 1, words.length);
   const minWords = wholeNumber("minWords", options.minWords ?? 1, 1, maxWords);
-  const readings = searchAlgorithms(options.algorithms, target.length);
+  const lengths = [...new Set(targets.map((target) => target.length))];
+  const firsts = lengths.map((length) => targets.findIndex((target) => target.length === length));
+  const lengthNames = firsts.map((first) => names[first]!);
+  const readings =
+    options.algorithms === undefined
+      ? defaultReadings(lengths, lengthNames)
+      : namedReadings(options.algorithms, lengths, lengthNames);
   const cases = distinct("cases", options.cases ?? SEARCH_CASES, SEARCH_CASES);
   assertDistinctCased(words, cases);
-  const scope: SearchScope = {
+  const shared = {
     words,
     minWords,
     maxWords,
     joiners: distinct("joiners", options.joiners ?? SEARCH_JOINERS),
     cases,
-    algorithms: readings.map((reading) => reading.label),
     rounds: wholeNumber("rounds", options.rounds ?? 1, 1, Number.MAX_SAFE_INTEGER),
     chains: distinct("chains", options.chains ?? SEARCH_CHAINS, SEARCH_CHAINS),
-    textOnly: readings.filter((reading) => reading.textOnly).map((reading) => reading.label),
   };
-  return { scope, readings };
+  return lengths.map((length, index) => {
+    const fitting = readings[index]!;
+    const scope: SearchScope = {
+      ...shared,
+      algorithms: fitting.map((reading) => reading.label),
+      textOnly: fitting.filter((reading) => reading.textOnly).map((reading) => reading.label),
+    };
+    const indices = targets.flatMap((target, at) => (target.length === length ? [at] : []));
+    return { scope, readings: fitting, targets: indices };
+  });
 }
 
 /**
@@ -587,48 +704,110 @@ function digestOf(reading: Reading, bytes: Uint8Array): Uint8Array {
   return digest;
 }
 
-/** Why a candidate's hashes ended: a match, the limit, or none of them fit. */
-type Outcome = DigestRecipe | "limit" | undefined;
+/**
+ * Writes the recipe a candidate makes with one algorithm.
+ *
+ * @param candidate - The text and how it was made.
+ * @param reading - The algorithm.
+ * @param rounds - How many times it was hashed.
+ * @param chain - What each round after the first hashed.
+ * @returns {DigestRecipe} The recipe.
+ */
+function recipeOf(
+  candidate: Candidate,
+  reading: Reading,
+  rounds: number,
+  chain?: SearchChain,
+): DigestRecipe {
+  const { parameters } = reading;
+  return {
+    ...candidate,
+    algorithm: reading.hash.name(),
+    ...(parameters && { parameters }),
+    rounds,
+    ...(chain && { chain }),
+  };
+}
 
-/** One search: its scope, the running count against the limit, and the progress it reports. */
+/** How a run ended, before it is told per digest. */
+interface SearchRun {
+  readonly total: number;
+  readonly tried: number;
+  readonly stopped: boolean;
+  /** One per digest, in the order given. */
+  readonly recipes: ReadonlyArray<DigestRecipe | undefined>;
+}
+
+/** One pass over the texts for every digest, each hash held against all targets of its length. */
 class Search {
-  readonly #target: Uint8Array;
-  readonly #scope: SearchScope;
+  readonly #targets: readonly Uint8Array[];
+  readonly #groups: readonly Group[];
   readonly #total: number;
   readonly #limit: number;
   readonly #byteLimit: number;
   readonly #onProgress: SearchDigestOptions["onProgress"];
+  readonly #recipes: Array<DigestRecipe | undefined>;
+  /** Digests of each group still without a recipe. */
+  readonly #pending: number[];
+  #left: number;
   #tried = 0;
   #bytes = 0;
 
-  constructor(target: Uint8Array, scope: SearchScope, options: SearchDigestOptions) {
-    this.#target = target;
-    this.#scope = scope;
-    this.#total = scopeSize(scope);
+  constructor(
+    targets: readonly Uint8Array[],
+    groups: readonly Group[],
+    options: SearchDigestOptions,
+  ) {
+    this.#targets = targets;
+    this.#groups = groups;
+    this.#total = searchSize(groups.map((group) => group.scope));
     this.#limit = options.limit ?? Infinity;
     this.#byteLimit = options.byteLimit ?? Infinity;
     this.#onProgress = options.onProgress;
+    this.#recipes = targets.map(() => undefined);
+    this.#pending = groups.map((group) => group.targets.length);
+    this.#left = targets.length;
     this.#onProgress?.(0, this.#total);
   }
 
   /**
-   * Tries every candidate with every algorithm until one matches or the limit ends it.
+   * Tries every candidate until each digest has a recipe, the scope runs out or the limit ends it.
    *
-   * @param readings - The algorithms.
-   * @returns {DigestSearch} The result.
+   * @returns {SearchRun} The count and the recipes.
    */
-  run(readings: readonly Reading[]): DigestSearch {
-    const ended = { total: this.#total, scope: this.#scope };
-    for (const candidate of candidatesOf(this.#scope)) {
-      for (const reading of readings) {
-        const outcome = this.#candidate(candidate, reading);
-        if (outcome === "limit") return { ...ended, tried: this.#tried, stopped: true };
-        if (outcome !== undefined) {
-          return { ...ended, tried: this.#tried, recipe: outcome, stopped: false };
-        }
+  run(): SearchRun {
+    for (const candidate of candidatesOf(this.#groups[0]!.scope)) {
+      for (let index = 0; index < this.#groups.length; index++) {
+        if (this.#group(candidate, index) === "limit") return this.#ended(true);
+        if (this.#left === 0) return this.#ended(false);
       }
     }
-    return { ...ended, tried: this.#tried, stopped: false };
+    return this.#ended(false);
+  }
+
+  /**
+   * Writes how the run ended.
+   *
+   * @param stopped - Whether the limit ended it.
+   * @returns {SearchRun} The count and the recipes.
+   */
+  #ended(stopped: boolean): SearchRun {
+    return { total: this.#total, tried: this.#tried, stopped, recipes: this.#recipes };
+  }
+
+  /**
+   * Hashes one text with every algorithm of one group, while the group has digests left.
+   *
+   * @param candidate - The text and its recipe.
+   * @param index - The group.
+   * @returns {"limit" | undefined} `limit` when the limit ended it.
+   */
+  #group(candidate: Candidate, index: number): "limit" | undefined {
+    for (const reading of this.#groups[index]!.readings) {
+      if (this.#pending[index] === 0) return undefined;
+      if (this.#candidate(candidate, index, reading) === "limit") return "limit";
+    }
+    return undefined;
   }
 
   /**
@@ -646,69 +825,152 @@ class Search {
   }
 
   /**
+   * Tells whether a digest equals one of the group's digests still without a recipe.
+   *
+   * @param index - The group.
+   * @param digest - What a candidate hashed to.
+   * @returns {boolean} Whether it explains one.
+   */
+  #hits(index: number, digest: Uint8Array): boolean {
+    return this.#groups[index]!.targets.some(
+      (at) => this.#recipes[at] === undefined && sameBytes(digest, this.#targets[at]!),
+    );
+  }
+
+  /**
+   * Gives a recipe to every digest of the group that it explains.
+   *
+   * @param index - The group.
+   * @param digest - What the recipe hashes to.
+   * @param recipe - The recipe.
+   */
+  #record(index: number, digest: Uint8Array, recipe: DigestRecipe): void {
+    for (const at of this.#groups[index]!.targets) {
+      if (this.#recipes[at] !== undefined || !sameBytes(digest, this.#targets[at]!)) continue;
+      this.#recipes[at] = recipe;
+      this.#pending[index]!--;
+      this.#left--;
+    }
+  }
+
+  /**
    * Hashes one text with one algorithm, then again round after round in each chain.
    *
    * @param candidate - The text and its recipe.
+   * @param index - The group.
    * @param reading - The algorithm.
-   * @returns {Outcome} The recipe on a match, `limit` when the limit ended it.
+   * @returns {"limit" | undefined} `limit` when the limit ended it.
    */
-  #candidate(candidate: Candidate, reading: Reading): Outcome {
+  #candidate(candidate: Candidate, index: number, reading: Reading): "limit" | undefined {
     const input = toBytes(candidate.input);
     if (!this.#next(input.length)) return "limit";
     const first = digestOf(reading, input);
-    const { parameters } = reading;
-    const recipe = {
-      ...candidate,
-      algorithm: reading.hash.name(),
-      ...(parameters && { parameters }),
-    };
-    if (sameBytes(first, this.#target)) return { ...recipe, rounds: 1 };
-    if (this.#scope.rounds === 1) return undefined;
-    for (const chain of chainsFor(this.#scope, reading.textOnly)) {
-      const outcome = this.#chain(first, reading, chain);
-      if (outcome !== undefined) return outcome === "limit" ? outcome : { ...recipe, ...outcome };
+    if (this.#hits(index, first)) this.#record(index, first, recipeOf(candidate, reading, 1));
+    const { scope } = this.#groups[index]!;
+    if (scope.rounds === 1) return undefined;
+    for (const chain of chainsFor(scope, reading.textOnly)) {
+      if (this.#pending[index] === 0) return undefined;
+      if (this.#chain(candidate, index, reading, first, chain) === "limit") return "limit";
     }
     return undefined;
   }
 
   /**
-   * Hashes a digest again round after round in one chain.
+   * Hashes a digest again round after round in one chain, while the group has digests left.
    *
-   * @param first - The first round's digest.
+   * @param candidate - The text and its recipe.
+   * @param index - The group.
    * @param reading - The algorithm.
+   * @param first - The first round's digest.
    * @param chain - What each next round hashes.
-   * @returns {{ rounds: number; chain: SearchChain } | "limit" | undefined} The round that matched.
+   * @returns {"limit" | undefined} `limit` when the limit ended it.
    */
   #chain(
-    first: Uint8Array,
+    candidate: Candidate,
+    index: number,
     reading: Reading,
+    first: Uint8Array,
     chain: SearchChain,
-  ): { rounds: number; chain: SearchChain } | "limit" | undefined {
+  ): "limit" | undefined {
+    const { rounds } = this.#groups[index]!.scope;
     let digest = first;
-    for (let rounds = 2; rounds <= this.#scope.rounds; rounds++) {
+    for (let round = 2; round <= rounds && this.#pending[index]! > 0; round++) {
       if (!this.#next(chain === "bytes" ? digest.length : digest.length * 2)) return "limit";
       digest = nextRound(reading, digest, chain);
-      if (sameBytes(digest, this.#target)) return { rounds, chain };
+      if (this.#hits(index, digest)) {
+        this.#record(index, digest, recipeOf(candidate, reading, round, chain));
+      }
     }
     return undefined;
   }
 }
 
 /**
- * Tries the words in every subset and order, joined, cased and hashed as UTF-8, smallest
- * combinations first, until one gives the digest or the limit ends the search.
+ * Checks the limits and runs a search over the digests.
  *
- * @param target - The digest, as bytes.
+ * @param targets - The digests.
  * @param options - The words and what to try with them.
- * @returns {DigestSearch} How many hashes the scope held and were tried, and the recipe on a match.
+ * @returns {{ run: SearchRun; groups: Group[] }} How it ended, and the groups it ran.
  */
-export function searchDigest(target: Uint8Array, options: SearchDigestOptions): DigestSearch {
+function runSearch(
+  targets: readonly Uint8Array[],
+  options: SearchDigestOptions,
+): { run: SearchRun; groups: Group[] } {
   if (options.limit !== undefined) wholeNumber("limit", options.limit, 1, Number.MAX_SAFE_INTEGER);
   if (options.byteLimit !== undefined) {
     wholeNumber("byteLimit", options.byteLimit, 1, Number.MAX_SAFE_INTEGER);
   }
-  const { scope, readings } = searchScope(target, options);
-  return new Search(target, scope, options).run(readings);
+  const groups = searchGroups(targets, options);
+  return { run: new Search(targets, groups, options).run(), groups };
+}
+
+/**
+ * Checks a list of digests: at least one, each a `Uint8Array`.
+ *
+ * @param targets - The digests as given.
+ * @returns {Uint8Array[]} The digests.
+ */
+function targetList(targets: readonly unknown[]): Uint8Array[] {
+  if (targets.length === 0)
+    throw new InvalidOptionError("digest", "(empty)", "needs at least one digest");
+  return targets.map((target, index) => {
+    if (target instanceof Uint8Array) return target;
+    throw new InvalidOptionError(`digest ${index + 1}`, typeof target, "must be a Uint8Array");
+  });
+}
+
+/**
+ * Tries the words in every subset and order, joined, cased and hashed as UTF-8, smallest
+ * combinations first, until each digest has a recipe or the limit ends the search.
+ *
+ * @param target - The digest, as bytes, or a list of them.
+ * @param options - The words and what to try with them.
+ * @returns {DigestSearch} How many hashes the scope held and were tried, and the recipe on a match,
+ * one item per digest for a list.
+ */
+export function searchDigest(target: Uint8Array, options: SearchDigestOptions): DigestSearch;
+export function searchDigest(
+  targets: readonly Uint8Array[],
+  options: SearchDigestOptions,
+): DigestSearchBatch;
+export function searchDigest(
+  target: Uint8Array | readonly Uint8Array[],
+  options: SearchDigestOptions,
+): DigestSearch | DigestSearchBatch {
+  if (!Array.isArray(target)) {
+    const { run, groups } = runSearch([target as Uint8Array], options);
+    const [recipe] = run.recipes;
+    const { total, tried, stopped } = run;
+    return { total, tried, ...(recipe && { recipe }), stopped, scope: groups[0]!.scope };
+  }
+  const targets = targetList(target);
+  const { run, groups } = runSearch(targets, options);
+  const items = targets.map((digest, at) => {
+    const recipe = run.recipes[at];
+    const { scope } = groups.find((group) => group.targets.includes(at))!;
+    return { digest: digest.toHex(), ...(recipe && { recipe }), scope };
+  });
+  return { total: run.total, tried: run.tried, stopped: run.stopped, items };
 }
 
 /**
@@ -769,14 +1031,28 @@ function scopeLine(scope: SearchScope): string {
 }
 
 /**
+ * Counts hashes the way a verdict says it.
+ *
+ * @param total - The hashes.
+ * @returns {string} `1 hash` or `<n> hashes`.
+ */
+function hashCount(total: number): string {
+  return total === 1 ? "1 hash" : `${total} hashes`;
+}
+
+/**
  * Writes a search's verdict the way the CLI and the tool print it: a heading, then on a match the
  * recipe and the text that was hashed.
  *
  * @param found - The search's result.
  * @returns {{ heading: string[]; lines: string[] }} The heading, then the lines of the match.
  */
-export function searchText(found: DigestSearch): { heading: string[]; lines: string[] } {
-  const hashes = found.total === 1 ? "1 hash" : `${found.total} hashes`;
+export function searchText(found: DigestSearch | DigestSearchBatch): {
+  heading: string[];
+  lines: string[];
+} {
+  if ("items" in found) return batchText(found);
+  const hashes = hashCount(found.total);
   const count = `${found.tried} of ${hashes}`;
   if (found.recipe !== undefined) {
     return {
@@ -788,4 +1064,33 @@ export function searchText(found: DigestSearch): { heading: string[]; lines: str
     ? `STOPPED at the limit after ${count}, no match so far`
     : `NO MATCH in ${hashes}`;
   return { heading: [verdict, scopeLine(found.scope)], lines: [] };
+}
+
+/**
+ * Writes the verdict for a list: how many got a recipe, then one block per digest.
+ *
+ * @param found - The search's result.
+ * @returns {{ heading: string[]; lines: string[] }} The heading, then one block per digest.
+ */
+function batchText(found: DigestSearchBatch): { heading: string[]; lines: string[] } {
+  const hashes = hashCount(found.total);
+  const count = `${found.tried} of ${hashes}`;
+  const digests = found.items.length === 1 ? "1 digest" : `${found.items.length} digests`;
+  const matched = found.items.filter((item) => item.recipe !== undefined).length;
+  const stop = found.stopped ? ", then STOPPED at the limit" : "";
+  let verdict = `MATCH for ${matched} of ${digests} after ${count}${stop}`;
+  if (matched === 0) {
+    verdict = found.stopped
+      ? `STOPPED at the limit after ${count}, no match so far`
+      : `NO MATCH for ${digests} in ${hashes}`;
+  }
+  const missing = found.items.filter((item) => item.recipe === undefined);
+  const covered = [...new Set(missing.map((item) => scopeLine(item.scope)))];
+  const none = found.stopped ? "no match so far" : "NO MATCH";
+  const lines = found.items.flatMap((item) =>
+    item.recipe === undefined
+      ? [`${item.digest} ${none}`]
+      : [`${item.digest} MATCH`, recipeLine(item.recipe), `input ${quoted(item.recipe.input)}`],
+  );
+  return { heading: [verdict, ...covered], lines };
 }
