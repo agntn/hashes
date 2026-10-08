@@ -96,7 +96,7 @@ Same letters, other bytes. The second one exits with 1.
 | `info`       | One algorithm with its options, same as `algorithms <name>` | `hashes info pbkdf2`                                                  |
 | `mcp`        | The MCP server on stdio                                     | `hashes mcp`                                                          |
 
-`hash` is the default, so `hashes md5 hello` works. Flags per command: `hashes <command> --help`. They come straight from the tool schemas, in kebab case (`--key-length`, scrypt's `--n`), and `--json` swaps the text for data in `verify`, `extend`, `identify`, `search` and `algorithms`.
+`hash` is the default, so `hashes md5 hello` works. Got more than one input? `hashes sha256 a b c` prints a `sha256sum` line each. `hmac` and `verify` take the key or the expected digest last, and `identify` takes a pile too. Flags per command: `hashes <command> --help`. They come straight from the tool schemas, in kebab case (`--key-length`, scrypt's `--n`), and `--json` swaps the text for data in `verify`, `extend`, `identify`, `search` and `algorithms`.
 
 ## 🧠 Library
 

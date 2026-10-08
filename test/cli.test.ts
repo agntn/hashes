@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import pkg from "../package.json" with { type: "json" };
+import { hashCompute, hashVerify } from "../src/tool-operations.ts";
 
 const switches = new Set([
   "CI",
@@ -50,7 +51,7 @@ describe("hashes CLI", () => {
       "algorithms, info",
       "mcp",
     ]);
-    expect(usage.stdout).toContain("USAGE hashes hash [OPTIONS] <ALGORITHM> <INPUT>");
+    expect(usage.stdout).toContain("USAGE hashes hash [OPTIONS] <ALGORITHM> <INPUT...>");
     expect(usage.stdout).toContain(
       "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt)",
     );
@@ -143,6 +144,108 @@ describe("hashes CLI", () => {
     const lowered = run(["verify", "sha256", "abc", base64.toLowerCase(), "-e", "base64"]);
     expect(lowered.code).toBe(1);
     expect(lowered.stdout).toMatch(/^MISMATCH/);
+  });
+
+  it("hashes several inputs into the lines hashes_compute gives, each quoted word kept whole", () => {
+    const list = run(["sha256", "hello world", "foo", "b\u202E\nMATCH"]);
+    const tool = hashCompute({
+      algorithm: "sha256",
+      input: ["hello world", "foo", "b\u202E\nMATCH"],
+    });
+
+    expect(list).toEqual({
+      code: 0,
+      stderr: "3 inputs, sha256, hex, 32 bytes\n",
+      stdout: [
+        `${sha256("hello world")}  "hello world"`,
+        `${sha256("foo")}  "foo"`,
+        `${sha256("b\u202E\nMATCH")}  "b\\u202e\\nMATCH"`,
+        "",
+      ].join("\n"),
+    });
+    expect(list.stderr + list.stdout).toBe(`${tool.content[0]?.text}\n`);
+    expect(run(["sha256", "-", "x"], "piped").stdout).toBe(
+      `${sha256("piped")}  "-"\n${sha256("x")}  "x"\n`,
+    );
+  });
+
+  it("keeps a list going past an input it can't read, then exits 1", () => {
+    const bad = run(["sha256", "00", "0x00", "--input-encoding", "hex"]);
+
+    expect(bad).toMatchObject({ code: 1, stderr: "2 inputs, sha256, hex, 32 bytes\n" });
+    expect(bad.stdout).toBe(
+      `${sha256("\0")}  "00"\nERROR  "0x00"  Invalid option input=4 characters: must be hex digit pairs, without a 0x prefix\n`,
+    );
+    expect(run(["sha256", "-", "-"], "x")).toMatchObject({
+      code: 1,
+      stdout: "",
+      stderr: "Invalid option input=-: stdin reads once, so only one input can be -\n",
+    });
+    expect(run(["md5", "a", "b", "-e", "binary"])).toMatchObject({
+      code: 1,
+      stdout: "",
+      stderr:
+        "Invalid option encoding=binary: writes one digest alone; hash several inputs in hex or base64\n",
+    });
+  });
+
+  it("gives every input of a KDF list its own drawn salt on its line", () => {
+    const { code, stderr, stdout } = run(["pbkdf2", "a", "b", "--iterations", "1000"]);
+    const lines = stdout.trimEnd().split("\n");
+
+    expect(code).toBe(0);
+    expect(stderr).toBe(
+      "2 inputs, pbkdf2, hex, 64 bytes, iterations 1000, digest sha512, keyLength 64\n",
+    );
+    expect(lines).toHaveLength(2);
+    for (const [index, password] of ["a", "b"].entries()) {
+      const [digest, label, salt] = (lines[index] ?? "").split("  ");
+      expect(label).toBe(`"${password}"`);
+      expect(digest).toBe(
+        pbkdf2Sync(password, Buffer.from(salt?.slice(5) ?? "", "hex"), 1000, 64, "sha512").toString(
+          "hex",
+        ),
+      );
+    }
+  });
+
+  it("HMACs several inputs under the key that comes last", () => {
+    const tag = (text: string): string => createHmac("sha256", "k").update(text).digest("hex");
+
+    expect(run(["hmac", "sha256", "m", "k"]).stdout).toBe(`${tag("m")}\n`);
+    expect(run(["hmac", "sha256", "a", "b c", "k"])).toEqual({
+      code: 0,
+      stderr: "2 inputs, HMAC-sha256, hex, 32 bytes\n",
+      stdout: `${tag("a")}  "a"\n${tag("b c")}  "b c"\n`,
+    });
+  });
+
+  it("verifies several candidates against the digest that comes last, exit 1 when none gives it", () => {
+    const md5 = createHash("md5").update("hello").digest("hex");
+    const one = run(["verify", "md5", "nope", "hello", md5]);
+    const none = run(["verify", "md5", "x", "y", md5]);
+    const tool = hashVerify({ algorithm: "md5", input: ["nope", "hello"], expected: md5 });
+
+    expect(one).toMatchObject({ code: 0, stderr: "" });
+    expect(one.stdout).toBe(`${tool.content[0]?.text}\n`);
+    expect(one.stdout).toContain(`\nmatch     ${md5}  "hello"\n`);
+    expect(none.code).toBe(1);
+    expect(none.stdout).toMatch(/^MISMATCH: none of 2 inputs gives the expected md5 digest\n/);
+  });
+
+  it("identifies several hashes, a block each, exit 1 while one fits nothing", () => {
+    const sha1 = createHash("sha1").update("abc").digest("hex");
+    const both = run(["identify", sha1, "00".repeat(7)]);
+
+    expect(both.code).toBe(1);
+    expect(both.stderr).toBe("");
+    expect(both.stdout).toMatch(
+      new RegExp(
+        `^"${sha1}"\\n20 bytes in hex\\. [^\\n]*\\nsha1: SHA-1, computable\\n[\\s\\S]*\\n\\n"${"00".repeat(7)}"\\n7 bytes in hex: nothing known here makes 7 bytes\\.\\n$`,
+        "u",
+      ),
+    );
+    expect(run(["identify", sha1, sha1]).code).toBe(0);
   });
 
   it("searches for several digests split by commas, exit 1 while one has no recipe", () => {
@@ -279,14 +382,19 @@ describe("hashes CLI", () => {
       );
     }
     for (const args of [
-      ["sha256", "hello", "world"],
-      ["identify", "abcd", "ef"],
-      ["sha256", "a", "b\nMATCH"],
+      ["extend", "sha256", "x", "y", "z", "1", "2"],
+      ["info", "sha256", "md5"],
     ]) {
-      expect(run(args)).toMatchObject({
+      expect(run(args)).toMatchObject({ code: 1, stdout: "" });
+      expect(run(args).stderr).toMatch(
+        /^Invalid arguments: \d+ unexpected positional arguments?\n$/,
+      );
+    }
+    for (const command of ["hmac", "verify"]) {
+      expect(run([command, "sha256", "only"])).toMatchObject({
         code: 1,
         stdout: "",
-        stderr: "Invalid arguments: 1 unexpected positional argument\n",
+        stderr: "Invalid arguments at /input: must not have fewer than 2 items\n",
       });
     }
     expect(run(["sha256", "--", "--key"]).stdout).toBe(`${sha256("--key")}\n`);
