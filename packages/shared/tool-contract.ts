@@ -100,7 +100,7 @@ export const TOOL_DESCRIPTIONS = {
   hashes_digest_identify:
     "Guess which algorithms a hash may come from by its shape: a prefix such as $2b$, $argon2id$ or $6$, or the byte length of its hex or base64. Each candidate says whether this package computes it; for a format it computes, the salt, costs and digest read out of the string are in the answer, ready for hashes_verify. A guess, not proof. Pass a list to identify several hashes in one call.",
   hashes_digest_search:
-    "Find the transform behind a digest from candidate words: subsets of them in every order, joined, cased, hashed with each algorithm of the digest's length and hashed again up to rounds times. Answers MATCH with the recipe and the text that was hashed, NO MATCH with what the search covered, or STOPPED at the hash limit.",
+    "Find the transform behind a digest from candidate words: subsets of them in every order, joined, cased, hashed with each algorithm of the digest's length and hashed again up to rounds times. Answers MATCH with the recipe and the text that was hashed, NO MATCH with what the search covered, or STOPPED at the hash limit. A list of digests answers with one block per digest.",
   hashes_algorithms:
     "List the registered algorithms with family, category, digest size and HMAC support, or describe one algorithm with its options.",
 } as const;
@@ -150,7 +150,7 @@ function parameterDescriptions() {
     secretLength: "Length of the secret in bytes",
     secretLengthMax: `Try every secret length from secretLength up to this one, at most ${MAX_SECRET_LENGTHS} lengths. Omit to try secretLength alone`,
     unknownDigest: `The hash to identify, as found: hex (a 0x prefix allowed), base64, or a string with a prefix such as $2b$ or $argon2id$. Or a list of up to ${MAX_BATCH_DIGESTS} of them`,
-    targetDigest: "The digest to explain, written as encoding says",
+    targetDigest: `The digest to explain, written as encoding says. Or a list of up to ${MAX_BATCH_DIGESTS} of them, searched in one pass: each text is hashed once and held against every digest of its length, until each has a recipe`,
     targetEncoding: "Encoding of digest (default hex). Hex takes no 0x prefix",
     words: `Candidate words, at most ${MAX_SEARCH_WORDS}, each used at most once per combination. Two that one of the cases makes the same text are refused`,
     minWords: "Fewest words in a combination (default 1)",

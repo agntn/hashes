@@ -145,6 +145,33 @@ describe("hashes CLI", () => {
     expect(lowered.stdout).toMatch(/^MISMATCH/);
   });
 
+  it("searches for several digests split by commas, exit 1 while one has no recipe", () => {
+    const flags = ["alpha", "beta", "--joiners", '["-"]', "--cases", "as-is"];
+    const both = run(["search", `${sha256("beta-alpha")},${sha256("alpha")}`, ...flags]);
+    const one = run(["search", `${sha256("alpha")}, ${sha256("x")}`, ...flags]);
+
+    expect(both).toEqual({
+      code: 0,
+      stderr: "Searching 44 hashes\nMATCH for 2 of 2 digests after 34 of 44 hashes\n",
+      stdout: [
+        `${sha256("beta-alpha")} MATCH`,
+        'sha256 of the words "beta", "alpha" joined by "-", case as-is',
+        'input "beta-alpha"',
+        `${sha256("alpha")} MATCH`,
+        'sha256 of the word "alpha", case as-is',
+        'input "alpha"',
+        "",
+      ].join("\n"),
+    });
+    expect(one).toMatchObject({ code: 1 });
+    expect(one.stdout).toBe(
+      `${sha256("alpha")} MATCH\nsha256 of the word "alpha", case as-is\ninput "alpha"\n${sha256("x")} NO MATCH\n`,
+    );
+    expect(one.stderr).toMatch(
+      /^Searching 44 hashes\nMATCH for 1 of 2 digests after 44 of 44 hashes\nCovered 1 to 2 of the words "alpha", "beta"; joiners "-"; cases as-is; algorithms sha256, /,
+    );
+  });
+
   it("searches for the words behind a digest, the recipe on stdout and the count on stderr", () => {
     const found = run([
       "search",

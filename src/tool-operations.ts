@@ -18,6 +18,7 @@ import {
   searchDigest,
   searchText,
   type DigestSearch,
+  type DigestSearchBatch,
   type SearchCase,
   type SearchChain,
   type SearchDigestOptions,
@@ -71,7 +72,13 @@ import type { toolSchemas } from "../packages/shared/tool-schemas.ts";
 
 export * from "../packages/shared/tool-contract.ts";
 export type { DigestCandidate, DigestIdentity } from "./core/identify.ts";
-export type { DigestRecipe, DigestSearch, SearchScope } from "./core/search.ts";
+export type {
+  DigestRecipe,
+  DigestSearch,
+  DigestSearchBatch,
+  DigestSearchItem,
+  SearchScope,
+} from "./core/search.ts";
 
 /** Text for the model plus details for the harness, shared by every tool surface. */
 export interface ToolResult<Details> {
@@ -1122,23 +1129,50 @@ function countArgument(name: string, value: unknown, maximum: number): number | 
 }
 
 /**
- * Searches for the transform of the words behind a digest, stopping at `MAX_SEARCH_HASHES` or
- * `MAX_SEARCH_BYTES` hashed, whichever comes first, since a long text costs more to hash.
+ * Reads the digest argument of a search: one digest, or a list of up to `MAX_BATCH_DIGESTS`.
  *
- * @param params - The digest and its encoding, the words, and what to try with them.
- * @param onProgress - Hears the running count, as `searchDigest` reports it.
- * @returns {ToolResult<DigestSearch>} The recipe on a match, or what the search covered.
+ * @param digest - The argument as passed.
+ * @param encoding - How the digests are written.
+ * @returns {Uint8Array | Uint8Array[]} The bytes, a list for a list.
  */
+function searchTargets(
+  digest: HashDigestSearchParams["digest"],
+  encoding: HashResult["encoding"],
+): Uint8Array | Uint8Array[] {
+  if (!Array.isArray(digest)) {
+    const one = textArgument("digest", digest, MAX_EXPECTED_LENGTH).trim();
+    return assertExpected(one, encoding, "digest");
+  }
+  const digests = listArgument("digest", digest, MAX_BATCH_DIGESTS, MAX_EXPECTED_LENGTH) ?? [];
+  return digests.map((each, index) => assertExpected(each.trim(), encoding, `digest ${index + 1}`));
+}
+
+/**
+ * Searches for the transform of the words behind a digest, or each of a list in one pass, stopping
+ * at `MAX_SEARCH_HASHES` or `MAX_SEARCH_BYTES` hashed, since a long text costs more to hash.
+ *
+ * @param params - The digest or digests and their encoding, the words, and what to try with them.
+ * @param onProgress - Hears the running count, as `searchDigest` reports it.
+ * @returns {ToolResult<DigestSearch | DigestSearchBatch>} The recipe on a match, or what the
+ * search covered, one block per digest for a list.
+ */
+export function hashDigestSearch(
+  params: HashDigestSearchParams & { readonly digest: string },
+  onProgress?: SearchDigestOptions["onProgress"],
+): ToolResult<DigestSearch>;
 export function hashDigestSearch(
   params: HashDigestSearchParams,
   onProgress?: SearchDigestOptions["onProgress"],
-): ToolResult<DigestSearch> {
+): ToolResult<DigestSearch | DigestSearchBatch>;
+export function hashDigestSearch(
+  params: HashDigestSearchParams,
+  onProgress?: SearchDigestOptions["onProgress"],
+): ToolResult<DigestSearch | DigestSearchBatch> {
   assertArguments("hashes_digest_search", params);
-  const digest = textArgument("digest", params.digest, MAX_EXPECTED_LENGTH).trim();
-  const target = assertExpected(digest, encodingArgument(params.encoding), "digest");
+  const target = searchTargets(params.digest, encodingArgument(params.encoding));
   const words = listArgument("words", params.words, MAX_SEARCH_WORDS, MAX_WORD_LENGTH);
   if (words === undefined) throw new MissingOptionError("words");
-  const found = searchDigest(target, {
+  const options: SearchDigestOptions = {
     words,
     minWords: countArgument("minWords", params.minWords, MAX_SEARCH_WORDS),
     maxWords: countArgument("maxWords", params.maxWords, MAX_SEARCH_WORDS),
@@ -1159,7 +1193,10 @@ export function hashDigestSearch(
     limit: MAX_SEARCH_HASHES,
     byteLimit: MAX_SEARCH_BYTES,
     onProgress,
-  });
+  };
+  const found = Array.isArray(target)
+    ? searchDigest(target, options)
+    : searchDigest(target, options);
   const { heading, lines } = searchText(found);
   const next = found.stopped
     ? [

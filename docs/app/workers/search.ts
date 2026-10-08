@@ -17,7 +17,7 @@ function send(message: SearchMessage) {
 }
 
 /** One search per message. The page ends a stale one by terminating this worker, not by asking. */
-addEventListener("message", (event: MessageEvent<HashDigestSearchParams>) => {
+addEventListener("message", (event: MessageEvent<HashDigestSearchParams & { digest: string }>) => {
   try {
     const result = hashDigestSearch(event.data, (tried, total) => {
       send({ type: "progress", tried, total });

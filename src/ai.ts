@@ -9,6 +9,7 @@ import type {
   DigestDetails,
   DigestIdentity,
   DigestSearch,
+  DigestSearchBatch,
   ExtendDetails,
   HashAlgorithmsParams,
   HashDigestExtendParams,
@@ -62,7 +63,7 @@ export const hashDigestIdentifyTool: Tool<
 /** Typed by the schema, since the SDK hands its lists over as plain arrays. */
 export const hashDigestSearchTool: Tool<
   Static<typeof hashDigestSearchSchema>,
-  AiToolOutput<DigestSearch>
+  AiToolOutput<DigestSearch | DigestSearchBatch>
 > = toAiTool(digestSearchTool);
 
 export const hashAlgorithmsTool: Tool<

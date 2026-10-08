@@ -87,6 +87,8 @@ export {
   searchDigest,
   type DigestRecipe,
   type DigestSearch,
+  type DigestSearchBatch,
+  type DigestSearchItem,
   type SearchCase,
   type SearchChain,
   type SearchDigestOptions,

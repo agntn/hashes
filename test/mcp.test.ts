@@ -846,6 +846,52 @@ describe("hashes MCP server", () => {
     );
   });
 
+  it("searches a list of digests in one pass, one block per digest", async () => {
+    const answer = await call("hashes_digest_search", {
+      digest: [sha256Hex("b,a"), ` ${sha256Hex("x")}`, sha256Hex("a")],
+      words: ["a", "b"],
+      joiners: [","],
+      cases: ["as-is"],
+      algorithms: ["sha256"],
+    });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toBe(
+      [
+        "MATCH for 2 of 3 digests after 4 of 4 hashes",
+        'Covered 1 to 2 of the words "a", "b"; joiners ","; cases as-is; algorithms sha256; 1 round.',
+        `${sha256Hex("b,a")} MATCH`,
+        'sha256 of the words "b", "a" joined by ",", case as-is',
+        'input "b,a"',
+        `${sha256Hex("x")} NO MATCH`,
+        `${sha256Hex("a")} MATCH`,
+        'sha256 of the word "a", case as-is',
+        'input "a"',
+      ].join("\n"),
+    );
+  });
+
+  it("refuses a list of digests past the tool bounds, naming the digest", async () => {
+    const tooMany = await call("hashes_digest_search", {
+      digest: Array.from({ length: MAX_BATCH_DIGESTS + 1 }, () => sha256Hex("x")),
+      words: ["a"],
+    });
+    const badSecond = await call("hashes_digest_search", {
+      digest: [sha256Hex("x"), "zz"],
+      words: ["a"],
+    });
+
+    expect(tooMany.isError).toBe(true);
+    expect(badSecond).toMatchObject({ isError: true });
+    expect(badSecond.text).toContain("digest 2");
+    expect(() =>
+      hashDigestSearch({
+        digest: Array.from({ length: MAX_BATCH_DIGESTS + 1 }, () => sha256Hex("x")),
+        words: ["a"],
+      }),
+    ).toThrow(`takes 1 to ${MAX_BATCH_DIGESTS}`);
+  });
+
   it("says what a search covered when nothing matched", async () => {
     const answer = await call("hashes_digest_search", {
       digest: Buffer.from(sha256Hex("x"), "hex").toString("base64"),
