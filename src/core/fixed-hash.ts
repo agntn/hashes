@@ -1,4 +1,5 @@
 import {
+  isInputList,
   CHAIN_OPTION,
   ENCODING_OPTION,
   ROUNDS_OPTION,
@@ -68,11 +69,17 @@ export abstract class FixedHash<Options extends HashOptions = HashOptions> exten
   /**
    * Hashes the input `rounds` times, or computes its HMAC when a key is given.
    *
-   * @param input - Text or bytes.
+   * @param input - Text or bytes, or a list of them.
    * @param options - Encoding, HMAC key, rounds and the algorithm's own options.
-   * @returns {HashResult} The digest.
+   * @returns {HashResult | HashResult[]} The digest, one per input for a list.
    */
-  hash(input: HashInput, options?: Readonly<Options>): HashResult {
+  hash(input: HashInput, options?: Readonly<Options>): HashResult;
+  hash(inputs: readonly HashInput[], options?: Readonly<Options>): HashResult[];
+  hash(
+    input: HashInput | readonly HashInput[],
+    options?: Readonly<Options>,
+  ): HashResult | HashResult[] {
+    if (isInputList(input)) return input.map((one) => this.hash(one, options));
     return guarded(this.key, () => {
       const encoding = options?.encoding ?? "hex";
       const { rounds, chain } = roundOptions(options);

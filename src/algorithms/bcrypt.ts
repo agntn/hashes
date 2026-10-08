@@ -1,5 +1,6 @@
 import { bcrypt, bcryptString, BCRYPT_SALT_LENGTH } from "../core/bcrypt.ts";
 import {
+  isInputList,
   assertOneRound,
   ENCODING_OPTION,
   encodeDigest,
@@ -72,11 +73,17 @@ export class Bcrypt extends Hash {
   /**
    * Hashes a password.
    *
-   * @param input - Text or bytes.
+   * @param input - Text or bytes, or a list of them.
    * @param options - Encoding, salt and cost.
-   * @returns {HashResult} The digest, with its `$2b$` string as `crypt`.
+   * @returns {HashResult | HashResult[]} The digest with its `$2b$` string, one per input.
    */
-  hash(input: HashInput, options?: Readonly<BcryptOptions>): HashResult {
+  hash(input: HashInput, options?: Readonly<BcryptOptions>): HashResult;
+  hash(inputs: readonly HashInput[], options?: Readonly<BcryptOptions>): HashResult[];
+  hash(
+    input: HashInput | readonly HashInput[],
+    options?: Readonly<BcryptOptions>,
+  ): HashResult | HashResult[] {
+    if (isInputList(input)) return input.map((one) => this.hash(one, options));
     return guarded(this.key, () => {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
       assertOneRound(options, `${this.key} sets its cost with its own parameter`);

@@ -1,6 +1,7 @@
 import { argon2id } from "../core/argon2.ts";
 import type { Argon2Parameters } from "../core/argon2.ts";
 import {
+  isInputList,
   assertOneRound,
   decodeInput,
   ENCODING_OPTION,
@@ -147,11 +148,17 @@ export abstract class Argon2 extends Hash {
   /**
    * Derives a key from the input.
    *
-   * @param input - Text or bytes.
+   * @param input - Text or bytes, or a list of them.
    * @param options - Encoding, salt, cost and the optional secret and associated data.
-   * @returns {HashResult} The derived key.
+   * @returns {HashResult | HashResult[]} The derived key, one per input for a list.
    */
-  hash(input: HashInput, options?: Readonly<Argon2Options>): HashResult {
+  hash(input: HashInput, options?: Readonly<Argon2Options>): HashResult;
+  hash(inputs: readonly HashInput[], options?: Readonly<Argon2Options>): HashResult[];
+  hash(
+    input: HashInput | readonly HashInput[],
+    options?: Readonly<Argon2Options>,
+  ): HashResult | HashResult[] {
+    if (isInputList(input)) return input.map((one) => this.hash(one, options));
     return guarded(this.key, () => {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
       assertOneRound(options, `${this.key} sets its cost with its own parameters`);
