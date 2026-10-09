@@ -6,6 +6,7 @@ import {
   assertOneRound,
   encodeDigest,
   guarded,
+  outputEncoding,
   roundOptions,
   toBytes,
 } from "./digest.ts";
@@ -81,7 +82,7 @@ export abstract class FixedHash<Options extends HashOptions = HashOptions> exten
   ): HashResult | HashResult[] {
     if (isInputList(input)) return input.map((one) => this.hash(one, options));
     return guarded(this.key, () => {
-      const encoding = options?.encoding ?? "hex";
+      const encoding = outputEncoding(options);
       const { rounds, chain } = roundOptions(options);
       if (options?.key !== undefined) {
         assertOneRound(options, "HMAC runs one round");

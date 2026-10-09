@@ -34,6 +34,24 @@ export const SALT_OPTION: HashOption = {
   description: "Salt in hex; 32 random bytes when omitted",
 };
 
+/** The encodings a digest comes out in. */
+const OUTPUT_ENCODINGS: readonly OutputEncoding[] = ["hex", "base64", "base64url", "binary"];
+
+/**
+ * Reads the output encoding, `hex` when omitted. A typo throws instead of coming back as base64.
+ *
+ * @param options - The caller's options.
+ * @returns {OutputEncoding} The encoding.
+ */
+export function outputEncoding(options?: Readonly<HashOptions>): OutputEncoding {
+  const { encoding = "hex" } = options ?? {};
+  const known = OUTPUT_ENCODINGS.find((name) => name === encoding);
+  if (known === undefined) {
+    throw new InvalidOptionError("encoding", encoding, `use one of ${OUTPUT_ENCODINGS.join(", ")}`);
+  }
+  return known;
+}
+
 /** The `rounds` option of a fixed-length digest. */
 export const ROUNDS_OPTION: HashOption = {
   name: "rounds",

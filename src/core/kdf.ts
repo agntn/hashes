@@ -4,6 +4,7 @@ import {
   encodeDigest,
   guarded,
   isInputList,
+  outputEncoding,
   toBytes,
 } from "./digest.ts";
 import { Hash, type HashAbout } from "./hash.ts";
@@ -66,8 +67,9 @@ export abstract class Kdf<Options extends HashOptions = HashOptions> extends Has
     return guarded(this.key, () => {
       if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
       assertOneRound(options, `${this.key} ${this.roundsNote}`);
+      const encoding = outputEncoding(options);
       const { digest, reported } = this.derive(toBytes(input), options);
-      return encodeDigest(digest, this.key, "hash", options?.encoding ?? "hex", reported);
+      return encodeDigest(digest, this.key, "hash", encoding, reported);
     });
   }
 }
