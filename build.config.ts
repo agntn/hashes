@@ -36,6 +36,8 @@ export default defineBuildConfig({
         "./src/tools.ts",
         ...byteEntries.map((name) => `./src/${name}.ts`),
       ],
+      /** No maps: the JS ones point at the wrong lines, the d.ts ones at a src/ we don't ship. */
+      dts: { sourcemap: false },
     },
   ],
   hooks: {

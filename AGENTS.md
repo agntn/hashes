@@ -36,7 +36,7 @@ Keep AGENTS.md updated with project status.
 
 - **Runtime**: Node.js 26 and newer only (`engines >=26`, CI on 26), where `Uint8Array` has native hex and base64. The library itself needs no Node API.
 - **Language**: TypeScript (strict), relative imports end in `.ts`
-- **Build**: obuild from `build.config.ts`, one bundle for the five main entries and the byte function subpaths, chunks under `dist/_chunks/` with stable names
+- **Build**: obuild from `build.config.ts`, one bundle for the five main entries and the byte function subpaths, chunks under `dist/_chunks/` with stable names, and no source maps (`dts: { sourcemap: false }`, #180, as in tools, puzzles and explorers). obuild's `remove-comments` rewrites every chunk without its map, so Argon2's salt check mapped onto a closing brace, and the declaration maps pointed at a `src/` the tarball doesn't carry. Dropping them took the tarball from 239.1 to 90.9 kB; `test/bundle.test.ts` builds with the declarations on and fails when a map comes back
 - **Test**: `vp test` (Vitest 5 bundled with vite-plus 1.0.0), APIs from `vite-plus/test`
 - **Lint and format**: `vp lint` and `vp fmt` with `@agntn/ox`, type-aware through `oxlint-tsgolint`
 - **Typecheck**: `tsc` (TypeScript 7) for the library, then the extensions and the tests after a build

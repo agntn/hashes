@@ -36,7 +36,7 @@ beforeAll(() => {
     await build({
       ...config,
       cwd: ${JSON.stringify(root)},
-      entries: config.entries.map((entry) => ({ ...entry, outDir, dts: false })),
+      entries: config.entries.map((entry) => ({ ...entry, outDir })),
     });
   `;
   const { status, stderr } = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
@@ -141,6 +141,17 @@ describe("one byte function subpath in plain Node", () => {
     expect((JSON.parse(output) as string[]).toSorted()).toEqual(
       [`${name}.mjs`, "_chunks/digests.mjs", ...own].toSorted(),
     );
+  });
+});
+
+describe("source maps", () => {
+  /** obuild strips comments without updating the map, so a shipped one sends a trace astray. */
+  it("ships none, and no file points at one", () => {
+    const pointers = globSync("**/*.{mjs,d.mts}", { cwd: packed }).filter((file) =>
+      readFileSync(join(packed, file), "utf8").includes("sourceMappingURL"),
+    );
+
+    expect([...globSync("**/*.map", { cwd: packed }), ...pointers]).toEqual([]);
   });
 });
 
