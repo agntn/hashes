@@ -25,7 +25,7 @@ export type HashChain = "bytes" | "hex";
 
 /** Options for hash operations. */
 export interface HashOptions {
-  /** Output encoding. Default: `hex`. */
+  /** Output encoding. Default: `hex`. Anything else throws. */
   encoding?: OutputEncoding;
   /** HMAC key; enables HMAC mode when set. */
   key?: HashInput;

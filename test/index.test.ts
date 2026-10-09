@@ -611,6 +611,31 @@ describe("digests", () => {
       new Uint8Array(Buffer.from(zlibCrc32("test").toString(16).padStart(8, "0"), "hex")),
     );
   });
+
+  it("refuses an encoding it doesn't write instead of answering in base64", () => {
+    const loose = (value: object) => value as HashOptions;
+    const calls = [
+      ["sha256", {}],
+      ["sha256", { key: "k" }],
+      ["crc32", {}],
+      ["scrypt", { N: 16 }],
+      ["bcrypt", { cost: 4 }],
+    ] as const;
+    for (const encoding of ["HEX", "hex ", "utf8", "base32", "", 16]) {
+      for (const [name, options] of calls) {
+        expect(() => create(name).hash("abc", loose({ ...options, encoding })), name).toThrow(
+          InvalidOptionError,
+        );
+      }
+    }
+    expect(() => create("sha256").hash(["a", "b"], loose({ encoding: "HEX" }))).toThrow(
+      "Invalid option encoding=HEX: use one of hex, base64, base64url, binary",
+    );
+    /* PBKDF2 would refuse zero iterations too, so this error says the encoding went first. */
+    expect(() => create("pbkdf2").hash("abc", loose({ encoding: "HEX", iterations: 0 }))).toThrow(
+      "Invalid option encoding=HEX",
+    );
+  });
 });
 
 describe("hashes chains use", () => {
