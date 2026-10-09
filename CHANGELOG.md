@@ -1,6 +1,48 @@
 # Changelog
 
 
+## v0.7.0
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.6.7...v0.7.0)
+
+### 🚀 Enhancements
+
+- Add MCP server description and icons ([#166](https://github.com/agntn/hashes/pull/166))
+- Export the Keccak-f[1600] permutation ([#169](https://github.com/agntn/hashes/pull/169))
+- ⚠️  Hash a list of inputs in one call ([#172](https://github.com/agntn/hashes/pull/172))
+- ⚠️  Let hash() take a list too ([#175](https://github.com/agntn/hashes/pull/175))
+- ⚠️  Search several digests in one pass ([#176](https://github.com/agntn/hashes/pull/176))
+- **cli:** Hash several inputs in one call ([#177](https://github.com/agntn/hashes/pull/177))
+- Build /mcp with toToolkitTools ([#183](https://github.com/agntn/hashes/pull/183))
+- Add a Kdf base class ([#184](https://github.com/agntn/hashes/pull/184))
+
+### 🔥 Performance
+
+- Slice CRC-24 and CRC-16 like the rest ([#171](https://github.com/agntn/hashes/pull/171))
+
+### 🩹 Fixes
+
+- **docs:** Give previews their own database ([#170](https://github.com/agntn/hashes/pull/170))
+- Stop shipping broken source maps ([#181](https://github.com/agntn/hashes/pull/181))
+- Hash BLAKE2b on big-endian hosts ([#182](https://github.com/agntn/hashes/pull/182))
+- Refuse an unknown output encoding ([#186](https://github.com/agntn/hashes/pull/186))
+
+### 💅 Refactors
+
+- ⚠️  Build the CLI with runCli ([#167](https://github.com/agntn/hashes/pull/167))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Hash a list of inputs in one call ([#172](https://github.com/agntn/hashes/pull/172))
+- ⚠️  Let hash() take a list too ([#175](https://github.com/agntn/hashes/pull/175))
+- ⚠️  Search several digests in one pass ([#176](https://github.com/agntn/hashes/pull/176))
+- ⚠️  Build the CLI with runCli ([#167](https://github.com/agntn/hashes/pull/167))
+
+### ❤️ Contributors
+
+- Ori ([@oritwoen](https://github.com/oritwoen))
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+
 ## v0.6.7
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.6.6...v0.6.7)
