@@ -13,6 +13,7 @@ import {
   HashError,
   FixedHash,
   InvalidOptionError,
+  Kdf,
   MissingOptionError,
   UnknownAlgorithmError,
   Blake2bHasher,
@@ -71,6 +72,7 @@ import {
   version,
   xxhash,
   type HashOptions,
+  type Derivation,
   type Argon2Options,
   type BcryptOptions,
   type EvpBytesToKeyOptions,
@@ -215,6 +217,75 @@ describe("registry", () => {
     expect(sha3_384.hash("abc").digest).toBe(
       "ec01498288516fc926459f58e2c6ad8df9b473cb0fc08c2596da7cf0e49be4b298d88cea927ac7f539f1edf228376d25",
     );
+  });
+
+  it("registers a KDF from outside the package", () => {
+    interface WpaPskOptions extends HashOptions {
+      ssid?: string;
+    }
+    /* The WPA2 pre-shared key: PBKDF2-HMAC-SHA1 with the network name as salt. */
+    class WpaPsk extends Kdf<WpaPskOptions> {
+      static readonly key = "wpa-psk";
+      protected readonly about = {
+        label: "WPA-PSK",
+        description: "WPA2 pre-shared key from a passphrase and the network name",
+        family: "PBKDF",
+        category: "password",
+        digestLength: 32,
+      } as const;
+      protected override readonly options = [
+        { name: "ssid", type: "string", required: true, description: "Network name" },
+      ] as const;
+
+      protected derive(passphrase: Uint8Array, options?: Readonly<WpaPskOptions>): Derivation {
+        if (options?.ssid === undefined) throw new MissingOptionError("ssid");
+        const salt = new TextEncoder().encode(options.ssid);
+        return {
+          digest: pbkdf2(() => new Sha1Hasher(), passphrase, salt, 4096, 32),
+          reported: { ssid: options.ssid },
+        };
+      }
+    }
+    register(WpaPsk);
+    const wpa = new WpaPsk();
+    /* IEEE 802.11i's PSK vector: "password" on a network called "IEEE". */
+    const psk = pbkdf2Sync("password", "IEEE", 4096, 32, "sha1").toString("hex");
+
+    expect(psk).toBe("f42c6fc52df0ebef9ebb4b90b38a5f902e83fe1b135a70e23aed762e9710a12e");
+    expect(create("wpa-psk")).toBeInstanceOf(WpaPsk);
+    expect(wpa.hash("password", { ssid: "IEEE" })).toEqual({
+      digest: psk,
+      algorithm: "wpa-psk",
+      operation: "hash",
+      encoding: "hex",
+      digestLength: 32,
+      options: { encoding: "hex", ssid: "IEEE" },
+    });
+    const list = wpa.hash(["password", "password"], { ssid: "IEEE", encoding: "base64" });
+    const base64 = Buffer.from(psk, "hex").toString("base64");
+    expect(list.map((result) => result.digest)).toEqual([base64, base64]);
+    expect(wpa.info()).toMatchObject({ name: "wpa-psk", hmac: false, digestLength: 32 });
+    expect(wpa.info().options.map((option) => option.name)).toEqual(["encoding", "ssid"]);
+    expect(() => wpa.hash("password")).toThrow(MissingOptionError);
+    expect(() => wpa.hash("password", { ssid: "IEEE", key: "k" })).toThrow(
+      new HashError("[wpa-psk] wpa-psk has no HMAC mode"),
+    );
+    expect(() => wpa.hash("password", { ssid: "IEEE", rounds: 2 })).toThrow(
+      "Invalid option rounds=2: wpa-psk sets its cost with its own parameters",
+    );
+  });
+
+  it("builds every built-in KDF on Kdf", () => {
+    expect(builtinAlgorithms.filter((name) => create(name) instanceof Kdf)).toEqual([
+      "scrypt",
+      "pbkdf2",
+      "hkdf",
+      "evp-bytestokey",
+      "argon2id",
+      "argon2i",
+      "argon2d",
+      "bcrypt",
+    ]);
   });
 
   it("creates one cached instance per key, and a new one after register", () => {

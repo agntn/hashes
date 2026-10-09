@@ -1,22 +1,12 @@
-import {
-  isInputList,
-  assertOneRound,
-  assertPositiveIntegers,
-  ENCODING_OPTION,
-  encodeDigest,
-  guarded,
-  resolveSalt,
-  toBytes,
-  type SaltOptions,
-} from "../core/digest.ts";
+import { assertPositiveIntegers, resolveSalt, type SaltOptions } from "../core/digest.ts";
 import { InvalidOptionError } from "../core/errors.ts";
 import { evpBytesToKey } from "../core/evp.ts";
-import { Hash } from "../core/hash.ts";
 import type { Hasher } from "../core/hasher.ts";
+import { Kdf, type Derivation } from "../core/kdf.ts";
 import { Md5Hasher } from "../core/md5.ts";
 import { Sha1Hasher } from "../core/sha1.ts";
 import { Sha256Hasher } from "../core/sha2.ts";
-import type { AlgorithmInfo, HashInput, HashOptions, HashResult } from "../core/types.ts";
+import type { HashOptions } from "../core/types.ts";
 
 /** Hashes `openssl enc -md` takes here, by their registry names. */
 const HASHERS: Readonly<Record<string, new () => Hasher>> = {
@@ -73,97 +63,73 @@ function saltOf(options?: Readonly<SaltOptions>): Uint8Array | undefined {
   return salt;
 }
 
-export class EvpBytesToKey extends Hash {
+export class EvpBytesToKey extends Kdf<EvpBytesToKeyOptions> {
   static readonly key = "evp-bytestokey";
-
-  /**
-   * Describes the algorithm.
-   *
-   * @returns {AlgorithmInfo} Its metadata.
-   */
-  info(): AlgorithmInfo {
-    return {
-      name: this.key,
-      label: "EVP_BytesToKey",
-      description:
-        "OpenSSL's EVP_BytesToKey, the key and IV behind openssl enc without -pbkdf2 and CryptoJS's EvpKDF",
-      family: "OpenSSL",
-      category: "password",
-      hmac: false,
-      options: [
-        ENCODING_OPTION,
-        {
-          name: "salt",
-          type: "string",
-          required: false,
-          description: `Salt in hex, ${SALT_LENGTH} bytes; none when omitted`,
-        },
-        {
-          name: "digest",
-          type: "string",
-          required: false,
-          default: "md5",
-          description: `Hash per block: ${Object.keys(HASHERS).join(", ")}. openssl enc uses sha256 since 1.1.0`,
-        },
-        {
-          name: "iterations",
-          type: "number",
-          required: false,
-          default: 1,
-          description: "Hash passes per block",
-        },
-        {
-          name: "keyLength",
-          type: "number",
-          required: false,
-          default: 32,
-          description: "Key bytes, the first part of the digest",
-        },
-        {
-          name: "ivLength",
-          type: "number",
-          required: false,
-          default: 16,
-          description: "IV bytes after the key, 0 for none",
-        },
-      ],
-      securityNote:
-        "Weak: one fast hash per block, so a password falls to a GPU. Only for reading what OpenSSL or CryptoJS already wrote. Use scrypt or pbkdf2 for anything new.",
-    };
-  }
+  protected readonly about = {
+    label: "EVP_BytesToKey",
+    description:
+      "OpenSSL's EVP_BytesToKey, the key and IV behind openssl enc without -pbkdf2 and CryptoJS's EvpKDF",
+    family: "OpenSSL",
+    category: "password",
+    securityNote:
+      "Weak: one fast hash per block, so a password falls to a GPU. Only for reading what OpenSSL or CryptoJS already wrote. Use scrypt or pbkdf2 for anything new.",
+  } as const;
+  protected override readonly options = [
+    {
+      name: "salt",
+      type: "string",
+      required: false,
+      description: `Salt in hex, ${SALT_LENGTH} bytes; none when omitted`,
+    },
+    {
+      name: "digest",
+      type: "string",
+      required: false,
+      default: "md5",
+      description: `Hash per block: ${Object.keys(HASHERS).join(", ")}. openssl enc uses sha256 since 1.1.0`,
+    },
+    {
+      name: "iterations",
+      type: "number",
+      required: false,
+      default: 1,
+      description: "Hash passes per block",
+    },
+    {
+      name: "keyLength",
+      type: "number",
+      required: false,
+      default: 32,
+      description: "Key bytes, the first part of the digest",
+    },
+    {
+      name: "ivLength",
+      type: "number",
+      required: false,
+      default: 16,
+      description: "IV bytes after the key, 0 for none",
+    },
+  ] as const;
 
   /**
    * Derives the key and the IV after it from the password.
    *
-   * @param input - Text or bytes, or a list of them.
-   * @param options - Encoding, salt, digest, iterations and lengths.
-   * @returns {HashResult | HashResult[]} The key followed by the IV, one per input for a list.
+   * @param bytes - The password's bytes.
+   * @param options - Salt, hash, iterations and lengths.
+   * @returns {Derivation} The key followed by the IV, with what it reports.
    */
-  hash(input: HashInput, options?: Readonly<EvpBytesToKeyOptions>): HashResult;
-  hash(inputs: readonly HashInput[], options?: Readonly<EvpBytesToKeyOptions>): HashResult[];
-  hash(
-    input: HashInput | readonly HashInput[],
-    options?: Readonly<EvpBytesToKeyOptions>,
-  ): HashResult | HashResult[] {
-    if (isInputList(input)) return input.map((one) => this.hash(one, options));
-    return guarded(this.key, () => {
-      if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
-      assertOneRound(options, `${this.key} sets its cost with its own parameters`);
-      const { digest, create, iterations, keyLength, ivLength, salt } = parameters(options);
-      const raw = evpBytesToKey(
-        create,
-        toBytes(input),
-        salt ?? new Uint8Array(0),
-        iterations,
-        keyLength + ivLength,
-      );
-      return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
+  protected derive(bytes: Uint8Array, options?: Readonly<EvpBytesToKeyOptions>): Derivation {
+    const { digest, create, iterations, keyLength, ivLength, salt } = parameters(options);
+    const length = keyLength + ivLength;
+    return {
+      digest: evpBytesToKey(create, bytes, salt ?? new Uint8Array(0), iterations, length),
+      reported: {
         digest,
         iterations,
         keyLength,
         ivLength,
         ...(salt === undefined ? {} : { salt: salt.toHex() }),
-      });
-    });
+      },
+    };
   }
 }

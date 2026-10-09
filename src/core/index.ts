@@ -28,6 +28,7 @@ export {
 export { Hash, type HashAbout, type HashConstructor } from "./hash.ts";
 export { FixedHash } from "./fixed-hash.ts";
 export { BlockHash } from "./block-hash.ts";
+export { Kdf, type Derivation } from "./kdf.ts";
 export { Hasher } from "./hasher.ts";
 export { argon2d, argon2i, argon2id, type Argon2Parameters } from "./argon2.ts";
 export { bcrypt, bcryptString } from "./bcrypt.ts";

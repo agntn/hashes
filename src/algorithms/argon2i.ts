@@ -12,7 +12,7 @@ export class Argon2i extends Argon2 {
       "Its reads leak nothing to a side channel, but it needs more passes against time-memory trade-offs. RFC 9106 makes argon2id the primary variant.",
   } as const;
 
-  protected derive(password: Uint8Array, salt: Uint8Array, parameters: Readonly<Argon2Parameters>) {
+  protected argon2(password: Uint8Array, salt: Uint8Array, parameters: Readonly<Argon2Parameters>) {
     return argon2i(password, salt, parameters);
   }
 }
