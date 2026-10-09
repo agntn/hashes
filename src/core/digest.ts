@@ -44,7 +44,7 @@ const OUTPUT_ENCODINGS: readonly OutputEncoding[] = ["hex", "base64", "base64url
  * @returns {OutputEncoding} The encoding.
  */
 export function outputEncoding(options?: Readonly<HashOptions>): OutputEncoding {
-  const encoding: unknown = options?.encoding ?? "hex";
+  const { encoding = "hex" } = options ?? {};
   const known = OUTPUT_ENCODINGS.find((name) => name === encoding);
   if (known === undefined) {
     throw new InvalidOptionError("encoding", encoding, `use one of ${OUTPUT_ENCODINGS.join(", ")}`);

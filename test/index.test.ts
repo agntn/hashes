@@ -621,13 +621,14 @@ describe("digests", () => {
       ["scrypt", { N: 16 }],
       ["bcrypt", { cost: 4 }],
     ] as const;
-    for (const encoding of ["HEX", "hex ", "utf8", "base32", "", 16]) {
+    for (const encoding of ["HEX", "hex ", "utf8", "base32", "", 16, null]) {
       for (const [name, options] of calls) {
         expect(() => create(name).hash("abc", loose({ ...options, encoding })), name).toThrow(
           InvalidOptionError,
         );
       }
     }
+    expect(create("sha256").hash("abc", loose({ encoding: undefined })).encoding).toBe("hex");
     expect(() => create("sha256").hash(["a", "b"], loose({ encoding: "HEX" }))).toThrow(
       "Invalid option encoding=HEX: use one of hex, base64, base64url, binary",
     );
