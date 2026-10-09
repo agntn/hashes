@@ -118,7 +118,7 @@ describe("hashes CLI", () => {
     ).toBe(hmac);
     expect(run(["hmac", "sha256", "m", "k", "--key-encoding", "latin1"])).toMatchObject({
       code: 1,
-      stderr: "Invalid arguments at /keyEncoding: must be one of utf8, hex, base64\n",
+      stderr: "Invalid arguments at --key-encoding: must be one of utf8, hex, base64\n",
     });
   });
 
@@ -313,7 +313,7 @@ describe("hashes CLI", () => {
     expect(wrong).toMatchObject({ code: 1, stdout: "" });
     expect(wrong.stderr).toContain("makes 16 bytes and the digest is 32");
     expect(missing).toMatchObject({ code: 1, stdout: "" });
-    expect(missing.stderr).toContain("words");
+    expect(missing.stderr).toBe("Invalid arguments: missing <WORDS...>\n");
     expect(spaced).toMatchObject({ code: 0 });
   });
 
@@ -394,7 +394,7 @@ describe("hashes CLI", () => {
       expect(run([command, "sha256", "only"])).toMatchObject({
         code: 1,
         stdout: "",
-        stderr: "Invalid arguments at /input: must not have fewer than 2 items\n",
+        stderr: "Invalid arguments at <INPUT...>: must not have fewer than 2 items\n",
       });
     }
     expect(run(["sha256", "--", "--key"]).stdout).toBe(`${sha256("--key")}\n`);

@@ -1,7 +1,7 @@
-import { indexTools, invokeTool, ToolInputError, wireSchema } from "@agntn/tools";
+import { sanitizeLine, wireSchema, type ToolDefinition, type ToolResult } from "@agntn/tools";
 import {
+  callTool as answerCall,
   createMcpServer as createToolServer,
-  errorResult,
   toolAnnotations,
 } from "@agntn/tools/mcp";
 import type { CallToolResult, Server, Tool } from "@modelcontextprotocol/server";
@@ -9,7 +9,7 @@ import { MAX_SCRYPT_MEMORY } from "../packages/shared/tool-contract.ts";
 import { serverInfo } from "./server-info.ts";
 import { hashesTools } from "./tools.ts";
 
-/** The `tools/list` entries shared by `hashes mcp` and the MCP server of the docs site. */
+/** The `tools/list` entries `hashes mcp` answers with. */
 export const toolListings: readonly Tool[] = hashesTools.map((tool) => ({
   name: tool.name,
   title: tool.title,
@@ -17,8 +17,6 @@ export const toolListings: readonly Tool[] = hashesTools.map((tool) => ({
   inputSchema: { ...wireSchema(tool), type: "object" },
   annotations: toolAnnotations(tool),
 }));
-
-const toolsByName = indexTools(hashesTools);
 
 /** What a host running the tools for someone else can add to a call. */
 export interface CallToolOptions {
@@ -41,47 +39,47 @@ export async function callTool(
   args: Readonly<Record<string, unknown>>,
   options: Readonly<CallToolOptions> = {},
 ): Promise<CallToolResult> {
-  const tool = toolsByName.get(name);
-  if (!tool) return errorResult(`Unknown hashes tool: ${JSON.stringify(name)}`);
   const { signal, maxMemory } = options;
-  const refusal = await overMemory(name, args, maxMemory);
-  if (refusal !== undefined) return refusal;
-
-  try {
-    const result = await invokeTool(tool, args, signal === undefined ? {} : { signal });
-    return {
-      content: result.content,
-      ...(result.isError === undefined ? {} : { isError: result.isError }),
-    };
-  } catch (error) {
-    if (error instanceof ToolInputError) return errorResult(...error.lines);
-    return errorResult(
-      `${tool.name} failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  const tools = maxMemory === undefined ? hashesTools : memoryCappedTools(maxMemory);
+  return await answerCall(serverInfo, tools, name, args, signal === undefined ? {} : { signal });
 }
 
 /**
- * Refuses a KDF that would fill more than `maxMemory` bytes, before it allocates any of them.
+ * The tools with every KDF held to `maxMemory` bytes, for a host as tight as a Workers isolate.
+ *
+ * @param {number} maxMemory - Most bytes a KDF may fill.
+ * @returns {ToolDefinition[]} The tools in `hashesTools` order; a costlier KDF never allocates.
+ */
+export function memoryCappedTools(maxMemory: number): ToolDefinition[] {
+  return hashesTools.map((tool) => ({
+    ...tool,
+    execute: async (input, context) =>
+      (await overMemory(tool.name, input, maxMemory)) ?? (await tool.execute(input, context)),
+  }));
+}
+
+/**
+ * Refuses a KDF over `maxMemory` as a result; a thrown class fails another copy's `instanceof`.
  *
  * @param {string} name - The tool's name.
- * @param {Readonly<Record<string, unknown>>} args - The arguments the client sent.
- * @param {number} [maxMemory] - Most bytes the host allows, none for the tool limits alone.
- * @returns {Promise<CallToolResult | undefined>} The error, or nothing when the call fits.
+ * @param {Readonly<Record<string, unknown>>} args - The arguments, already past the schema.
+ * @param {number} maxMemory - Most bytes the host allows.
+ * @returns {Promise<ToolResult | undefined>} The sanitized error, or nothing when the call fits.
  */
 async function overMemory(
   name: string,
   args: Readonly<Record<string, unknown>>,
-  maxMemory: number | undefined,
-): Promise<CallToolResult | undefined> {
-  if (maxMemory === undefined) return undefined;
+  maxMemory: number,
+): Promise<ToolResult | undefined> {
   const { kdfMemory } = await import("./tool-operations.ts");
   const memory = kdfMemory(args);
   if (memory <= maxMemory) return undefined;
-  return errorResult(
+  const lines = [
     `${name} failed: ${String(args["algorithm"])} needs ${memory} bytes of memory, over the ${maxMemory} this server allows`,
     `Lower its memory cost, or run npx -y @agntn/hashes mcp, which takes up to ${MAX_SCRYPT_MEMORY}`,
-  );
+  ];
+  const text = lines.map(sanitizeLine).join("\n");
+  return { content: [{ type: "text", text }], details: undefined, isError: true };
 }
 
 /**
