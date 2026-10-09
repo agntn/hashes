@@ -12,8 +12,6 @@ export default defineNuxtConfig({
   /** The repo root is its own pnpm workspace; Nuxt must not treat it as this site's. */
   workspaceDir: import.meta.dirname,
   alias: {
-    /** The tool listings and the executor `hashes mcp` serves, for the MCP server at /mcp. */
-    "@agntn/hashes/mcp": resolve(librarySource, "mcp.ts"),
     "@agntn/hashes": resolve(librarySource, "index.ts"),
     /** The text the agent tools answer with; it imports nothing beyond the library. */
     "#tool-operations": resolve(librarySource, "tool-operations.ts"),

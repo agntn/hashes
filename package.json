@@ -115,7 +115,7 @@
     "release": "pnpm build && pnpm test && changelogen --release --push"
   },
   "dependencies": {
-    "@agntn/tools": "0.2.2",
+    "@agntn/tools": "0.2.3",
     "@modelcontextprotocol/server": "2.2.0"
   },
   "devDependencies": {

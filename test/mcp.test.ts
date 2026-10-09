@@ -191,7 +191,20 @@ describe("hashes MCP server", () => {
     expect(part?.text).toMatch(/^MISMATCH/u);
   });
 
-  /** The docs site's `/mcp` hands `callTool` arguments no schema has checked yet. */
+  it("quotes the algorithm a capped call names in two clean lines", async () => {
+    const args = { algorithm: "ARGON\n2id\u202E", input: "x", salt: "73616c7473616c74" };
+    const refused = await callTool(
+      "hashes_compute",
+      { ...args, parameters: { memory: 262_144 } },
+      { maxMemory: 64 * 1024 * 1024 },
+    );
+    const [part] = refused.content as Array<{ text: string }>;
+    expect(part?.text.split("\n")).toHaveLength(2);
+    expect(part?.text).toMatch(/^hashes_compute failed: ARGON 2id needs 268435456 bytes/u);
+    expect(part?.text).not.toContain("\u202E");
+  });
+
+  /** The schema runs before the cap, so a cost it refuses never reaches `kdfMemory`. */
   it("leaves a cost that can't be a number to the schema, and caps one given as text", async () => {
     const maxMemory = 64 * 1024 * 1024;
     const args = { algorithm: "argon2id", input: "x", salt: "73616c7473616c74" };

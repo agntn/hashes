@@ -82,8 +82,11 @@ export async function registerOmpExtension(
   };
 }
 
-/** An execution context with no members: a tool that reads one fails by name. */
-export const ompToolContext = strictDouble<ExtensionContext>("ExtensionContext", {});
+/** A context with no UI and so no `ask`: a tool that reads anything else fails by name. */
+export const ompToolContext = strictDouble<ExtensionContext>("ExtensionContext", {
+  hasUI: false,
+  ui: undefined,
+});
 
 /**
  * A theme that writes its styling calls into the output, so a renderer test
