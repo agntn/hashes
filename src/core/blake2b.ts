@@ -391,7 +391,7 @@ function compress(h: Int32Array, m: Int32Array, counter: number, last: boolean):
   h[15] = h[15]! ^ h7 ^ h15;
 }
 
-/** Whether this platform stores typed arrays little-endian, as the block reads assume. */
+/** Whether this platform stores typed arrays little-endian, so the block reads in place. */
 const LITTLE_ENDIAN = /* @__PURE__ */ littleEndian();
 
 /**
@@ -403,11 +403,25 @@ function littleEndian(): boolean {
   return new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
 }
 
+/**
+ * Reads bytes as little-endian halves, whatever order the platform keeps its own in.
+ *
+ * @param bytes - Four bytes per half.
+ * @param halves - Filled in place.
+ */
+function readHalves(bytes: Uint8Array, halves: Int32Array): void {
+  for (let i = 0; i < halves.length; i++) {
+    const at = 4 * i;
+    halves[i] =
+      bytes[at]! | (bytes[at + 1]! << 8) | (bytes[at + 2]! << 16) | (bytes[at + 3]! << 24);
+  }
+}
+
 /** BLAKE2b with an output of 1 to 64 bytes, an optional personalization and no key or salt. */
 export class Blake2bHasher extends Blake2 {
   protected readonly state = new Int32Array(16);
-  /** The block buffer as thirty-two little-endian halves. */
-  private readonly words = new Int32Array(this.block.buffer);
+  /** The block as thirty-two little-endian halves, a view on little-endian, a copy otherwise. */
+  private readonly words = LITTLE_ENDIAN ? new Int32Array(this.block.buffer) : new Int32Array(32);
 
   /**
    * @param outputLength - Digest bytes, 1 to 64.
@@ -415,9 +429,6 @@ export class Blake2bHasher extends Blake2 {
    * takes it. Zcash's F4Jumble passes `UA_F4Jumble_H` or `UA_F4Jumble_G` and three counter bytes.
    */
   constructor(outputLength: number, personalization?: Uint8Array) {
-    if (!LITTLE_ENDIAN) {
-      throw new Error("BLAKE2b here reads blocks and the state as little-endian bytes");
-    }
     if (!Number.isInteger(outputLength) || outputLength < 1 || outputLength > 64) {
       throw new InvalidOptionError("outputLength", outputLength, "must be an integer from 1 to 64");
     }
@@ -439,12 +450,14 @@ export class Blake2bHasher extends Blake2 {
       // The parameter block ends with the personalization, which lands on the last four halves.
       const padded = new Uint8Array(16);
       padded.set(personalization);
-      const person = new Int32Array(padded.buffer);
+      const person = new Int32Array(4);
+      readHalves(padded, person);
       for (let i = 0; i < 4; i++) this.state[12 + i] = this.state[12 + i]! ^ person[i]!;
     }
   }
 
   protected compress(counter: number, last: boolean): void {
+    if (!LITTLE_ENDIAN) readHalves(this.block, this.words);
     compress(this.state, this.words, counter, last);
   }
 }

@@ -91,7 +91,7 @@ describe("one byte function bundled with esbuild", () => {
     // CRC-32 carries its bzip2 variant and the error a wrong variant throws.
     ["crc32", 0, 2_000],
     ["scrypt", 2, 8_500],
-    ["argon2id", 4, 12_000],
+    ["argon2id", 3, 12_000],
     ["bcrypt", 0, 4_000],
   ])("%s leaves the other algorithms out", async (name, tables, limit) => {
     const code = await bundle(name);

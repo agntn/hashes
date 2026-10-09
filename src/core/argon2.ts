@@ -79,7 +79,9 @@ const BOUNDS = [
  * @returns {Uint8Array} Its bytes.
  */
 function le32(value: number): Uint8Array {
-  return new Uint8Array(new Uint32Array([value]).buffer);
+  const bytes = new Uint8Array(4);
+  new DataView(bytes.buffer).setUint32(0, value, true);
+  return bytes;
 }
 
 /**
@@ -485,7 +487,10 @@ function argon2(
     for (let k = 0; k < BLOCK_WORDS; k++)
       last[k] = last[k]! ^ matrix.blocks[end - BLOCK_WORDS + k]!;
   }
-  return hashLong(parameters.keyLength, new Uint8Array(last.buffer));
+  const bytes = new Uint8Array(4 * BLOCK_WORDS);
+  const view = new DataView(bytes.buffer);
+  for (let k = 0; k < BLOCK_WORDS; k++) view.setUint32(4 * k, last[k]!, true);
+  return hashLong(parameters.keyLength, bytes);
 }
 
 /**
