@@ -1,20 +1,14 @@
 import {
-  isInputList,
-  assertOneRound,
-  ENCODING_OPTION,
   assertPositiveIntegers,
   SALT_OPTION,
-  encodeDigest,
-  guarded,
   resolveSalt,
-  toBytes,
   type SaltOptions,
 } from "../core/digest.ts";
 import { InvalidOptionError } from "../core/errors.ts";
-import { Hash } from "../core/hash.ts";
 import type { BlockHash } from "../core/block-hash.ts";
 import { pbkdf2 } from "../core/hmac.ts";
-import type { AlgorithmInfo, HashInput, HashOptions, HashResult } from "../core/types.ts";
+import { Kdf, type Derivation } from "../core/kdf.ts";
+import type { HashOptions } from "../core/types.ts";
 import { Sha256 } from "./sha256.ts";
 import { Sha3_256 } from "./sha3-256.ts";
 import { Sha3_512 } from "./sha3-512.ts";
@@ -75,78 +69,54 @@ function parameters(options?: Readonly<Pbkdf2Options>) {
   return { iterations, digest, hash: kdfHash(digest), keyLength };
 }
 
-export class Pbkdf2 extends Hash {
+export class Pbkdf2 extends Kdf<Pbkdf2Options> {
   static readonly key = "pbkdf2";
+  protected readonly about = {
+    label: "PBKDF2",
+    description: "PBKDF2 password-based KDF, the NIST standard with configurable iterations",
+    family: "PBKDF",
+    category: "password",
+    securityNote:
+      "OWASP Password Storage Cheat Sheet: >=600000 iterations with HMAC-SHA256, >=220000 with HMAC-SHA512.",
+  } as const;
+  protected override readonly options = [
+    SALT_OPTION,
+    {
+      name: "iterations",
+      type: "number",
+      required: false,
+      default: 600000,
+      description: "Iteration count (OWASP: >=600000 with sha256, >=220000 with sha512)",
+    },
+    {
+      name: "digest",
+      type: "string",
+      required: false,
+      default: "sha512",
+      description: `Underlying hash: ${kdfDigests()}`,
+    },
+    {
+      name: "keyLength",
+      type: "number",
+      required: false,
+      default: 64,
+      description: "Output key length in bytes",
+    },
+  ] as const;
 
   /**
-   * Describes the algorithm.
+   * Derives a key with HMAC over the chosen hash and the salt, drawn when missing.
    *
-   * @returns {AlgorithmInfo} Its metadata.
+   * @param bytes - The input's bytes.
+   * @param options - Salt, iterations, hash and length.
+   * @returns {Derivation} The key, with the salt and costs it reports.
    */
-  info(): AlgorithmInfo {
+  protected derive(bytes: Uint8Array, options?: Readonly<Pbkdf2Options>): Derivation {
+    const { iterations, digest, hash, keyLength } = parameters(options);
+    const salt = resolveSalt(options);
     return {
-      name: this.key,
-      label: "PBKDF2",
-      description: "PBKDF2 password-based KDF, the NIST standard with configurable iterations",
-      family: "PBKDF",
-      category: "password",
-      hmac: false,
-      options: [
-        ENCODING_OPTION,
-        SALT_OPTION,
-        {
-          name: "iterations",
-          type: "number",
-          required: false,
-          default: 600000,
-          description: "Iteration count (OWASP: >=600000 with sha256, >=220000 with sha512)",
-        },
-        {
-          name: "digest",
-          type: "string",
-          required: false,
-          default: "sha512",
-          description: `Underlying hash: ${kdfDigests()}`,
-        },
-        {
-          name: "keyLength",
-          type: "number",
-          required: false,
-          default: 64,
-          description: "Output key length in bytes",
-        },
-      ],
-      securityNote:
-        "OWASP Password Storage Cheat Sheet: >=600000 iterations with HMAC-SHA256, >=220000 with HMAC-SHA512.",
+      digest: pbkdf2(() => hash.hasher(), bytes, salt, iterations, keyLength),
+      reported: { iterations, digest, keyLength, salt: salt.toHex() },
     };
-  }
-
-  /**
-   * Derives a key from the input.
-   *
-   * @param input - Text or bytes, or a list of them.
-   * @param options - Encoding, salt and cost parameters.
-   * @returns {HashResult | HashResult[]} The derived key, one per input for a list.
-   */
-  hash(input: HashInput, options?: Readonly<Pbkdf2Options>): HashResult;
-  hash(inputs: readonly HashInput[], options?: Readonly<Pbkdf2Options>): HashResult[];
-  hash(
-    input: HashInput | readonly HashInput[],
-    options?: Readonly<Pbkdf2Options>,
-  ): HashResult | HashResult[] {
-    if (isInputList(input)) return input.map((one) => this.hash(one, options));
-    return guarded(this.key, () => {
-      if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
-      assertOneRound(options, `${this.key} sets its cost with its own parameters`);
-      const { iterations, digest, hash, keyLength } = parameters(options);
-      const salt = resolveSalt(options);
-      const raw = pbkdf2(() => hash.hasher(), toBytes(input), salt, iterations, keyLength);
-      return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
-        iterations,
-        digest,
-        keyLength,
-        salt: salt.toHex(),
-      });
-    });
   }
 }

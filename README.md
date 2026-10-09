@@ -31,7 +31,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 - 🔎 **No name on the digest?** `hashes identify` lists what fits its length or its `$2b$` prefix. Argon2, bcrypt, scrypt and PBKDF2 strings come apart into salt, costs and digest.
 - 🔀 **Words but no recipe?** `hashes search <digest> <words...>` tries every order, joiner, case, algorithm and round count until one gives the digest. It tells you the total before it starts. Five digests from the same words? Split them by commas and they share one pass.
 - 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share the same tools and the code behind them, and the MCP one also runs at [hashes.agntn.dev/mcp](https://hashes.agntn.dev/guide/agents#remote-mcp) with nothing to install.
-- 🧩 **Bring your own.** Extend `FixedHash`, or `BlockHash` if you want HMAC too, and `register()` the class.
+- 🧩 **Bring your own.** A digest extends `FixedHash`, a KDF extends `Kdf`. Then `register()` the class.
 
 ## 📦 Install
 
@@ -188,7 +188,7 @@ register(Sha3_384);
 create("sha3-384").hash("abc").digest; // "ec01498288516fc92645..."
 ```
 
-Want HMAC as well? Extend `BlockHash` and hand it a `Hasher`. Anything else extends `Hash`, and you write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL, a spec or a reference implementation, never from this package.
+Want HMAC as well? Extend `BlockHash` and hand it a `Hasher`. A KDF extends `Kdf` and writes one `derive()`. Anything else extends `Hash`, and you write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL, a spec or a reference implementation, never from this package.
 
 ## 🛠️ Development
 

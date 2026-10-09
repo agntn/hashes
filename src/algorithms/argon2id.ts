@@ -1,19 +1,14 @@
 import { argon2id } from "../core/argon2.ts";
 import type { Argon2Parameters } from "../core/argon2.ts";
 import {
-  isInputList,
-  assertOneRound,
   decodeInput,
-  ENCODING_OPTION,
-  encodeDigest,
-  guarded,
   resolveSalt,
   SALT_OPTION,
   toBytes,
   type SaltOptions,
 } from "../core/digest.ts";
-import { Hash, type HashAbout } from "../core/hash.ts";
-import type { AlgorithmInfo, HashInput, HashOptions, HashResult } from "../core/types.ts";
+import { Kdf, type Derivation } from "../core/kdf.ts";
+import type { HashOptions } from "../core/types.ts";
 
 /** Options Argon2 takes besides the encoding. */
 export interface Argon2Options extends HashOptions, SaltOptions {
@@ -75,8 +70,46 @@ function reported(parameters: Readonly<Argon2Parameters>): Record<string, number
 }
 
 /** Argon2 as RFC 9106 runs it; each variant names itself and its function. */
-export abstract class Argon2 extends Hash {
-  protected abstract readonly about: HashAbout;
+export abstract class Argon2 extends Kdf<Argon2Options> {
+  protected override readonly options = [
+    SALT_OPTION,
+    {
+      name: "memory",
+      type: "number",
+      required: false,
+      default: 65536,
+      description: "Memory in KiB, at least 8 per lane",
+    },
+    {
+      name: "iterations",
+      type: "number",
+      required: false,
+      default: 3,
+      description: "Passes over the memory",
+    },
+    { name: "parallelism", type: "number", required: false, default: 4, description: "Lanes" },
+    {
+      name: "keyLength",
+      type: "number",
+      required: false,
+      default: 32,
+      description: "Output key length in bytes, at least 4",
+    },
+    {
+      name: "secret",
+      type: "string",
+      required: false,
+      default: "",
+      description: "Secret key in hex, a pepper",
+    },
+    {
+      name: "associatedData",
+      type: "string",
+      required: false,
+      default: "",
+      description: "Associated data in hex",
+    },
+  ] as const;
 
   /**
    * Runs the variant.
@@ -86,90 +119,26 @@ export abstract class Argon2 extends Hash {
    * @param parameters - Cost, output and the optional inputs.
    * @returns {Uint8Array} The derived key.
    */
-  protected abstract derive(
+  protected abstract argon2(
     password: Uint8Array,
     salt: Uint8Array,
     parameters: Readonly<Argon2Parameters>,
   ): Uint8Array;
 
   /**
-   * Describes the algorithm.
+   * Derives a key with the cost and the salt, drawn when missing.
    *
-   * @returns {AlgorithmInfo} Its metadata.
+   * @param bytes - The password's bytes.
+   * @param options - Salt, cost and the optional secret and associated data.
+   * @returns {Derivation} The key, with the salt and costs it reports.
    */
-  info(): AlgorithmInfo {
+  protected derive(bytes: Uint8Array, options?: Readonly<Argon2Options>): Derivation {
+    const parameters = argon2Parameters(options);
+    const salt = resolveSalt(options);
     return {
-      name: this.key,
-      ...this.about,
-      hmac: false,
-      options: [
-        ENCODING_OPTION,
-        SALT_OPTION,
-        {
-          name: "memory",
-          type: "number",
-          required: false,
-          default: 65536,
-          description: "Memory in KiB, at least 8 per lane",
-        },
-        {
-          name: "iterations",
-          type: "number",
-          required: false,
-          default: 3,
-          description: "Passes over the memory",
-        },
-        { name: "parallelism", type: "number", required: false, default: 4, description: "Lanes" },
-        {
-          name: "keyLength",
-          type: "number",
-          required: false,
-          default: 32,
-          description: "Output key length in bytes, at least 4",
-        },
-        {
-          name: "secret",
-          type: "string",
-          required: false,
-          default: "",
-          description: "Secret key in hex, a pepper",
-        },
-        {
-          name: "associatedData",
-          type: "string",
-          required: false,
-          default: "",
-          description: "Associated data in hex",
-        },
-      ],
+      digest: this.argon2(bytes, salt, parameters),
+      reported: { ...reported(parameters), salt: salt.toHex() },
     };
-  }
-
-  /**
-   * Derives a key from the input.
-   *
-   * @param input - Text or bytes, or a list of them.
-   * @param options - Encoding, salt, cost and the optional secret and associated data.
-   * @returns {HashResult | HashResult[]} The derived key, one per input for a list.
-   */
-  hash(input: HashInput, options?: Readonly<Argon2Options>): HashResult;
-  hash(inputs: readonly HashInput[], options?: Readonly<Argon2Options>): HashResult[];
-  hash(
-    input: HashInput | readonly HashInput[],
-    options?: Readonly<Argon2Options>,
-  ): HashResult | HashResult[] {
-    if (isInputList(input)) return input.map((one) => this.hash(one, options));
-    return guarded(this.key, () => {
-      if (options?.key !== undefined) throw new Error(`${this.key} has no HMAC mode`);
-      assertOneRound(options, `${this.key} sets its cost with its own parameters`);
-      const parameters = argon2Parameters(options);
-      const salt = resolveSalt(options);
-      const raw = this.derive(toBytes(input), salt, parameters);
-      return encodeDigest(raw, this.key, "hash", options?.encoding ?? "hex", {
-        ...reported(parameters),
-        salt: salt.toHex(),
-      });
-    });
   }
 }
 
@@ -185,7 +154,7 @@ export class Argon2id extends Argon2 {
       "The primary variant of RFC 9106. The defaults are its second recommended option, 64 MiB with 3 passes and 4 lanes; the first wants 2 GiB with 1 pass.",
   } as const;
 
-  protected derive(password: Uint8Array, salt: Uint8Array, parameters: Readonly<Argon2Parameters>) {
+  protected argon2(password: Uint8Array, salt: Uint8Array, parameters: Readonly<Argon2Parameters>) {
     return argon2id(password, salt, parameters);
   }
 }

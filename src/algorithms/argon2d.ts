@@ -12,7 +12,7 @@ export class Argon2d extends Argon2 {
       "Its reads follow the data and can leak through a side channel. RFC 9106 fits it to cryptocurrencies and proof of work with no such threat.",
   } as const;
 
-  protected derive(password: Uint8Array, salt: Uint8Array, parameters: Readonly<Argon2Parameters>) {
+  protected argon2(password: Uint8Array, salt: Uint8Array, parameters: Readonly<Argon2Parameters>) {
     return argon2d(password, salt, parameters);
   }
 }
