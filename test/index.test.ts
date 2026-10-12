@@ -5,6 +5,7 @@ import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
 import { Md4, Md5, Scrypt, Sha1, builtins } from "../src/algorithms/index.ts";
 import { algorithmInfos } from "../src/core/resolve.ts";
+import { Md2Hasher } from "../src/core/md2.ts";
 import { Sha512tHasher } from "../src/core/sha2.ts";
 import {
   type AlgorithmInfo,
@@ -698,6 +699,54 @@ describe("hashes chains use", () => {
     ]) {
       expect(create("md4").hash(input!).digest).toBe(digest);
     }
+  });
+
+  it("md2 matches the RFC 1319 vectors", () => {
+    for (const [input, digest] of [
+      ["", "8350e5a3e24c153df2275c9f80692773"],
+      ["a", "32ec01ec4a6dac72c0ab96fb34c0b5d1"],
+      ["abc", "da853b0d3f88d99b30283a69e6ded6bb"],
+      ["message digest", "ab4f496bfb2a530b219ff33031fe06b0"],
+      ["abcdefghijklmnopqrstuvwxyz", "4e8ddff3650292ab5a4108c3aa47940b"],
+      [
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+        "da33def2a42df13975352846c30338cd",
+      ],
+      ["1234567890".repeat(8), "d5976f79d83d3a0dc9806c3c66f3efd8"],
+    ]) {
+      expect(create("md2").hash(input!).digest).toBe(digest);
+    }
+  });
+
+  it("md2 and its HMAC match pycryptodome at every length up to 299, fed whole or in pieces", () => {
+    /* Every expected value is what pycryptodome 3.24.1 gives for the same bytes and keys. */
+    const digests: Uint8Array[] = [];
+    const tags: Uint8Array[] = [];
+    for (let length = 0; length < 300; length++) {
+      const data = Uint8Array.from({ length }, (_, i) => (i * 31 + length) & 0xff);
+      const key = Uint8Array.from({ length: length % 40 }, (_, i) => (i * 17 + 3) & 0xff);
+      const step = 1 + (length % 23);
+      const pieces = new Md2Hasher();
+      for (let offset = 0; offset < length; offset += step) {
+        pieces.update(data.subarray(offset, offset + step));
+      }
+      const digest = create("md2").hash(data, { encoding: "binary" }).digest as Uint8Array;
+      expect(pieces.digest()).toEqual(digest);
+      digests.push(digest);
+      tags.push(create("md2").hash(data, { key, encoding: "binary" }).digest as Uint8Array);
+    }
+    expect(createHash("sha256").update(Buffer.concat(digests)).digest("hex")).toBe(
+      "44d5360090e64d9c1ba2905f2a44540f5f7ecdd93ccc8905f05c73e4802e9477",
+    );
+    expect(createHash("sha256").update(Buffer.concat(tags)).digest("hex")).toBe(
+      "b3a89ce395e61f94073b1fdca5f6d72c00755879ac7c93a5b6924d0a79b9ae85",
+    );
+    expect(create("md2").hash("what do ya want for nothing?", { key: "Jefe" }).digest).toBe(
+      "292f9d34f9e311846de86c495d7adfa2",
+    );
+    expect(create("md2").hash("a".repeat(1_000_000)).digest).toBe(
+      "8c0a09ff1216ecaf95c8130953c62efd",
+    );
   });
 
   it("ntlm hashes the password as UTF-16LE, a BOM included", () => {
@@ -2031,6 +2080,7 @@ describe("extendDigest", () => {
     "sha512-256",
     "sha512-half",
     "sha3-256",
+    "md2",
     "ntlm",
     "hash160",
   ])("refuses %s, whose digest is not a state it can resume from", (algorithm) => {
@@ -2293,9 +2343,9 @@ describe("identifyDigest", () => {
     ).toEqual([
       ["md5", "length", "md5"],
       ["md4", "length", "md4"],
+      ["md2", "length", "md2"],
       ["ntlm", "length", "ntlm"],
       ["ripemd128", "length", "ripemd128"],
-      ["md2", "length", undefined],
       ["lm", "length", undefined],
       ...["scrypt", "pbkdf2", "hkdf", "evp-bytestokey", "argon2id", "argon2i", "argon2d"].map(
         (name) => [name, "keyLength", name],

@@ -20,6 +20,7 @@ import { Hash160 } from "./hash160.ts";
 import { Hash256 } from "./hash256.ts";
 import { Hkdf } from "./hkdf.ts";
 import { Keccak256 } from "./keccak256.ts";
+import { Md2 } from "./md2.ts";
 import { Md4 } from "./md4.ts";
 import { Md5 } from "./md5.ts";
 import { Ntlm } from "./ntlm.ts";
@@ -69,6 +70,7 @@ export const builtins: readonly HashConstructor[] = [
   Hash256,
   Md5,
   Md4,
+  Md2,
   Ntlm,
   Sha1,
   Sha0,
@@ -109,6 +111,7 @@ export {
   Hash256,
   Hkdf,
   Keccak256,
+  Md2,
   Md4,
   Md5,
   Ntlm,
