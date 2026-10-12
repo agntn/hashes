@@ -326,7 +326,8 @@ const OTHER_DIGESTS: readonly (readonly [number, string, string])[] = [
   [32, "streebog256", "Streebog-256"],
   [32, "gost94", "GOST R 34.11-94"],
   [48, "sha3-384", "SHA3-384"],
-  [64, "whirlpool", "Whirlpool"],
+  [64, "whirlpool-t", "Whirlpool-T"],
+  [64, "whirlpool-0", "Whirlpool-0"],
   [64, "streebog512", "Streebog-512"],
 ];
 

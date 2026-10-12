@@ -26,6 +26,8 @@ export const builtinAlgorithms = [
   "ripemd320",
   "hash160",
   "hash256",
+  /** Cryptographic (Whirlpool) */
+  "whirlpool",
   // Legacy
   "md5",
   "md4",

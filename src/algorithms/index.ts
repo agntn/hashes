@@ -43,6 +43,7 @@ import { Sha512_224 } from "./sha512-224.ts";
 import { Sha512_256 } from "./sha512-256.ts";
 import { Sha512Half } from "./sha512-half.ts";
 import { Tiger } from "./tiger.ts";
+import { Whirlpool } from "./whirlpool.ts";
 import { Xxhash } from "./xxhash.ts";
 
 /**
@@ -70,6 +71,7 @@ export const builtins: readonly HashConstructor[] = [
   Ripemd320,
   Hash160,
   Hash256,
+  Whirlpool,
   Md5,
   Md4,
   Md2,
@@ -138,5 +140,6 @@ export {
   Sha512_256,
   Sha512Half,
   Tiger,
+  Whirlpool,
   Xxhash,
 };

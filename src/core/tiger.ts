@@ -5,14 +5,8 @@
  * of Tiger hashing one sentence over and over swap bytes between words, through the boxes being
  * swapped. The padding starts with 0x01, and the digest is the three words, each little-endian.
  */
-import { HashError } from "./errors.ts";
-import { assertBytes, viewOf, wordsToBytes } from "./hasher.ts";
 import { ResumableHasher } from "./resumable.ts";
 
-/** Bytes per block. */
-const BLOCK = 64;
-/** Where the bit length starts in the last block. */
-const LENGTH_FIELD = BLOCK - 8;
 /** The byte the padding opens with. Tiger2 is the same hash with 0x80 here. */
 const MARKER = 0x01;
 /** The 64 bytes the authors hash to shuffle the S-boxes. */
@@ -267,102 +261,14 @@ function build(): void {
   built = true;
 }
 
-/**
- * Writes the bit length little-endian before `end`, with no `DataView` to move a buffer off-heap.
- *
- * @param out - The block or padding being written.
- * @param end - Where the length field ends.
- * @param length - Bytes hashed.
- */
-function writeLength(out: Uint8Array, end: number, length: number): void {
-  const low = (length % 0x2000_0000) * 8;
-  const high = Math.floor(length / 0x2000_0000);
-  for (let i = 0; i < 4; i++) {
-    out[end - 8 + i] = low >>> (8 * i);
-    out[end - 4 + i] = high >>> (8 * i);
-  }
-}
-
 /** Tiger, the original: 192 bits, three passes, 0x01 padding and little-endian words. */
 export class TigerHasher extends ResumableHasher {
-  readonly blockLength = BLOCK;
   readonly outputLength = 24;
+  protected readonly littleEndian = true;
+  protected readonly marker = MARKER;
+  protected readonly lengthBytes = 8;
   /** a, b and c, low half first. */
-  private readonly state = IV.slice();
-  /** The partial block not compressed yet. */
-  private readonly buffer = new Uint8Array(BLOCK);
-  /** Bytes waiting in the buffer. */
-  private position = 0;
-  /** Bytes absorbed so far. */
-  private length = 0;
-
-  update(data: Uint8Array): this {
-    assertBytes(data, "data");
-    const { buffer } = this;
-    const length = data.length;
-    let position = this.position;
-    let offset = 0;
-    this.length += length;
-    if (position > 0) {
-      while (offset < length && position < BLOCK) buffer[position++] = data[offset++]!;
-      if (position < BLOCK) {
-        this.position = position;
-        return this;
-      }
-      this.compressBlock(buffer, 0);
-      position = 0;
-    }
-    for (; length - offset >= BLOCK; offset += BLOCK) this.compressBlock(data, offset);
-    while (offset < length) buffer[position++] = data[offset++]!;
-    this.position = position;
-    return this;
-  }
-
-  digestInto(out: Uint8Array): void {
-    const { buffer } = this;
-    let position = this.position;
-    buffer[position++] = MARKER;
-    if (position > LENGTH_FIELD) {
-      buffer.fill(0, position);
-      this.compressBlock(buffer, 0);
-      position = 0;
-    }
-    buffer.fill(0, position, LENGTH_FIELD);
-    writeLength(buffer, BLOCK, this.length);
-    this.compressBlock(buffer, 0);
-    wordsToBytes(this.state, out, this.outputLength, true);
-  }
-
-  padding(length: number): Uint8Array {
-    const size = 9 + ((BLOCK - ((length + 9) % BLOCK)) % BLOCK);
-    const out = new Uint8Array(size);
-    out[0] = MARKER;
-    writeLength(out, size, length);
-    return out;
-  }
-
-  resume(digest: Uint8Array, length: number): this {
-    assertBytes(digest, "digest");
-    const { state } = this;
-    if (digest.length !== this.outputLength || !(length >= 0 && length % BLOCK === 0)) {
-      throw new HashError(
-        `resume takes a ${this.outputLength}-byte digest and a multiple of ${BLOCK} bytes`,
-      );
-    }
-    const view = viewOf(digest);
-    for (let i = 0; i < state.length; i++) state[i] = view.getInt32(i * 4, true);
-    this.position = 0;
-    this.length = length;
-    return this;
-  }
-
-  load(source: this): this {
-    this.state.set(source.state);
-    this.buffer.set(source.buffer);
-    this.position = source.position;
-    this.length = source.length;
-    return this;
-  }
+  protected readonly state = IV.slice();
 
   /**
    * Compresses a block, building the S-boxes first, so a hasher made only to be listed is free.
@@ -370,7 +276,7 @@ export class TigerHasher extends ResumableHasher {
    * @param block - Bytes holding the block.
    * @param offset - Where the block starts.
    */
-  private compressBlock(block: Uint8Array, offset: number): void {
+  protected compress(block: Uint8Array, offset: number): void {
     if (!built) build();
     compress(this.state, block, offset);
   }

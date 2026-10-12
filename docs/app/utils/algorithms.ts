@@ -80,6 +80,11 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
     blurb: "SHA-256 twice, every txid and block hash",
     usedBy: "Bitcoin",
   },
+  whirlpool: {
+    icon: "i-lucide-tornado",
+    blurb: "An AES designer's 512-bit hash, named after a galaxy",
+    usedBy: "VeraCrypt",
+  },
   md5: { icon: "i-lucide-shield-alert", blurb: "Broken since 2004, still on every download page" },
   md4: { icon: "i-lucide-shield-alert", blurb: "MD5's older sibling, broken before MD5 was" },
   md2: { icon: "i-lucide-shield-alert", blurb: "The 1989 original, its table drawn from π" },

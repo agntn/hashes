@@ -9,6 +9,7 @@ import { HAVAL_BITS, HAVAL_PASSES, HavalHasher, type HavalBits } from "../src/co
 import { Md2Hasher } from "../src/core/md2.ts";
 import { Sha512tHasher } from "../src/core/sha2.ts";
 import { TigerHasher } from "../src/core/tiger.ts";
+import { WhirlpoolHasher } from "../src/core/whirlpool.ts";
 import {
   type AlgorithmInfo,
   DependencyError,
@@ -950,6 +951,67 @@ describe("hashes chains use", () => {
     );
     expect(create("tiger").hash("what do ya want for nothing?", { key: "Jefe" }).digest).toBe(
       "3a351b1dec6075d6290e68b604e553821edc39041b82da83",
+    );
+  });
+
+  it("whirlpool matches the authors' NESSIE vectors", () => {
+    /* The authors' vectors in Linux's crypto/testmgr.h, and a million a's from PHP and RHash. */
+    const vectors: Record<string, string> = {
+      "": "19fa61d75522a4669b44e39c1d2e1726c530232130d407f89afee0964997f7a73e83be698b288febcf88e3e03c4f0757ea8964e59b63d93708b138cc42a66eb3",
+      a: "8aca2602792aec6f11a67206531fb7d7f0dff59413145e6973c45001d0087b42d11bc645413aeff63a42391a39145a591a92200d560195e53b478584fdae231a",
+      abc: "4e2448a4c6f486bb16b6562c73b4020bf3043e3a731bce721ae1b303d97e6d4c7181eebdb6c57e277d0e34957114cbd6c797fc9d95d8b582d225292076d4eef5",
+      "message digest":
+        "378c84a4126e2dc6e56dcc7458377aac838d00032230f53ce1f5700c0ffb4d3b8421557659ef55c106b4b52ac5a4aaa692ed920052838f3362e86dbd37a8903e",
+      abcdefghijklmnopqrstuvwxyz:
+        "f1d754662636ffe92c82ebb9212a484a8d38631ead4238f5442ee13b8054e41b08bf2a9251c30b6a0b8aae86177ab4a6f68f673e7207865d5d9819a3dba4eb3b",
+      ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:
+        "dc37e008cf9ee69bf11f00ed9aba26901dd7c28cdec066cc6af42e40f82f3a1e08eba26629129d8fb7cb57211b9281a65517cc879d7b962142c65f5a7af01467",
+      ["1234567890".repeat(8)]:
+        "466ef18babb0154d25b9d38a6414f5c08784372bccb204d6549c4afadb6014294d5bd8df2a6c44e538cd047b2681a51a2c60481e88c5a20b2c2a80cf3a9a083b",
+      abcdbcdecdefdefgefghfghighijhijk:
+        "2a987ea40f917061f5d6f0a0e4644f488a7a5a52deee656207c562f988e95c6916bdc8031bc5be1b7b947639fe050b56939baaa0adff9ae6745b7b181c3be3fd",
+      ["a".repeat(1_000_000)]:
+        "0c99005beb57eff50a7cf005560ddf5d29057fd86b20bfd62deca0f1ccea4af51fc15490eddc47af32bb2b66c34ff9ad8c6008ad677f77126953b226e4ed8b01",
+    };
+    for (const [input, digest] of Object.entries(vectors)) {
+      expect(create("whirlpool").hash(input).digest).toBe(digest);
+    }
+  });
+
+  it("whirlpool is the final revision, so neither Whirlpool-0 nor Whirlpool-T stands in", () => {
+    /* All three digests of the sentence as Wikipedia's Whirlpool article lists them. */
+    const fox = create("whirlpool").hash("The quick brown fox jumps over the lazy dog").digest;
+    expect(fox).toBe(
+      "b97de512e91e3828b40d2b0fdce9ceb3c4a71f9bea8d88e75c4fa854df36725fd2b52eb6544edcacd6f8beddfea403cb55ae31f03ad62a5ef54e42ee82c3fb35",
+    );
+    expect(() => create("whirlpool-t")).toThrow("Unknown algorithm");
+  });
+
+  it("whirlpool and its HMAC match PHP's hash() at every length up to 299, fed whole or in pieces", () => {
+    /* The expected values are what PHP 8.5.11's hash("whirlpool") and hash_hmac() give. */
+    const digests: Uint8Array[] = [];
+    const tags: Uint8Array[] = [];
+    for (let length = 0; length < 300; length++) {
+      const data = Uint8Array.from({ length }, (_, i) => (i * 31 + length) & 0xff);
+      const key = Uint8Array.from({ length: length % 40 }, (_, i) => (i * 17 + 3) & 0xff);
+      const step = 1 + (length % 23);
+      const pieces = new WhirlpoolHasher();
+      for (let offset = 0; offset < length; offset += step) {
+        pieces.update(data.subarray(offset, offset + step));
+      }
+      const digest = create("whirlpool").hash(data, { encoding: "binary" }).digest as Uint8Array;
+      expect(pieces.digest()).toEqual(digest);
+      digests.push(digest);
+      tags.push(create("whirlpool").hash(data, { encoding: "binary", key }).digest as Uint8Array);
+    }
+    expect(createHash("sha256").update(Buffer.concat(digests)).digest("hex")).toBe(
+      "c902dc263eea18fae47249033b0a8f008d2a2709c587b724713cfbe10b00e8e1",
+    );
+    expect(createHash("sha256").update(Buffer.concat(tags)).digest("hex")).toBe(
+      "39120a229724e40eece9028b4efdbf4461cd6c1e7bf7e01fc95c04ce706b6749",
+    );
+    expect(create("whirlpool").hash("what do ya want for nothing?", { key: "Jefe" }).digest).toBe(
+      "3d595ccd1d4f4cfd045af53ba7d5c8283fee6ded6eaf1269071b6b4ea64800056b5077c6a942cfa1221bd4e5aed791276e5dd46a407d2b8007163d3e7cd1de66",
     );
   });
 
@@ -2230,6 +2292,7 @@ describe("extendDigest", () => {
       "sha512",
       "ripemd160",
       "ripemd320",
+      "whirlpool",
       "md5",
       "md4",
       "sha1",
@@ -2238,6 +2301,24 @@ describe("extendDigest", () => {
       "ripemd256",
       "tiger",
     ]);
+  });
+
+  it("forges Whirlpool past its 256-bit length, the digest PHP gives for the forged message", () => {
+    /* PHP 8.5.11: hash("whirlpool", "k3y" . "user=a" . $padding . "&admin=1"). */
+    const forged = extendDigest({
+      algorithm: "whirlpool",
+      digest: Uint8Array.fromHex(
+        "945d4d0498c790d2bf21ad8a821ba6f71aebb1aec83a767d1906aff6c0f37dbfb35b9cfb49cb3927330dd7672e01d6439700358c3639e19ad7666209d98d4503",
+      ),
+      message: text("user=a"),
+      secretLength: 3,
+      suffix: text("&admin=1"),
+    });
+
+    expect(forged.padding.toHex()).toBe(`80${"00".repeat(53)}48`);
+    expect(forged.digest.toHex()).toBe(
+      "50ac4fb64f8dd0a2425bc0fbfc994b143986e46bc9db2b73da35391c86566ff05bf06fa39cabfcddb15cd50b2c32e802c4efd6a2f29448efb53451cab3fba7b2",
+    );
   });
 
   it("forges Tiger with its 0x01 padding, the digest PHP gives for the forged message", () => {
@@ -2259,6 +2340,7 @@ describe("extendDigest", () => {
     "sha512",
     "ripemd160",
     "ripemd320",
+    "whirlpool",
     "md5",
     "md4",
     "sha1",
@@ -2597,6 +2679,24 @@ describe("identifyDigest", () => {
       ["haval", "haval"],
       ["haval", "haval"],
       ["tiger2", undefined],
+    ]);
+  });
+
+  it("computes Whirlpool for a 64-byte digest and names its older revisions without computing them", () => {
+    const found = identifyDigest(create("whirlpool").hash("abc").digest as string);
+
+    expect(
+      found.candidates
+        .filter((candidate) => candidate.fit === "length")
+        .map((candidate) => [candidate.name, candidate.algorithm]),
+    ).toEqual([
+      ["sha512", "sha512"],
+      ["sha3-512", "sha3-512"],
+      ["blake2b", "blake2b"],
+      ["whirlpool", "whirlpool"],
+      ["whirlpool-t", undefined],
+      ["whirlpool-0", undefined],
+      ["streebog512", undefined],
     ]);
   });
 
