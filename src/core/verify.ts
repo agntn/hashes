@@ -77,7 +77,7 @@ export function digestMatches(result: HashResult, expected: string): boolean {
 
 /**
  * Lists the single option changes, HAVAL's `bits` or a KDF's `keyLength`, that give `length`.
- * Each one runs once on empty input, a KDF at the caller's costs, and counts only if it's taken.
+ * Each one runs once on empty input, a KDF at its floor costs, and counts only if it's taken.
  *
  * @param hash - The algorithm.
  * @param options - The options the digest was computed with.
@@ -99,7 +99,33 @@ export function lengthFixes(
   const base = Object.fromEntries(
     Object.entries(options).filter(([name]) => name !== "rounds" && name !== "chain"),
   );
-  return candidates.filter((candidate) => givesLength(hash, { ...base, ...candidate }, length));
+  const floor = hash instanceof Kdf ? floorCosts(info, options) : {};
+  return candidates.filter((candidate) =>
+    givesLength(hash, { ...base, ...floor, ...candidate }, length),
+  );
+}
+
+/** The lowest cost each built-in KDF takes. No length, and no bound on one, depends on them. */
+const FLOOR_COSTS: Readonly<Record<string, number>> = { N: 2, r: 1, p: 1, iterations: 1 };
+
+/**
+ * The costs a KDF probe runs at, so checking a `keyLength` never costs a second derivation.
+ *
+ * @param info - The KDF's metadata.
+ * @param options - The options it ran with.
+ * @returns {Record<string, number>} Its floor costs, Argon2's memory at 8 KiB a lane.
+ */
+function floorCosts(
+  info: AlgorithmInfo,
+  options: Readonly<Record<string, unknown>>,
+): Record<string, number> {
+  const declared = new Set(info.options.map((option) => option.name));
+  const floor = Object.fromEntries(
+    Object.entries(FLOOR_COSTS).filter(([name]) => declared.has(name)),
+  );
+  const lanes = info.options.find((option) => option.name === "parallelism");
+  if (!declared.has("memory") || lanes === undefined) return floor;
+  return { ...floor, memory: 8 * Number(options.parallelism ?? lanes.default) };
 }
 
 /**

@@ -36,6 +36,7 @@ import {
   hashVerify,
   kdfMemory,
 } from "../src/tool-operations.ts";
+import { lengthFixes } from "../src/core/verify.ts";
 import {
   hashAlgorithmsSchema,
   hashComputeSchema,
@@ -517,6 +518,18 @@ describe("hashes MCP server", () => {
     expect(argon2.content[0]?.text.split("\n").at(-1)).toBe(
       "The lengths differ: expected is 2 bytes, argon2id gave 32. Next: hashes_digest_identify for the algorithms that give 2.",
     );
+  });
+
+  it("checks a KDF's keyLength fix at its floor costs, never at the caller's", () => {
+    const argon2 = { salt: "00".repeat(16), memory: 2 ** 22, iterations: 1e6, parallelism: 2 };
+
+    expect(lengthFixes(create("pbkdf2"), { salt: "00", iterations: 1e9 }, 64, 32)).toEqual([
+      { keyLength: 32 },
+    ]);
+    expect(lengthFixes(create("scrypt"), { salt: "00", N: 2 ** 20, r: 8 }, 64, 32)).toEqual([
+      { keyLength: 32 },
+    ]);
+    expect(lengthFixes(create("argon2id"), argon2, 32, 64)).toEqual([{ keyLength: 64 }]);
   });
 
   it("adds no length note when the lengths agree or an input matches", () => {
