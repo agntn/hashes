@@ -255,3 +255,8 @@ export const SAMPLE_OPTIONS: Partial<Record<BuiltinAlgorithm, Record<string, str
   argon2d: ARGON2_SAMPLE,
   bcrypt: { salt: "73616c7473616c7473616c7473616c74", cost: 4 },
 };
+
+/** What an extension sample sets besides the defaults: HAVAL folds its state below 256 bits. */
+export const EXTEND_OPTIONS: Partial<Record<BuiltinAlgorithm, Record<string, number>>> = {
+  haval: { bits: 256 },
+};

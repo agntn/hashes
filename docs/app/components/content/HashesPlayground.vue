@@ -29,6 +29,7 @@ import {
 } from "#tool-operations";
 import {
   ALGORITHMS,
+  EXTEND_OPTIONS,
   FAMILIES,
   SAMPLE_OPTIONS,
   algorithmEntry,
@@ -211,9 +212,11 @@ const searchWords = computed(() =>
 const entry = computed(() => algorithmEntry(algorithmName.value) ?? ALGORITHMS[0]!);
 const saltOption = computed(() => entry.value.info.options.find((option) => option.name === "salt"));
 const takesSalt = computed(() => saltOption.value !== undefined);
-/** The `parameters` a call takes besides encoding, key and salt. HMAC runs one round. */
+/** The `parameters` a call takes besides encoding, key and salt. HMAC and Extend run one round. */
 const parameterFields = computed(() =>
-  (operation.value === "hmac" ? ownOptions : callOptions)(entry.value.info).filter(
+  (operation.value === "hmac" || operation.value === "extend" ? ownOptions : callOptions)(
+    entry.value.info,
+  ).filter(
     (option) => option.name !== "salt",
   ),
 );
@@ -384,6 +387,7 @@ const toolArgs = computed((): Record<string, unknown> => {
       ...(suffixEncoding.value === "utf8" ? {} : { suffixEncoding: suffixEncoding.value }),
       secretLength: wholeNumber(secretLength.value),
       ...(fieldText(secretLengthMax.value) ? { secretLengthMax: wholeNumber(secretLengthMax.value) } : {}),
+      ...(Object.keys(parameters.value).length > 0 ? { parameters: parameters.value } : {}),
     };
   }
   const args: Record<string, unknown> = { algorithm: entry.value.slug, input: input.value };
@@ -622,6 +626,7 @@ const cliLine = computed(() => {
       suffixEncoding.value === "utf8" ? "" : `--suffix-encoding ${suffixEncoding.value}`,
       `--secret-length ${String(args.secretLength)}`,
       args.secretLengthMax === undefined ? "" : `--secret-length-max ${String(args.secretLengthMax)}`,
+      args.parameters === undefined ? "" : `--parameters ${shellArg(JSON.stringify(args.parameters))}`,
     ]);
   }
   const flags = [
@@ -863,14 +868,42 @@ function loadSample(slug: string) {
 }
 
 /**
+ * What the guide's server signs with another algorithm, at the options that keep the whole state.
+ *
+ * @param {string} slug - An algorithm that extends.
+ * @returns {string} The signature in hex.
+ */
+function signedDigest(slug: string): string {
+  const parameters = EXTEND_OPTIONS[slug as keyof typeof EXTEND_OPTIONS];
+  const input = EXTEND_SECRET + EXTEND_MESSAGE;
+  return hashCompute({ algorithm: slug, input, ...(parameters ? { parameters } : {}) }).details.digest;
+}
+
+/**
+ * Whether the form already holds an extension of the algorithm: a digest its length, HAVAL's bits.
+ *
+ * @param {string} slug - An algorithm that extends.
+ * @returns {boolean} `true` when switching to Extend can keep the form as it is.
+ */
+function extendReady(slug: string): boolean {
+  const required = EXTEND_OPTIONS[slug as keyof typeof EXTEND_OPTIONS] ?? {};
+  return (
+    knownDigest.value.trim().length === signedDigest(slug).length &&
+    Object.entries(required).every(([name, value]) => fieldText(values[name]) === String(value))
+  );
+}
+
+/**
  * The guide's attack with another algorithm: the digest the server signed, the message, the suffix.
  *
- * @param {string} slug - An algorithm whose digest is its whole state.
+ * @param {string} slug - An algorithm that extends, HAVAL at 256 bits.
  */
 function loadExtendSample(slug: string) {
   selectAlgorithm(slug);
-  const signed = hashCompute({ algorithm: slug, input: EXTEND_SECRET + EXTEND_MESSAGE });
-  knownDigest.value = signed.details.digest;
+  for (const [name, value] of Object.entries(EXTEND_OPTIONS[slug as keyof typeof EXTEND_OPTIONS] ?? {})) {
+    values[name] = String(value);
+  }
+  knownDigest.value = signedDigest(slug);
   message.value = EXTEND_MESSAGE;
   messageEncoding.value = "utf8";
   suffix.value = "&admin=true";
@@ -923,10 +956,7 @@ function selectOperation(op: Operation) {
   operation.value = op;
   if (op !== "extend") return;
   const slug = EXTENDABLE.has(entry.value.slug) ? entry.value.slug : "md5";
-  const length = (algorithmEntry(slug)?.info.digestLength ?? 0) * 2;
-  if (slug !== entry.value.slug || knownDigest.value.trim().length !== length) {
-    loadExtendSample(slug);
-  }
+  if (slug !== entry.value.slug || !extendReady(slug)) loadExtendSample(slug);
 }
 
 const { copied, copy } = useCopied();
@@ -1285,6 +1315,26 @@ const shareLink = computed(() => {
                     variant="none"
                     type="number"
                     placeholder="try every length up to this one"
+                    autocomplete="off"
+                    class="w-full"
+                  />
+                </dd>
+              </div>
+              <div v-for="field in parameterFields" :key="field.name">
+                <dt>
+                  <label :for="`playground-option-${field.name}`"
+                    >{{ field.name
+                    }}<span v-if="!field.required" class="playground-optional">?</span></label
+                  >
+                </dt>
+                <dd>
+                  <UInput
+                    :id="`playground-option-${field.name}`"
+                    v-model="values[field.name]"
+                    variant="none"
+                    :inputmode="field.type === 'number' ? 'numeric' : undefined"
+                    :placeholder="field.default !== undefined && field.default !== '' ? `default ${field.default}` : field.description"
+                    spellcheck="false"
                     autocomplete="off"
                     class="w-full"
                   />
@@ -1963,6 +2013,10 @@ const shareLink = computed(() => {
                     }}</span>
                   </UTooltip>
                 </dd>
+              </div>
+              <div v-if="answer.details.parameters">
+                <dt>Variant</dt>
+                <dd>{{ parameterLine(answer.details.parameters) }}</dd>
               </div>
               <div>
                 <dt>Secret</dt>

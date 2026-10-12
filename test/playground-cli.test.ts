@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash, createHmac, scryptSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { commandLine, optionFlags } from "../docs/app/utils/format.ts";
+import { commandLine, optionFlags, shellArg } from "../docs/app/utils/format.ts";
 
 const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
 
@@ -73,6 +73,25 @@ describe("the playground's CLI line", () => {
         p: 1,
       }).toString("hex"),
     });
+  });
+
+  it("hands extend HAVAL's options as JSON the shell keeps whole", () => {
+    /* PHP 8.5.11: hash("haval256,4", "k3y" . "user=a" . $padding . "&admin=1"). */
+    const parameters = JSON.stringify({ passes: 4, bits: 256 });
+    const line = commandLine(
+      "hashes extend haval",
+      ["206c3be5e68bae6a479028c23a69b369bc643dc7d106260a89b4a8f4506334f2"],
+      [
+        `--message ${shellArg("user=a")}`,
+        `--suffix ${shellArg("&admin=1")}`,
+        "--secret-length 3",
+        `--parameters ${shellArg(parameters)}`,
+      ],
+    );
+
+    expect(shell(line).stdout).toContain(
+      "digest  742f315b0257b1345e7fc65dcf9fef3b963d1d3f72f19c50cec93da4676a45e0",
+    );
   });
 
   it("pipes a lone dash, which the CLI reads as stdin", () => {

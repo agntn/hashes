@@ -127,6 +127,22 @@ const probes: Record<keyof typeof TOOL_ARGUMENTS, readonly unknown[]> = {
       secretLength: 1,
     },
     { algorithm: "sha256", digest: "00".repeat(32), message: "m", secretLength: 1 },
+    {
+      algorithm: "haval",
+      digest: "00".repeat(32),
+      message: "m",
+      suffix: "s",
+      secretLength: 1,
+      parameters: { bits: 256 },
+    },
+    {
+      algorithm: "haval",
+      digest: "00".repeat(32),
+      message: "m",
+      suffix: "s",
+      secretLength: 1,
+      parameters: { bits: 25.6 },
+    },
   ],
   hashes_digest_identify: [
     { digest: "00".repeat(16) },
