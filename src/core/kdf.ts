@@ -26,6 +26,8 @@ export abstract class Kdf<Options extends HashOptions = HashOptions> extends Has
   protected readonly options: readonly HashOption[] = [];
   /** Finishes the error that refuses `rounds`, after the key. */
   protected readonly roundsNote: string = "sets its cost with its own parameters";
+  /** Costs that make `derive` nearly free without changing the length, so verify can try one. */
+  readonly floorCosts?: Readonly<Record<string, number>>;
 
   /**
    * Derives the key.

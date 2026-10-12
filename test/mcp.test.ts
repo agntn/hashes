@@ -7,10 +7,13 @@ import { Pbkdf2 } from "../src/algorithms/index.ts";
 import { serverInfo } from "../src/server-info.ts";
 import {
   type AlgorithmInfo,
+  type Derivation,
   Hash,
   type HashInput,
   type HashOptions,
   type HashResult,
+  InvalidOptionError,
+  Kdf,
   builtinAlgorithms,
   create,
   extendableAlgorithms,
@@ -521,7 +524,7 @@ describe("hashes MCP server", () => {
   });
 
   it("checks a KDF's keyLength fix at its floor costs, never at the caller's", () => {
-    const argon2 = { salt: "00".repeat(16), memory: 2 ** 22, iterations: 1e6, parallelism: 2 };
+    const argon2 = { salt: "00".repeat(16), memory: 2 ** 22, iterations: 1e6, parallelism: 8192 };
 
     expect(lengthFixes(create("pbkdf2"), { salt: "00", iterations: 1e9 }, 64, 32)).toEqual([
       { keyLength: 32 },
@@ -530,6 +533,35 @@ describe("hashes MCP server", () => {
       { keyLength: 32 },
     ]);
     expect(lengthFixes(create("argon2id"), argon2, 32, 64)).toEqual([{ keyLength: 64 }]);
+  });
+
+  it("checks a KDF without floorCosts at the caller's costs", () => {
+    interface FiveOptions extends HashOptions {
+      iterations?: number;
+      keyLength?: number;
+    }
+    /* A KDF that refuses fewer than five iterations and declares no floor. */
+    class Five extends Kdf<FiveOptions> {
+      static readonly key = "five";
+      protected readonly about = {
+        label: "Five",
+        description: "Refuses fewer than five iterations",
+        family: "Probe",
+        category: "password",
+      } as const;
+      protected override readonly options = [
+        { name: "iterations", type: "number", required: false, default: 5, description: "Rounds" },
+        { name: "keyLength", type: "number", required: false, default: 32, description: "Bytes" },
+      ] as const;
+
+      protected derive(bytes: Uint8Array, options?: Readonly<FiveOptions>): Derivation {
+        const { iterations = 5, keyLength = 32 } = options ?? {};
+        if (iterations < 5) throw new InvalidOptionError("iterations", iterations, "at least 5");
+        return { digest: new Uint8Array(keyLength).fill(bytes.length), reported: { keyLength } };
+      }
+    }
+
+    expect(lengthFixes(new Five(), { iterations: 5 }, 32, 16)).toEqual([{ keyLength: 16 }]);
   });
 
   it("adds no length note when the lengths agree or an input matches", () => {

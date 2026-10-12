@@ -79,6 +79,7 @@ export class Pbkdf2 extends Kdf<Pbkdf2Options> {
     securityNote:
       "OWASP Password Storage Cheat Sheet: >=600000 iterations with HMAC-SHA256, >=220000 with HMAC-SHA512.",
   } as const;
+  override readonly floorCosts = { iterations: 1 };
   protected override readonly options = [
     SALT_OPTION,
     {

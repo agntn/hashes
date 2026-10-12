@@ -74,6 +74,7 @@ export class EvpBytesToKey extends Kdf<EvpBytesToKeyOptions> {
     securityNote:
       "Weak: one fast hash per block, so a password falls to a GPU. Only for reading what OpenSSL or CryptoJS already wrote. Use scrypt or pbkdf2 for anything new.",
   } as const;
+  override readonly floorCosts = { iterations: 1 };
   protected override readonly options = [
     {
       name: "salt",

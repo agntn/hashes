@@ -41,6 +41,7 @@ export class Hkdf extends Kdf<HkdfOptions> {
     securityNote:
       "Not for passwords: HKDF adds no cost, so a guessable input stays guessable. Use scrypt or pbkdf2 there.",
   } as const;
+  override readonly floorCosts = {};
   protected override readonly options = [
     {
       name: "salt",
