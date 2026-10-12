@@ -48,6 +48,7 @@ import {
   MAX_KEY_LENGTH,
   MAX_PARAMETER_LENGTH,
   MAX_PARAMETERS,
+  ITERATION_COSTS,
   MAX_ARGON2_WORK,
   MAX_FORGED_LENGTH,
   MAX_JOINER_LENGTH,
@@ -59,6 +60,7 @@ import {
   MAX_SEARCH_WORDS,
   MAX_SECRET_LENGTH,
   MAX_SECRET_LENGTHS,
+  MAX_ITERATION_WORK,
   MAX_SCRYPT_MEMORY,
   MAX_WORD_LENGTH,
   PARAMETER_LIMITS,
@@ -472,6 +474,7 @@ function algorithmOptions(
   for (const [name, value] of Object.entries(options)) assertWithinLimit(name, value);
   assertScryptMemory(algorithm, options);
   assertArgon2Work(algorithm, options);
+  assertIterationWork(algorithm, options);
   return options;
 }
 
@@ -575,6 +578,63 @@ function assertArgon2Work(
   }
 }
 
+/** What a PBKDF2 or EVP_BytesToKey call costs, and the output that sets the price. */
+interface IterationWork {
+  readonly digest: string;
+  readonly bytes: number;
+  readonly length: number;
+  readonly iterations: number;
+  readonly work: number;
+}
+
+/**
+ * Prices a call by `ITERATION_COSTS`: each iteration runs once per digest the output takes, so
+ * `keyLength` multiplies the bill. A digest the table lacks is the library's to refuse.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The checked options.
+ * @returns {IterationWork | undefined} The price, or nothing for any other algorithm.
+ */
+function iterationWork(
+  algorithm: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+): IterationWork | undefined {
+  const prices = Object.hasOwn(ITERATION_COSTS, algorithm.key)
+    ? ITERATION_COSTS[algorithm.key]
+    : undefined;
+  const fallback = parameterOptions(algorithm).find((option) => option.name === "digest");
+  const digest = String(options["digest"] ?? fallback?.default);
+  if (prices === undefined || !Object.hasOwn(prices, digest)) return undefined;
+  const all = costs(algorithm, options);
+  const at = (name: string): number => all.get(name) ?? 0;
+  const length = resolveAlgorithm(digest).info().digestLength ?? 1;
+  const bytes = at("keyLength") + at("ivLength");
+  const iterations = at("iterations");
+  const work = iterations * Math.ceil(bytes / length) * prices[digest]!;
+  return { digest, bytes, length, iterations, work };
+}
+
+/**
+ * Keeps a PBKDF2 or EVP_BytesToKey call within `MAX_ITERATION_WORK`, naming the count that fits.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The checked options.
+ */
+function assertIterationWork(
+  algorithm: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+): void {
+  const priced = iterationWork(algorithm, options);
+  if (priced === undefined || priced.work <= MAX_ITERATION_WORK) return;
+  const { digest, bytes, length, iterations, work } = priced;
+  const fits = Math.floor((MAX_ITERATION_WORK * iterations) / work);
+  throw new InvalidOptionError(
+    "iterations",
+    iterations,
+    `${digest} fills ${bytes} bytes ${length} at a time, so a tool call runs at most ${fits} iterations; lower iterations or ask for fewer bytes`,
+  );
+}
+
 /** What one input of a list costs, against the most one call may spend. */
 interface BatchWork {
   readonly name: string;
@@ -616,6 +676,11 @@ function batchWork(
   }
   if (all.has("cost")) {
     return { name: "cost", value: at("cost"), work: 2 ** at("cost"), limit: 2 ** limitOf("cost") };
+  }
+  const priced = iterationWork(algorithm, options);
+  if (priced !== undefined) {
+    const { iterations, work } = priced;
+    return { name: "iterations", value: iterations, work, limit: MAX_ITERATION_WORK };
   }
   const name = ["iterations", "rounds"].find((each) => all.has(each));
   if (name === undefined) return undefined;

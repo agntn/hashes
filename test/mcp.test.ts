@@ -14,6 +14,7 @@ import {
   type HashResult,
   InvalidOptionError,
   Kdf,
+  algorithms,
   builtinAlgorithms,
   create,
   extendableAlgorithms,
@@ -24,6 +25,7 @@ import {
   BUILTIN_FAMILIES,
   EXTENDABLE_ALGORITHMS,
   HMAC_ALGORITHMS,
+  ITERATION_COSTS,
   MAX_BATCH_DIGESTS,
   MAX_BATCH_INPUTS,
   MAX_EXPECTED_LENGTH,
@@ -878,6 +880,48 @@ describe("hashes MCP server", () => {
     );
   });
 
+  it("prices PBKDF2 and EVP_BytesToKey by digest and by the bytes asked for", async () => {
+    const refusal = async (algorithm: string, parameters: object) =>
+      (await call("hashes_compute", { algorithm, input: "x", salt: "00".repeat(8), parameters }))
+        .text;
+
+    expect(
+      await refusal("pbkdf2", { digest: "whirlpool", keyLength: 1024, iterations: 10_000_000 }),
+    ).toBe(
+      "hashes_compute failed: Invalid option iterations=10000000: whirlpool fills 1024 bytes 64 at a time, so a tool call runs at most 36337 iterations; lower iterations or ask for fewer bytes",
+    );
+    expect(
+      await refusal("pbkdf2", { digest: "sha3-256", keyLength: 64, iterations: 10_000_000 }),
+    ).toContain("sha3-256 fills 64 bytes 32 at a time, so a tool call runs at most 581395");
+    expect(await refusal("pbkdf2", { digest: "sha256", iterations: 3_000_000 })).toContain(
+      "sha256 fills 64 bytes 32 at a time, so a tool call runs at most 2500000",
+    );
+    expect(
+      await refusal("evp-bytestokey", { keyLength: 1024, ivLength: 1024, iterations: 200_000 }),
+    ).toContain("md5 fills 2048 bytes 16 at a time, so a tool call runs at most 156250");
+  });
+
+  it("prices every digest PBKDF2 and EVP_BytesToKey take", () => {
+    for (const kdf of ["pbkdf2", "evp-bytestokey"]) {
+      const taken = algorithms().filter((digest) => {
+        try {
+          const options: HashOptions & Record<string, unknown> = {
+            digest,
+            iterations: 1,
+            keyLength: 1,
+            salt: "00".repeat(8),
+          };
+          create(kdf).hash("x", options);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+
+      expect(Object.keys(ITERATION_COSTS[kdf] ?? {}).toSorted()).toEqual(taken.toSorted());
+    }
+  });
+
   it("caps Argon2 memory and memory times passes, defaults included", async () => {
     const compute = (parameters: object) =>
       call("hashes_compute", {
@@ -1330,6 +1374,10 @@ describe("hashes MCP server", () => {
       digest:
         "$argon2id$v=19$m=9999999999,t=2,p=1$c29tZXNhbHRzYWx0$8mkYn4qtK5HHJtQQI+FNQKE4UECfkb5diD560/y7mZs",
     });
+    const django = (iterations: string) =>
+      hashDigestIdentify({
+        digest: `pbkdf2_sha256$${iterations}$somesalt$${Buffer.alloc(32, 7).toString("base64")}`,
+      }).content[0]!;
 
     expect(bcrypt.text.split("\n").slice(2)).toEqual([
       "bcrypt is past what hashes_verify runs: Invalid option cost=17: must be 1 to 16 in a tool call.",
@@ -1338,6 +1386,10 @@ describe("hashes MCP server", () => {
       "argon2id is past what hashes_verify runs: Invalid option iterations=100",
     );
     expect(argon2.text).not.toContain("Next:");
+    expect(django("1200000").text).toContain("Next: hashes_verify");
+    expect(django("6000000").text.split("\n").at(-1)).toBe(
+      "django-pbkdf2 is past what hashes_verify runs: Invalid option iterations=6000000: sha256 fills 32 bytes 32 at a time, so a tool call runs at most 5000000 iterations; lower iterations or ask for fewer bytes.",
+    );
     expect(huge.text.split("\n").at(-1)).toBe(
       "argon2id is past what hashes_verify runs: Invalid option memory=9999999999: must be 1 to 262144 in a tool call.",
     );
@@ -1616,9 +1668,16 @@ describe("lists of inputs", () => {
   });
 
   it("cost no more than the costliest single call", () => {
+    expect(() => hashCompute({ algorithm: "pbkdf2", input: ["a", "b", "c"] })).toThrow(
+      "with iterations 600000 one call hashes at most 2 inputs",
+    );
     expect(() =>
-      hashCompute({ algorithm: "pbkdf2", input: Array.from({ length: 17 }, () => "x") }),
-    ).toThrow("with iterations 600000 one call hashes at most 16 inputs");
+      hashCompute({
+        algorithm: "pbkdf2",
+        input: Array.from({ length: 9 }, () => "x"),
+        parameters: { digest: "sha256", keyLength: 32 },
+      }),
+    ).toThrow("with iterations 600000 one call hashes at most 8 inputs");
     expect(() =>
       hashCompute({ algorithm: "sha256", input: ["a", "b"], parameters: { rounds: 600_000 } }),
     ).toThrow("with rounds 600000 one call hashes at most 1 input");

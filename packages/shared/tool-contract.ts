@@ -42,6 +42,20 @@ export const ZERO_PARAMETERS: readonly string[] = ["ivLength"];
 export const MAX_SCRYPT_MEMORY = 256 * 1024 * 1024;
 /** Most KiB an Argon2 call may fill over all its passes, memory * iterations: about 5 s. */
 export const MAX_ARGON2_WORK = 1_048_576;
+/** Nanoseconds one iteration costs per digest of output, by KDF and digest, on Node 26. */
+export const ITERATION_COSTS: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+  pbkdf2: {
+    sha256: 1_000,
+    sha384: 3_800,
+    sha512: 3_800,
+    "sha3-256": 4_300,
+    "sha3-512": 4_600,
+    whirlpool: 8_600,
+  },
+  "evp-bytestokey": { md5: 250, sha1: 300, sha256: 450 },
+};
+/** Most nanoseconds a PBKDF2 or EVP_BytesToKey call may spend, iterations * digests * cost: 5 s. */
+export const MAX_ITERATION_WORK = 5_000_000_000;
 
 /** A digest to extend in hex: 16 to 64 bytes, MD4 to SHA-512. */
 export const DIGEST_PATTERN = "^(?:[0-9A-Fa-f]{2}){16,64}$";
