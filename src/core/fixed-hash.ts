@@ -16,6 +16,9 @@ import type { AlgorithmInfo, HashInput, HashOption, HashOptions, HashResult } fr
 /** The options every fixed-length digest takes: how many rounds, and what each next one hashes. */
 export const ROUND_OPTIONS: readonly HashOption[] = [ROUNDS_OPTION, CHAIN_OPTION];
 
+/** Why an HMAC turns down `rounds` and `chain`, the same on every surface. */
+export const HMAC_ONE_ROUND = "HMAC runs one round";
+
 /** Base class for a fixed-length digest, with no HMAC mode unless a subclass adds one. */
 export abstract class FixedHash<Options extends HashOptions = HashOptions> extends Hash {
   /** Label, description, family, digest length and security note. */
@@ -86,7 +89,7 @@ export abstract class FixedHash<Options extends HashOptions = HashOptions> exten
       const encoding = outputEncoding(options);
       const { rounds, chain } = roundOptions(options);
       if (options?.key !== undefined) {
-        assertOneRound(options, "HMAC runs one round");
+        assertOneRound(options, HMAC_ONE_ROUND);
         const tag = this.hmac(toBytes(options.key), toBytes(input), options);
         return encodeDigest(tag, this.key, "hmac", encoding, {
           ...this.reported(options),

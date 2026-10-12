@@ -43,6 +43,7 @@ import {
   searchDigest,
   blake2b,
   builtinAlgorithms,
+  checkedParameters,
   adler32,
   crc16Xmodem,
   crc24,
@@ -63,6 +64,7 @@ import {
   keccakF1600,
   md5,
   normalizeError,
+  oneRoundOptions,
   pbkdf2,
   register,
   resolveAlgorithm,
@@ -1932,6 +1934,28 @@ describe("rounds", () => {
       "scrypt sets its cost with its own parameters",
     );
   });
+
+  it("names only what HMAC and extension take when a parameter is unknown", () => {
+    const names = (algorithm: string) => oneRoundOptions(create(algorithm)).map(({ name }) => name);
+    const haval = create("haval");
+
+    expect(names("haval")).toEqual(["passes", "bits"]);
+    expect(names("sha256")).toEqual([]);
+    expect(names("scrypt")).toEqual(["salt", "N", "r", "p", "keyLength"]);
+    expect(() => checkedParameters(haval, { salt: "00" })).toThrow(
+      /^Invalid option salt=00: haval takes passes, bits, rounds, chain$/u,
+    );
+    expect(() => checkedParameters(haval, { salt: "00" }, "HMAC runs one round")).toThrow(
+      /^Invalid option salt=00: haval takes passes, bits$/u,
+    );
+    expect(() => checkedParameters(haval, { chain: "hex" }, "HMAC runs one round")).toThrow(
+      /^Invalid option chain=hex: HMAC runs one round$/u,
+    );
+    expect(checkedParameters(haval, { rounds: "1", bits: "160" }, "HMAC runs one round")).toEqual({
+      rounds: 1,
+      bits: 160,
+    });
+  });
 });
 
 describe("key derivation", () => {
@@ -2486,7 +2510,7 @@ describe("extendDigest", () => {
       "Invalid option chain=hex",
     );
     expect(() => extendDigest({ ...base, algorithm: "haval", parameters: { bitz: 256 } })).toThrow(
-      "haval takes passes, bits, rounds, chain",
+      /^Invalid option bitz=256: haval takes passes, bits$/u,
     );
     expect(extendDigest({ ...base, parameters: { rounds: 1 } }).parameters).toEqual({});
   });

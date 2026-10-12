@@ -4,12 +4,15 @@
  * digest of `secret || message || padding || suffix` without the secret.
  */
 import { BlockHash } from "./block-hash.ts";
-import { assertOneRound } from "./digest.ts";
 import { InvalidOptionError } from "./errors.ts";
-import { ROUND_OPTIONS } from "./fixed-hash.ts";
 import type { Hash } from "./hash.ts";
 import { MerkleDamgard, assertBytes, viewOf, writeBitLength } from "./hasher.ts";
-import { type ParameterValue, checkedParameters, parameterOptions } from "./options.ts";
+import {
+  type ParameterValue,
+  checkedParameters,
+  oneRoundOptions,
+  parameterOptions,
+} from "./options.ts";
 import { algorithms, create } from "./registry.ts";
 import { resolveAlgorithm } from "./resolve.ts";
 import { ResumableHasher } from "./resumable.ts";
@@ -17,6 +20,9 @@ import type { HashOptions } from "./types.ts";
 
 /** Option values by name, as `parameters` carries them. */
 type OptionValues = Readonly<Record<string, ParameterValue>>;
+
+/** Why length extension turns down a second round. */
+export const EXTENSION_ONE_ROUND = "a second round hides the state, so it can't be extended";
 
 /** What `extendDigest` takes. */
 export interface ExtendDigestOptions {
@@ -68,16 +74,6 @@ function extendableHasher(
 }
 
 /**
- * Whether an option repeats the hash, which extension refuses past one round.
- *
- * @param name - The option's name.
- * @returns {boolean} `true` for `rounds` and `chain`.
- */
-function repeats(name: string): boolean {
-  return ROUND_OPTIONS.some((option) => option.name === name);
-}
-
-/**
  * The one option value that makes the digest the whole state, such as HAVAL's `bits: 256`.
  *
  * @param algorithm - The algorithm.
@@ -88,8 +84,7 @@ function extendingChoice(
   algorithm: Hash,
   parameters: OptionValues,
 ): [string, ParameterValue] | undefined {
-  for (const option of parameterOptions(algorithm)) {
-    if (repeats(option.name)) continue;
+  for (const option of oneRoundOptions(algorithm)) {
     const current = parameters[option.name] ?? option.default;
     const fits = (option.choices ?? []).find(
       (choice) =>
@@ -168,8 +163,7 @@ export function extendableAlgorithms(): string[] {
 export function extendDigest(options: Readonly<ExtendDigestOptions>): ExtendedDigest {
   const { digest, message, secretLength, suffix } = options;
   const algorithm = resolveAlgorithm(options.algorithm);
-  const parameters = checkedParameters(algorithm, options.parameters ?? {});
-  assertOneRound(parameters, "a second round hides the state, so it can't be extended");
+  const parameters = checkedParameters(algorithm, options.parameters ?? {}, EXTENSION_ONE_ROUND);
   const hasher = extendableHasher(algorithm, parameters);
   if (hasher === undefined) throw refusal(algorithm, parameters);
   assertBytes(digest, "digest");
@@ -220,9 +214,9 @@ function reportedParameters(
   parameters: OptionValues,
 ): Record<string, ParameterValue> {
   const reported: Record<string, ParameterValue> = {};
-  for (const option of parameterOptions(algorithm)) {
+  for (const option of oneRoundOptions(algorithm)) {
     const value = parameters[option.name] ?? option.default;
-    if (repeats(option.name) || typeof value === "boolean" || value === undefined) continue;
+    if (typeof value === "boolean" || value === undefined) continue;
     reported[option.name] = value;
   }
   return reported;
