@@ -348,10 +348,10 @@ describe("hashes MCP server", () => {
       "hashes_hmac_compute failed: Invalid option parameters=key: pass the key as the key argument",
     );
     expect((await hmac("haval", { salt: "00" })).text).toBe(
-      "hashes_hmac_compute failed: Invalid option salt=00: haval takes passes, bits, rounds, chain",
+      "hashes_hmac_compute failed: Invalid option salt=00: haval takes passes, bits",
     );
     expect((await hmac("sha256", { bits: 160 })).text).toBe(
-      "hashes_hmac_compute failed: Invalid option bits=160: sha256 takes rounds, chain",
+      "hashes_hmac_compute failed: Invalid option bits=160: sha256 takes no parameters",
     );
   });
 
@@ -1455,7 +1455,7 @@ describe("hashes MCP server", () => {
     [{ message: "x".repeat(MAX_INPUT_LENGTH) }, "run past 1000000 hex digits"],
     [{ algorithm: "haval" }, "bits=128: haval extends with bits 256"],
     [{ parameters: { rounds: 2 } }, "rounds=2: a second round hides the state"],
-    [{ parameters: { salt: "00" } }, "sha256 takes rounds, chain"],
+    [{ parameters: { salt: "00" } }, "salt=00: sha256 takes no parameters"],
     [{ parameters: { rounds: 1_000_001 } }, "rounds=1000001"],
   ])("refuses %o", async (args, message) => {
     const answer = await call("hashes_digest_extend", {

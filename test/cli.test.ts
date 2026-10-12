@@ -225,6 +225,11 @@ describe("hashes CLI", () => {
     expect(run(["hmac", "sha256", "m", "k", "--rounds", "2"]).stderr).toContain(
       'unknown option "--rounds"',
     );
+    expect(run(["hmac", "sha256", "m", "k", "--bits", "160"])).toEqual({
+      code: 1,
+      stderr: "Invalid option bits=160: sha256 takes no parameters\n",
+      stdout: "",
+    });
   });
 
   it("extends HAVAL-256 with its passes and bits as JSON, and names bits 256 without them", () => {

@@ -12,7 +12,8 @@ import { decodeInput, parameterText, toBytes } from "./core/digest.ts";
 import { HashError, quoted, shown } from "./core/errors.ts";
 import { checkedParameters, parameterOptions, type ParameterValue } from "./core/options.ts";
 import { algorithmInfos } from "./core/resolve.ts";
-import { extendDigest, secretLengths } from "./core/extend.ts";
+import { EXTENSION_ONE_ROUND, extendDigest, secretLengths } from "./core/extend.ts";
+import { HMAC_ONE_ROUND } from "./core/fixed-hash.ts";
 import { identifyDigest, identityText, type DigestIdentity } from "./core/identify.ts";
 import {
   searchDigest,
@@ -450,6 +451,7 @@ function assertWithinLimit(name: string, value: ParameterValue): void {
  * @param salt - The salt argument as passed.
  * @param parameters - The parameters argument as passed.
  * @param accepted - The arguments the tool takes, which an option in `parameters` is sent to.
+ * @param oneRound - Why the tool runs one round, for HMAC and length extension.
  * @returns {Record<string, ParameterValue>} The options to hash with.
  */
 function algorithmOptions(
@@ -457,6 +459,7 @@ function algorithmOptions(
   salt: unknown,
   parameters: unknown,
   accepted: readonly string[],
+  oneRound?: string,
 ): Record<string, ParameterValue> {
   if (parameters !== undefined && (typeof parameters !== "object" || parameters === null)) {
     throw new InvalidOptionError("parameters", parameters, "must be an object of option values");
@@ -465,7 +468,7 @@ function algorithmOptions(
   assertParameterEntries(given, algorithm.info().hmac, accepted);
   const hexSalt = saltArgument(salt);
   if (hexSalt !== undefined) given["salt"] = hexSalt;
-  const options = checkedParameters(algorithm, given);
+  const options = checkedParameters(algorithm, given, oneRound);
   for (const [name, value] of Object.entries(options)) assertWithinLimit(name, value);
   assertScryptMemory(algorithm, options);
   assertArgon2Work(algorithm, options);
@@ -896,6 +899,7 @@ export function hashHmac(params: HashHmacParams): ToolResult<DigestDetails | Dig
     undefined,
     params.parameters,
     TOOL_ARGUMENTS.hashes_hmac_compute,
+    HMAC_ONE_ROUND,
   );
   const tag = (input: HashInput): DigestDetails =>
     digestDetails(algorithm.hash(input, { ...options, encoding, key } as HashOptions), encoding);
@@ -1123,6 +1127,7 @@ export function hashDigestExtend(params: HashDigestExtendParams): ToolResult<Ext
     undefined,
     params.parameters,
     TOOL_ARGUMENTS.hashes_digest_extend,
+    EXTENSION_ONE_ROUND,
   );
   const digest = Uint8Array.fromHex(hex);
   const extensions: Extension[] = [];

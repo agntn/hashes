@@ -2,6 +2,7 @@ import {
   builtinAlgorithms,
   create,
   hashCategories,
+  oneRoundOptions,
   type AlgorithmInfo,
   type BuiltinAlgorithm,
   type HashCategory,
@@ -213,17 +214,14 @@ export function callOptions(info: AlgorithmInfo): AlgorithmInfo["options"] {
   return info.options.filter((option) => option.name !== "encoding" && option.name !== "key");
 }
 
-/** Options every fixed-length digest takes, so they tell no algorithm apart from another. */
-const SHARED_OPTIONS = new Set(["rounds", "chain"]);
-
 /**
- * The options that set an algorithm apart, without the rounds every fixed-length digest takes.
+ * What sets an algorithm apart: `oneRoundOptions`, which is also all that HMAC and Extend take.
  *
  * @param {AlgorithmInfo} info - The algorithm's metadata.
  * @returns {AlgorithmInfo["options"]} Salt, seed and cost parameters, in declared order.
  */
 export function ownOptions(info: AlgorithmInfo): AlgorithmInfo["options"] {
-  return callOptions(info).filter((option) => !SHARED_OPTIONS.has(option.name));
+  return oneRoundOptions(create(info.name));
 }
 
 /**

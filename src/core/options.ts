@@ -1,4 +1,6 @@
+import { assertOneRound } from "./digest.ts";
 import { InvalidOptionError } from "./errors.ts";
+import { ROUND_OPTIONS } from "./fixed-hash.ts";
 import type { Hash } from "./hash.ts";
 import type { HashOption } from "./types.ts";
 
@@ -16,6 +18,18 @@ export type ParameterValue = number | string;
  */
 export function parameterOptions(algorithm: Hash): HashOption[] {
   return algorithm.info().options.filter((option) => !RESERVED.has(option.name));
+}
+
+/**
+ * What an HMAC or a length extension can use: every parameter but `rounds` and `chain`.
+ *
+ * @param algorithm - The algorithm.
+ * @returns {HashOption[]} HAVAL's passes and bits, say, or nothing at all for SHA-256.
+ */
+export function oneRoundOptions(algorithm: Hash): HashOption[] {
+  return parameterOptions(algorithm).filter(
+    (option) => !ROUND_OPTIONS.some((round) => round.name === option.name),
+  );
 }
 
 /**
@@ -68,11 +82,14 @@ function coerceType(option: Readonly<HashOption>, value: unknown): ParameterValu
  *
  * @param algorithm - The algorithm the parameters are for.
  * @param values - Parameter values by option name.
+ * @param oneRound - Why the call runs one round, as HMAC and extension do: a second round gets it
+ *   as its error, and an unknown name hears only what `oneRoundOptions` lists.
  * @returns {Record<string, ParameterValue>} The values in their declared types.
  */
 export function checkedParameters(
   algorithm: Hash,
   values: Readonly<Record<string, unknown>>,
+  oneRound?: string,
 ): Record<string, ParameterValue> {
   const declared = new Map(
     parameterOptions(algorithm).map((option) => [option.name, option] as const),
@@ -80,12 +97,32 @@ export function checkedParameters(
   const checked: Record<string, ParameterValue> = {};
   for (const [name, value] of Object.entries(values)) {
     const option = declared.get(name);
-    if (option === undefined) {
-      const takes =
-        declared.size > 0 ? `takes ${[...declared.keys()].join(", ")}` : "takes no parameters";
-      throw new InvalidOptionError(name, value, `${algorithm.name()} ${takes}`);
-    }
+    if (option === undefined) throw unknownParameter(algorithm, name, value, oneRound);
     checked[name] = coerce(option, value);
   }
+  if (oneRound !== undefined) assertOneRound(checked, oneRound);
   return checked;
+}
+
+/**
+ * Refuses a name the algorithm doesn't declare, and names what the call does take instead.
+ *
+ * @param algorithm - The algorithm the parameter was for.
+ * @param name - The parameter as passed.
+ * @param value - Its value.
+ * @param oneRound - Why the call runs one round, when it does: `rounds` and `chain` stay unlisted.
+ * @returns {InvalidOptionError} The error to throw.
+ */
+function unknownParameter(
+  algorithm: Hash,
+  name: string,
+  value: unknown,
+  oneRound: string | undefined,
+): InvalidOptionError {
+  const taken = (oneRound === undefined ? parameterOptions : oneRoundOptions)(algorithm);
+  const takes =
+    taken.length > 0
+      ? `takes ${taken.map((option) => option.name).join(", ")}`
+      : "takes no parameters";
+  return new InvalidOptionError(name, value, `${algorithm.name()} ${takes}`);
 }

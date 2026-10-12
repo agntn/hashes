@@ -16,7 +16,7 @@ import {
 import { INPUT_ENCODINGS, TEXT_ENCODINGS } from "../packages/shared/tool-contract.ts";
 import { ENCODING_OPTION, decodeInput, parameterText, type InputEncoding } from "./core/digest.ts";
 import { quoted, shown } from "./core/errors.ts";
-import { ROUND_OPTIONS } from "./core/fixed-hash.ts";
+import { HMAC_ONE_ROUND } from "./core/fixed-hash.ts";
 import { identifyDigest, identityText, type DigestIdentity } from "./core/identify.ts";
 import {
   searchDigest,
@@ -32,10 +32,12 @@ import {
   checkedParameters,
   create,
   digestMatches,
+  oneRoundOptions,
   parameterOptions,
   resolveAlgorithm,
   type Hash,
   type HashInput,
+  type HashOption,
   type HashOptions,
   type HashResult,
   type ParameterValue,
@@ -95,17 +97,16 @@ function flagDescription(meanings: readonly (readonly [string, readonly string[]
  * `--seed`, `--n` or `--iterations`, each naming the algorithms that declare it.
  *
  * @param names - The algorithms whose options become flags.
- * @param skipped - Options left out, such as `rounds` for HMAC, which runs one.
+ * @param optionsOf - Which of an algorithm's options the command takes: `oneRoundOptions` for HMAC.
  * @returns {Record<string, TOptional<TString>>} The flags by option name.
  */
 function builtinParameters(
   names: readonly string[],
-  skipped: readonly string[] = [],
+  optionsOf: (algorithm: Hash) => HashOption[] = parameterOptions,
 ): Record<string, TOptional<TString>> {
   const flags = new Map<string, Map<string, string[]>>();
   for (const name of names) {
-    for (const option of parameterOptions(create(name))) {
-      if (skipped.includes(option.name)) continue;
+    for (const option of optionsOf(create(name))) {
       const meanings = flags.get(option.name) ?? new Map<string, string[]>();
       meanings.set(option.description, [...(meanings.get(option.description) ?? []), name]);
       flags.set(option.name, meanings);
@@ -122,7 +123,7 @@ function builtinParameters(
 const parameters = builtinParameters(builtinAlgorithms);
 const hmacParameters = builtinParameters(
   builtinAlgorithms.filter((name) => create(name).info().hmac),
-  ROUND_OPTIONS.map((option) => option.name),
+  oneRoundOptions,
 );
 
 /**
@@ -132,19 +133,21 @@ const hmacParameters = builtinParameters(
  * @param algorithm - The resolved algorithm.
  * @param args - The parsed arguments.
  * @param flags - The parameter flags the command takes.
+ * @param oneRound - Why the command runs one round, for HMAC.
  * @returns {Record<string, ParameterValue>} The options to hash with.
  */
 function readParameters(
   algorithm: Hash,
   args: Readonly<Record<string, unknown>>,
   flags: Readonly<Record<string, unknown>> = parameters,
+  oneRound?: string,
 ): Record<string, ParameterValue> {
   const given = Object.fromEntries(
     Object.keys(flags)
       .filter((name) => args[name] !== undefined)
       .map((name) => [name, args[name]] as const),
   );
-  return checkedParameters(algorithm, given);
+  return checkedParameters(algorithm, given, oneRound);
 }
 
 /**
@@ -351,7 +354,7 @@ export const hmacCommand = defineTool({
     const texts = params.input.slice(0, -1);
     const key = decodeInput(params.input.at(-1) ?? "", params.keyEncoding ?? "utf8", "key");
     const encoding = params.encoding ?? "hex";
-    const options = readParameters(hash, params, hmacParameters);
+    const options = readParameters(hash, params, hmacParameters, HMAC_ONE_ROUND);
     const [only, ...more] = texts;
     if (only !== undefined && more.length === 0) {
       const input = readInput(only, params.inputEncoding);
