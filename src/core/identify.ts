@@ -320,7 +320,6 @@ function digestFormats(): DigestFormat[] {
 const OTHER_DIGESTS: readonly (readonly [number, string, string])[] = [
   [4, "crc32c", "CRC-32C"],
   [8, "mysql323", "MySQL 3.23 PASSWORD()"],
-  [16, "md2", "MD2"],
   [16, "lm", "LM"],
   [24, "tiger192", "Tiger-192"],
   [28, "sha3-224", "SHA3-224"],

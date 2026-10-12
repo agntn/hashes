@@ -29,6 +29,7 @@ export const builtinAlgorithms = [
   // Legacy
   "md5",
   "md4",
+  "md2",
   "ntlm",
   "sha1",
   "sha0",

@@ -82,6 +82,7 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   },
   md5: { icon: "i-lucide-shield-alert", blurb: "Broken since 2004, still on every download page" },
   md4: { icon: "i-lucide-shield-alert", blurb: "MD5's older sibling, broken before MD5 was" },
+  md2: { icon: "i-lucide-shield-alert", blurb: "The 1989 original, its table drawn from π" },
   ntlm: {
     icon: "i-lucide-monitor",
     blurb: "MD4 of a password in UTF-16LE, no salt at all",
