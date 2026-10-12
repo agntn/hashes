@@ -846,6 +846,20 @@ function digestListResult(
 }
 
 /**
+ * Refuses `rounds` and `chain` in an HMAC call, which runs once and would ignore them.
+ *
+ * @param parameters - The parameters argument as passed.
+ */
+function assertOneHmacRound(parameters: unknown): void {
+  if (typeof parameters !== "object" || parameters === null) return;
+  for (const name of ["rounds", "chain"]) {
+    if (!Object.hasOwn(parameters, name)) continue;
+    const value: unknown = (parameters as Readonly<Record<string, unknown>>)[name];
+    throw new InvalidOptionError(name, value, "HMAC runs one round");
+  }
+}
+
+/**
  * Computes an HMAC with an algorithm that offers it.
  *
  * A list of inputs gets an HMAC each under the same key.
@@ -867,6 +881,7 @@ export function hashHmac(params: HashHmacParams): ToolResult<DigestDetails | Dig
   if (!algorithm.info().hmac) {
     throw new InvalidOptionError("algorithm", algorithm.name(), "has no HMAC mode");
   }
+  assertOneHmacRound(params.parameters);
   const options = algorithmOptions(algorithm, undefined, params.parameters, true);
   const tag = (input: HashInput): DigestDetails =>
     digestDetails(algorithm.hash(input, { ...options, encoding, key } as HashOptions), encoding);

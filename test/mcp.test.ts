@@ -336,6 +336,12 @@ describe("hashes MCP server", () => {
     expect((await hmac("haval", { rounds: 2 })).text).toBe(
       "hashes_hmac_compute failed: Invalid option rounds=2: HMAC runs one round",
     );
+    expect((await hmac("haval", { chain: "hex" })).text).toBe(
+      "hashes_hmac_compute failed: Invalid option chain=hex: HMAC runs one round",
+    );
+    expect((await hmac("sha256", { rounds: 1 })).text).toBe(
+      "hashes_hmac_compute failed: Invalid option rounds=1: HMAC runs one round",
+    );
     expect((await hmac("haval", { key: "x" })).text).toBe(
       "hashes_hmac_compute failed: Invalid option parameters=key: pass the key as the key argument",
     );
