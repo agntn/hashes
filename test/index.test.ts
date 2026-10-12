@@ -8,6 +8,7 @@ import { algorithmInfos } from "../src/core/resolve.ts";
 import { HAVAL_BITS, HAVAL_PASSES, HavalHasher, type HavalBits } from "../src/core/haval.ts";
 import { Md2Hasher } from "../src/core/md2.ts";
 import { Sha512tHasher } from "../src/core/sha2.ts";
+import { TigerHasher } from "../src/core/tiger.ts";
 import {
   type AlgorithmInfo,
   DependencyError,
@@ -874,6 +875,81 @@ describe("hashes chains use", () => {
     );
     expect(() => new HavalHasher(3, 100 as HavalBits)).toThrow(
       "Invalid option bits=100: use one of 128, 160, 192, 224, 256",
+    );
+  });
+
+  it("tiger matches the authors' NESSIE vectors", () => {
+    /* Set 1 of test-vectors-nessie-format.dat from Biham's Tiger page. */
+    const vectors: Record<string, string> = {
+      "": "3293ac630c13f0245f92bbb1766e16167a4e58492dde73f3",
+      a: "77befbef2e7ef8ab2ec8f93bf587a7fc613e247f5f247809",
+      abc: "2aab1484e8c158f2bfb8c5ff41b57a525129131c957b5f93",
+      "message digest": "d981f8cb78201a950dcf3048751e441c517fca1aa55a29f6",
+      abcdefghijklmnopqrstuvwxyz: "1714a472eee57d30040412bfcc55032a0b11602ff37beee9",
+      abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq:
+        "0f7bf9a19b9c58f2b7610df7e84f0ac3a71c631e7b53f78e",
+      ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:
+        "8dcea680a17583ee502ba38a3c368651890ffbccdc49a8cc",
+      ["1234567890".repeat(8)]: "1c14795529fd9f207a958f84c52f11e887fa0cabdfd91bfd",
+      ["a".repeat(1_000_000)]: "6db0e2729cbead93d715c6a7d36302e9b3cee0d2bc314b41",
+    };
+    for (const [input, digest] of Object.entries(vectors)) {
+      expect(create("tiger").hash(input).digest).toBe(digest);
+    }
+  });
+
+  it("tiger writes each word little-endian, the words testtiger prints", () => {
+    /* Biham's testresults.html prints each 64-bit word as a number, most significant byte first. */
+    const words = (input: string | Uint8Array): string[] => {
+      const digest = create("tiger").hash(input, { encoding: "binary" }).digest as Uint8Array;
+      const view = new DataView(digest.buffer, digest.byteOffset, digest.byteLength);
+      return [0, 8, 16].map((offset) =>
+        view.getBigUint64(offset, true).toString(16).padStart(16, "0"),
+      );
+    };
+    expect(words("")).toEqual(["24f0130c63ac9332", "16166e76b1bb925f", "f373de2d49584e7a"]);
+    expect(words("abc")).toEqual(["f258c1e88414ab2a", "527ab541ffc5b8bf", "935f7b951c132951"]);
+    expect(words("Tiger")).toEqual(["9f00f599072300dd", "276abb38c8eb6dec", "37790c116f9d2bdf"]);
+    expect(words(Uint8Array.from({ length: 65_536 }, (_, i) => i & 0xff))).toEqual([
+      "8ef43951b3f5f4fd",
+      "1d41afe51b420e71",
+      "0462f233c3aaa8e1",
+    ]);
+  });
+
+  it("tiger pads with 0x01 and prints bytes, so neither Tiger2 nor the word order stands in", () => {
+    /* Tiger2 is the same function padded with 0x80, from tiger2-test-vectors-nessie-format.dat. */
+    const abc = create("tiger").hash("abc").digest;
+    expect(abc).not.toBe("f68d7bc5af4b43a06e048d7829560d4a9415658bb0b1f3bf");
+    expect(abc).not.toBe("f258c1e88414ab2a527ab541ffc5b8bf935f7b951c132951");
+    expect(() => create("tiger2")).toThrow("Unknown algorithm");
+  });
+
+  it("tiger and its HMAC match PHP's hash() at every length up to 299, fed whole or in pieces", () => {
+    /* The expected values are what PHP 8.5.11's hash("tiger192,3") and hash_hmac() give. */
+    const digests: Uint8Array[] = [];
+    const tags: Uint8Array[] = [];
+    for (let length = 0; length < 300; length++) {
+      const data = Uint8Array.from({ length }, (_, i) => (i * 31 + length) & 0xff);
+      const key = Uint8Array.from({ length: length % 40 }, (_, i) => (i * 17 + 3) & 0xff);
+      const step = 1 + (length % 23);
+      const pieces = new TigerHasher();
+      for (let offset = 0; offset < length; offset += step) {
+        pieces.update(data.subarray(offset, offset + step));
+      }
+      const digest = create("tiger").hash(data, { encoding: "binary" }).digest as Uint8Array;
+      expect(pieces.digest()).toEqual(digest);
+      digests.push(digest);
+      tags.push(create("tiger").hash(data, { encoding: "binary", key }).digest as Uint8Array);
+    }
+    expect(createHash("sha256").update(Buffer.concat(digests)).digest("hex")).toBe(
+      "234ae15900dc09f9c85a42ca167c918c6d5be49ed7668ef25becd4e05e7c553e",
+    );
+    expect(createHash("sha256").update(Buffer.concat(tags)).digest("hex")).toBe(
+      "272f947311d908779da44eb9477cf64668ab3917749845e83046e548304430d3",
+    );
+    expect(create("tiger").hash("what do ya want for nothing?", { key: "Jefe" }).digest).toBe(
+      "3a351b1dec6075d6290e68b604e553821edc39041b82da83",
     );
   });
 
@@ -2210,6 +2286,7 @@ describe("extendDigest", () => {
     "sha3-256",
     "md2",
     "haval",
+    "tiger",
     "ntlm",
     "hash160",
   ])("refuses %s, whose digest is not a state it can resume from", (algorithm) => {
@@ -2490,6 +2567,22 @@ describe("identifyDigest", () => {
         .map((candidate) => candidate.parameters);
     expect(haval(16)).toEqual([undefined, { passes: 4 }, { passes: 5 }]);
     expect(haval(32)).toEqual([{ bits: 256 }, { passes: 4, bits: 256 }, { passes: 5, bits: 256 }]);
+  });
+
+  it("puts Tiger first among 24-byte digests and names Tiger2 without computing it", () => {
+    const found = identifyDigest("2aab1484e8c158f2bfb8c5ff41b57a525129131c957b5f93");
+
+    expect(
+      found.candidates
+        .filter((candidate) => candidate.fit === "length")
+        .map((candidate) => [candidate.name, candidate.algorithm]),
+    ).toEqual([
+      ["tiger", "tiger"],
+      ["haval", "haval"],
+      ["haval", "haval"],
+      ["haval", "haval"],
+      ["tiger2", undefined],
+    ]);
   });
 
   it("reads base64 in either alphabet, padded or not, after hex fails", () => {
