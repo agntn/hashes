@@ -6,12 +6,15 @@
  * swapped. The padding starts with 0x01, and the digest is the three words, each little-endian.
  */
 import { HashError } from "./errors.ts";
-import { Hasher, assertBytes, viewOf, wordsToBytes, writeBitLength } from "./hasher.ts";
+import { assertBytes, viewOf, wordsToBytes } from "./hasher.ts";
+import { ResumableHasher } from "./resumable.ts";
 
 /** Bytes per block. */
 const BLOCK = 64;
 /** Where the bit length starts in the last block. */
 const LENGTH_FIELD = BLOCK - 8;
+/** The byte the padding opens with. Tiger2 is the same hash with 0x80 here. */
+const MARKER = 0x01;
 /** The 64 bytes the authors hash to shuffle the S-boxes. */
 const SEED = "Tiger - A Fast New Hash Function, by Ross Anderson and Eli Biham";
 /** Times the shuffle walks through all 1024 S-box words. */
@@ -28,6 +31,7 @@ const B = 2;
 const C = 4;
 /** Where the eight key words start in `W`. */
 const X = 6;
+const [X0, X1, X2, X3, X4, X5, X6, X7] = [X, X + 2, X + 4, X + 6, X + 8, X + 10, X + 12, X + 14];
 
 /** Registers a, b, c, then the block's eight key words, low half first. Hashing is synchronous. */
 const W = /* @__PURE__ */ new Int32Array(22);
@@ -125,14 +129,14 @@ function round(a: number, b: number, c: number, x: number, factor: number): void
  * @param factor - 5, 7, then 9.
  */
 function pass(a: number, b: number, c: number, factor: number): void {
-  round(a, b, c, X, factor);
-  round(b, c, a, X + 2, factor);
-  round(c, a, b, X + 4, factor);
-  round(a, b, c, X + 6, factor);
-  round(b, c, a, X + 8, factor);
-  round(c, a, b, X + 10, factor);
-  round(a, b, c, X + 12, factor);
-  round(b, c, a, X + 14, factor);
+  round(a, b, c, X0, factor);
+  round(b, c, a, X1, factor);
+  round(c, a, b, X2, factor);
+  round(a, b, c, X3, factor);
+  round(b, c, a, X4, factor);
+  round(c, a, b, X5, factor);
+  round(a, b, c, X6, factor);
+  round(b, c, a, X7, factor);
 }
 
 /**
@@ -184,23 +188,22 @@ function addWord(i: number, from: number): void {
 
 /** Stirs the eight key words between passes. */
 function schedule(): void {
-  const [x0, x1, x2, x3, x4, x5, x6, x7] = [X, X + 2, X + 4, X + 6, X + 8, X + 10, X + 12, X + 14];
-  sub(x0, W[x7]! ^ 0xa5a5a5a5, W[x7 + 1]! ^ 0xa5a5a5a5);
-  xorWord(x1, x0);
-  addWord(x2, x1);
-  subLeft(x3, x2, x1);
-  xorWord(x4, x3);
-  addWord(x5, x4);
-  subRight(x6, x5, x4);
-  xorWord(x7, x6);
-  addWord(x0, x7);
-  subLeft(x1, x0, x7);
-  xorWord(x2, x1);
-  addWord(x3, x2);
-  subRight(x4, x3, x2);
-  xorWord(x5, x4);
-  addWord(x6, x5);
-  sub(x7, W[x6]! ^ 0x89abcdef, W[x6 + 1]! ^ 0x01234567);
+  sub(X0, W[X7]! ^ 0xa5a5a5a5, W[X7 + 1]! ^ 0xa5a5a5a5);
+  xorWord(X1, X0);
+  addWord(X2, X1);
+  subLeft(X3, X2, X1);
+  xorWord(X4, X3);
+  addWord(X5, X4);
+  subRight(X6, X5, X4);
+  xorWord(X7, X6);
+  addWord(X0, X7);
+  subLeft(X1, X0, X7);
+  xorWord(X2, X1);
+  addWord(X3, X2);
+  subRight(X4, X3, X2);
+  xorWord(X5, X4);
+  addWord(X6, X5);
+  sub(X7, W[X6]! ^ 0x89abcdef, W[X6 + 1]! ^ 0x01234567);
 }
 
 /**
@@ -225,7 +228,7 @@ function compress(state: Int32Array, block: Uint8Array, offset: number): void {
   W[A + 1] = W[A + 1]! ^ state[1]!;
   sub(B, state[2]!, state[3]!);
   add(C, state[4]!, state[5]!);
-  state.set(W.subarray(0, 6));
+  for (let i = 0; i < 6; i++) state[i] = W[i]!;
 }
 
 /**
@@ -264,12 +267,26 @@ function build(): void {
   built = true;
 }
 
+/**
+ * Writes the bit length little-endian before `end`, with no `DataView` to move a buffer off-heap.
+ *
+ * @param out - The block or padding being written.
+ * @param end - Where the length field ends.
+ * @param length - Bytes hashed.
+ */
+function writeLength(out: Uint8Array, end: number, length: number): void {
+  const low = (length % 0x2000_0000) * 8;
+  const high = Math.floor(length / 0x2000_0000);
+  for (let i = 0; i < 4; i++) {
+    out[end - 8 + i] = low >>> (8 * i);
+    out[end - 4 + i] = high >>> (8 * i);
+  }
+}
+
 /** Tiger, the original: 192 bits, three passes, 0x01 padding and little-endian words. */
-export class TigerHasher extends Hasher {
+export class TigerHasher extends ResumableHasher {
   readonly blockLength = BLOCK;
   readonly outputLength = 24;
-  /** Byte order of the words, the length and the digest. */
-  readonly littleEndian = true;
   /** a, b and c, low half first. */
   private readonly state = IV.slice();
   /** The partial block not compressed yet. */
@@ -279,14 +296,9 @@ export class TigerHasher extends Hasher {
   /** Bytes absorbed so far. */
   private length = 0;
 
-  constructor() {
-    super();
-    if (!built) build();
-  }
-
   update(data: Uint8Array): this {
     assertBytes(data, "data");
-    const { buffer, state } = this;
+    const { buffer } = this;
     const length = data.length;
     let position = this.position;
     let offset = 0;
@@ -297,44 +309,48 @@ export class TigerHasher extends Hasher {
         this.position = position;
         return this;
       }
-      compress(state, buffer, 0);
+      this.compressBlock(buffer, 0);
       position = 0;
     }
-    for (; length - offset >= BLOCK; offset += BLOCK) compress(state, data, offset);
+    for (; length - offset >= BLOCK; offset += BLOCK) this.compressBlock(data, offset);
     while (offset < length) buffer[position++] = data[offset++]!;
     this.position = position;
     return this;
   }
 
   digestInto(out: Uint8Array): void {
-    const { buffer, state } = this;
+    const { buffer } = this;
     let position = this.position;
-    buffer[position++] = 0x01;
+    buffer[position++] = MARKER;
     if (position > LENGTH_FIELD) {
       buffer.fill(0, position);
-      compress(state, buffer, 0);
+      this.compressBlock(buffer, 0);
       position = 0;
     }
     buffer.fill(0, position, LENGTH_FIELD);
-    writeBitLength(viewOf(buffer), BLOCK, this.length, true);
-    compress(state, buffer, 0);
-    wordsToBytes(state, out, this.outputLength, true);
+    writeLength(buffer, BLOCK, this.length);
+    this.compressBlock(buffer, 0);
+    wordsToBytes(this.state, out, this.outputLength, true);
   }
 
-  /**
-   * Picks up from a digest as if `length` bytes, padding included, had been hashed into it.
-   *
-   * @param digest - A digest of 24 bytes, the whole state.
-   * @param length - Bytes hashed with the padding, a multiple of 64.
-   * @returns {this} The same hasher, ready for `update`.
-   */
+  padding(length: number): Uint8Array {
+    const size = 9 + ((BLOCK - ((length + 9) % BLOCK)) % BLOCK);
+    const out = new Uint8Array(size);
+    out[0] = MARKER;
+    writeLength(out, size, length);
+    return out;
+  }
+
   resume(digest: Uint8Array, length: number): this {
     assertBytes(digest, "digest");
+    const { state } = this;
     if (digest.length !== this.outputLength || !(length >= 0 && length % BLOCK === 0)) {
-      throw new HashError(`resume takes a 24-byte digest and a multiple of ${BLOCK} bytes`);
+      throw new HashError(
+        `resume takes a ${this.outputLength}-byte digest and a multiple of ${BLOCK} bytes`,
+      );
     }
     const view = viewOf(digest);
-    for (let i = 0; i < 6; i++) this.state[i] = view.getInt32(i * 4, true);
+    for (let i = 0; i < state.length; i++) state[i] = view.getInt32(i * 4, true);
     this.position = 0;
     this.length = length;
     return this;
@@ -346,5 +362,16 @@ export class TigerHasher extends Hasher {
     this.position = source.position;
     this.length = source.length;
     return this;
+  }
+
+  /**
+   * Compresses a block, building the S-boxes first, so a hasher made only to be listed is free.
+   *
+   * @param block - Bytes holding the block.
+   * @param offset - Where the block starts.
+   */
+  private compressBlock(block: Uint8Array, offset: number): void {
+    if (!built) build();
+    compress(this.state, block, offset);
   }
 }
