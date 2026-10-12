@@ -880,6 +880,20 @@ function signedDigest(slug: string): string {
 }
 
 /**
+ * Whether the form already holds an extension of the algorithm: a digest its length, HAVAL's bits.
+ *
+ * @param {string} slug - An algorithm that extends.
+ * @returns {boolean} `true` when switching to Extend can keep the form as it is.
+ */
+function extendReady(slug: string): boolean {
+  const required = EXTEND_OPTIONS[slug as keyof typeof EXTEND_OPTIONS] ?? {};
+  return (
+    knownDigest.value.trim().length === signedDigest(slug).length &&
+    Object.entries(required).every(([name, value]) => fieldText(values[name]) === String(value))
+  );
+}
+
+/**
  * The guide's attack with another algorithm: the digest the server signed, the message, the suffix.
  *
  * @param {string} slug - An algorithm that extends, HAVAL at 256 bits.
@@ -942,9 +956,7 @@ function selectOperation(op: Operation) {
   operation.value = op;
   if (op !== "extend") return;
   const slug = EXTENDABLE.has(entry.value.slug) ? entry.value.slug : "md5";
-  if (slug !== entry.value.slug || knownDigest.value.trim().length !== signedDigest(slug).length) {
-    loadExtendSample(slug);
-  }
+  if (slug !== entry.value.slug || !extendReady(slug)) loadExtendSample(slug);
 }
 
 const { copied, copy } = useCopied();
