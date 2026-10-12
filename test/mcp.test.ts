@@ -496,6 +496,29 @@ describe("hashes MCP server", () => {
     expect(hkdf.content[0]?.text).toContain("Next: hashes_verify with keyLength 64,");
   });
 
+  it("offers no length fix the library would refuse with the other options", () => {
+    const seeded = hashVerify({
+      algorithm: "xxhash",
+      input: "abc",
+      expected: "00000000",
+      parameters: { seed: 2 ** 33 },
+    });
+    const argon2 = hashVerify({
+      algorithm: "argon2id",
+      input: "pw",
+      salt: "00".repeat(16),
+      expected: "0000",
+      parameters: { memory: 64, iterations: 1, parallelism: 1 },
+    });
+
+    expect(seeded.content[0]?.text.split("\n").at(-1)).toBe(
+      "The lengths differ: expected is 4 bytes, xxhash gave 8. Next: hashes_digest_identify for the algorithms that give 4.",
+    );
+    expect(argon2.content[0]?.text.split("\n").at(-1)).toBe(
+      "The lengths differ: expected is 2 bytes, argon2id gave 32. Next: hashes_digest_identify for the algorithms that give 2.",
+    );
+  });
+
   it("adds no length note when the lengths agree or an input matches", () => {
     const md5 = createHash("md5").update("hello").digest("hex");
 

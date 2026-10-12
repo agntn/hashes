@@ -1,4 +1,4 @@
-import { InvalidOptionError, MissingOptionError } from "./errors.ts";
+import { HashError, InvalidOptionError, MissingOptionError } from "./errors.ts";
 import type { Hash } from "./hash.ts";
 import { Kdf } from "./kdf.ts";
 import type { AlgorithmInfo, HashOptions, HashResult } from "./types.ts";
@@ -77,6 +77,7 @@ export function digestMatches(result: HashResult, expected: string): boolean {
 
 /**
  * Lists the single option changes, HAVAL's `bits` or a KDF's `keyLength`, that give `length`.
+ * Each one runs once on empty input, a KDF at the caller's costs, and counts only if it's taken.
  *
  * @param hash - The algorithm.
  * @param options - The options the digest was computed with.
@@ -90,20 +91,31 @@ export function lengthFixes(
   actual: number,
   length: number,
 ): Array<Record<string, number | string>> {
-  if (hash instanceof Kdf) return keyLengthFixes(hash.info(), options, actual, length);
-  const declared = hash.info().options.filter((option) => option.choices !== undefined);
-  const chosen = Object.fromEntries(
-    declared.flatMap((option) =>
-      options[option.name] === undefined ? [] : [[option.name, options[option.name]]],
-    ),
+  const info = hash.info();
+  const candidates =
+    hash instanceof Kdf
+      ? keyLengthCandidates(info, options, actual, length)
+      : choiceCandidates(info, options);
+  const base = Object.fromEntries(
+    Object.entries(options).filter(([name]) => name !== "rounds" && name !== "chain"),
   );
-  return declared.flatMap((option) =>
+  return candidates.filter((candidate) => givesLength(hash, { ...base, ...candidate }, length));
+}
+
+/**
+ * Every value of an option with `choices` other than the one in use, one option apiece.
+ *
+ * @param info - The algorithm's metadata.
+ * @param options - The options it ran with.
+ * @returns {Array<Record<string, number | string>>} The candidates.
+ */
+function choiceCandidates(
+  info: AlgorithmInfo,
+  options: Readonly<Record<string, unknown>>,
+): Array<Record<string, number | string>> {
+  return info.options.flatMap((option) =>
     (option.choices ?? [])
       .filter((choice) => choice !== (options[option.name] ?? option.default))
-      .filter((choice) => {
-        const probe = { ...chosen, [option.name]: choice, encoding: "binary" } as HashOptions;
-        return hash.hash(new Uint8Array(0), probe).digestLength === length;
-      })
       .map((choice) => ({ [option.name]: choice })),
   );
 }
@@ -115,9 +127,9 @@ export function lengthFixes(
  * @param options - The options it ran with.
  * @param actual - Bytes they gave.
  * @param length - Bytes wanted.
- * @returns {Array<Record<string, number>>} The fitting `keyLength`, or nothing without one.
+ * @returns {Array<Record<string, number>>} The `keyLength` to try, or nothing without one.
  */
-function keyLengthFixes(
+function keyLengthCandidates(
   info: AlgorithmInfo,
   options: Readonly<Record<string, unknown>>,
   actual: number,
@@ -127,6 +139,28 @@ function keyLengthFixes(
   if (declared === undefined) return [];
   const keyLength = Number(options.keyLength ?? declared.default) + length - actual;
   return keyLength >= 1 ? [{ keyLength }] : [];
+}
+
+/**
+ * Whether the library takes these options and gives a digest of `length` bytes with them.
+ *
+ * @param hash - The algorithm.
+ * @param options - The options to try.
+ * @param length - Bytes wanted.
+ * @returns {boolean} False for options it refuses, too.
+ */
+function givesLength(
+  hash: Hash,
+  options: Readonly<Record<string, unknown>>,
+  length: number,
+): boolean {
+  try {
+    const probe = { ...options, encoding: "binary" } as HashOptions;
+    return hash.hash(new Uint8Array(0), probe).digestLength === length;
+  } catch (error) {
+    if (error instanceof HashError) return false;
+    throw error;
+  }
 }
 
 /**

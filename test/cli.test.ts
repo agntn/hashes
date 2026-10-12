@@ -374,6 +374,9 @@ describe("hashes CLI", () => {
     expect(run(["verify", "scrypt", "pw", "00", "--salt", "00", "--n", "16"]).stdout).toContain(
       "; --key-length 1 gives 1,",
     );
+    expect(run(["verify", "hkdf", "pw", "00".repeat(8161)]).stdout).toContain(
+      "; hashes identify names the algorithms that give 8161",
+    );
     expect(list.code).toBe(1);
     expect(list.stdout.split("\n")[2]).toBe(
       "lengths differ: expected is 16 bytes, sha256 gave 32; hashes identify names the algorithms that give 16",
