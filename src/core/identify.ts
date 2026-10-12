@@ -606,6 +606,17 @@ export function identityText(found: DigestIdentity): {
 }
 
 /**
+ * Describes a string by the format its prefix names, in the line identify gives that format.
+ *
+ * @param text - The trimmed string.
+ * @returns {string | undefined} The line, or nothing when no format's prefix fits.
+ */
+export function formatLine(text: string): string | undefined {
+  const [format] = formatCandidates(text);
+  return format && candidateLine(format);
+}
+
+/**
  * Describes one candidate: its name, whether this package computes it, and with what.
  *
  * @param candidate - The candidate.

@@ -431,6 +431,20 @@ describe("hashes CLI", () => {
     const base64url = run(["verify", "sha256", "abc", "+/", "-e", "base64url"]);
     expect(base64url.stdout).toBe("");
     expect(base64url.stderr).toContain("Invalid option expected=2 characters: must be base64url");
+    const mysql = run(["verify", "sha1", "password", "*2470C0C06DEE42FD1618BB99005ADCA2EC9D1E19"]);
+    expect(mysql.stderr).toContain(
+      "; its prefix reads as mysql41: MySQL 4.1 PASSWORD(), SHA-1 of the SHA-1 bytes, computable as sha1, rounds 2, expected 2470c0c06dee42fd1618bb99005adca2ec9d1e19",
+    );
+    expect(
+      run([
+        "verify",
+        "sha1",
+        "password",
+        "2470c0c06dee42fd1618bb99005adca2ec9d1e19",
+        "--rounds",
+        "2",
+      ]).stdout,
+    ).toMatch(/^MATCH/);
   });
 
   it("reports the library's errors in one line with exit code 1", () => {
