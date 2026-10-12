@@ -2344,6 +2344,24 @@ describe("extendDigest", () => {
     },
   );
 
+  it("reports HAVAL's default passes when only bits is given", () => {
+    const forged = extendDigest({
+      algorithm: "haval",
+      parameters: { bits: 256 },
+      digest: Uint8Array.fromHex(
+        "74d434e738a3f4239f5f88ae2d66b0cf5bbe862346f8efac6924920da10ad1c7",
+      ),
+      message: text("user=a"),
+      secretLength: 3,
+      suffix: text("&admin=1"),
+    });
+
+    expect(forged.parameters).toEqual({ passes: 3, bits: 256 });
+    expect(forged.digest.toHex()).toBe(
+      "d2cf644f40e852da1d52b32e0d5e28e75edf643c2b1273c198fe1b68baf83ee3",
+    );
+  });
+
   it("forges HAVAL-256 when the padding spills into a second block, as PHP does", () => {
     /* PHP 8.5.11: hash("haval256,5", "k3y" . str_repeat("a", 116) . $padding . "&admin=1"). */
     const forged = extendDigest({

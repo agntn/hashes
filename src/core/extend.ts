@@ -68,6 +68,16 @@ function extendableHasher(
 }
 
 /**
+ * Whether an option repeats the hash, which extension refuses past one round.
+ *
+ * @param name - The option's name.
+ * @returns {boolean} `true` for `rounds` and `chain`.
+ */
+function repeats(name: string): boolean {
+  return ROUND_OPTIONS.some((option) => option.name === name);
+}
+
+/**
  * The one option value that makes the digest the whole state, such as HAVAL's `bits: 256`.
  *
  * @param algorithm - The algorithm.
@@ -79,7 +89,7 @@ function extendingChoice(
   parameters: OptionValues,
 ): [string, ParameterValue] | undefined {
   for (const option of parameterOptions(algorithm)) {
-    if (ROUND_OPTIONS.some((round) => round.name === option.name)) continue;
+    if (repeats(option.name)) continue;
     const current = parameters[option.name] ?? option.default;
     const fits = (option.choices ?? []).find(
       (choice) =>
@@ -199,19 +209,23 @@ export function extendDigest(options: Readonly<ExtendDigestOptions>): ExtendedDi
 }
 
 /**
- * The options `hash()` reports, HAVAL's passes and bits among them, read off a hash of nothing.
+ * Every option the algorithm declares besides the rounds, at the value it ran with.
  *
  * @param algorithm - The algorithm.
  * @param parameters - Its own options as given.
- * @returns {Record<string, ParameterValue>} The options without the encoding.
+ * @returns {Record<string, ParameterValue>} HAVAL's passes and bits, defaults included.
  */
 function reportedParameters(
   algorithm: Hash,
   parameters: OptionValues,
 ): Record<string, ParameterValue> {
-  const result = algorithm.hash(new Uint8Array(0), { ...parameters, encoding: "binary" });
-  const { encoding: _encoding, ...reported } = result.options;
-  return reported as Record<string, ParameterValue>;
+  const reported: Record<string, ParameterValue> = {};
+  for (const option of parameterOptions(algorithm)) {
+    const value = parameters[option.name] ?? option.default;
+    if (repeats(option.name) || typeof value === "boolean" || value === undefined) continue;
+    reported[option.name] = value;
+  }
+  return reported;
 }
 
 /**
