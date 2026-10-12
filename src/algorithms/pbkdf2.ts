@@ -14,6 +14,7 @@ import { Sha3_256 } from "./sha3-256.ts";
 import { Sha3_512 } from "./sha3-512.ts";
 import { Sha384 } from "./sha384.ts";
 import { Sha512 } from "./sha512.ts";
+import { Whirlpool } from "./whirlpool.ts";
 
 /** Hashes PBKDF2 and HKDF run HMAC over, by their registry names. */
 const HASHES: Readonly<Record<string, new () => BlockHash>> = {
@@ -22,6 +23,7 @@ const HASHES: Readonly<Record<string, new () => BlockHash>> = {
   sha512: Sha512,
   "sha3-256": Sha3_256,
   "sha3-512": Sha3_512,
+  whirlpool: Whirlpool,
 };
 
 /**
@@ -51,7 +53,7 @@ export function kdfHash(digest: string): BlockHash {
 export interface Pbkdf2Options extends HashOptions, SaltOptions {
   /** Iteration count. Default: 600000. */
   iterations?: number;
-  /** Hash under HMAC: sha256, sha384, sha512, sha3-256, sha3-512. Default: sha512. */
+  /** Hash under HMAC: sha256, sha384, sha512, sha3-256, sha3-512, whirlpool. Default: sha512. */
   digest?: string;
   /** Output key length in bytes. Default: 64. */
   keyLength?: number;
