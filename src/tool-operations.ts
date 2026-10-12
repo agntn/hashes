@@ -607,10 +607,10 @@ function iterationWork(
   if (prices === undefined || !Object.hasOwn(prices, digest)) return undefined;
   const all = costs(algorithm, options);
   const at = (name: string): number => all.get(name) ?? 0;
-  const length = resolveAlgorithm(digest).info().digestLength ?? 1;
+  const { nanoseconds, bytes: length } = prices[digest]!;
   const bytes = at("keyLength") + at("ivLength");
   const iterations = at("iterations");
-  const work = iterations * Math.ceil(bytes / length) * prices[digest]!;
+  const work = iterations * Math.ceil(bytes / length) * nanoseconds;
   return { digest, bytes, length, iterations, work };
 }
 

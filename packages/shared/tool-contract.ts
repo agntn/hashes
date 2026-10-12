@@ -42,17 +42,28 @@ export const ZERO_PARAMETERS: readonly string[] = ["ivLength"];
 export const MAX_SCRYPT_MEMORY = 256 * 1024 * 1024;
 /** Most KiB an Argon2 call may fill over all its passes, memory * iterations: about 5 s. */
 export const MAX_ARGON2_WORK = 1_048_576;
-/** Nanoseconds one iteration costs per digest of output, by KDF and digest, on Node 26. */
-export const ITERATION_COSTS: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+/** What one PBKDF2 or EVP_BytesToKey iteration costs. */
+export interface IterationCost {
+  /** Nanoseconds per digest of output, on Node 26. */
+  readonly nanoseconds: number;
+  /** Bytes of that digest, kept here since a registered class may shadow the name. */
+  readonly bytes: number;
+}
+/** The price of an iteration, by KDF and digest. */
+export const ITERATION_COSTS: Readonly<Record<string, Readonly<Record<string, IterationCost>>>> = {
   pbkdf2: {
-    sha256: 1_000,
-    sha384: 3_800,
-    sha512: 3_800,
-    "sha3-256": 4_300,
-    "sha3-512": 4_600,
-    whirlpool: 8_600,
+    sha256: { nanoseconds: 1_000, bytes: 32 },
+    sha384: { nanoseconds: 3_800, bytes: 48 },
+    sha512: { nanoseconds: 3_800, bytes: 64 },
+    "sha3-256": { nanoseconds: 4_300, bytes: 32 },
+    "sha3-512": { nanoseconds: 4_600, bytes: 64 },
+    whirlpool: { nanoseconds: 8_600, bytes: 64 },
   },
-  "evp-bytestokey": { md5: 250, sha1: 300, sha256: 450 },
+  "evp-bytestokey": {
+    md5: { nanoseconds: 250, bytes: 16 },
+    sha1: { nanoseconds: 300, bytes: 20 },
+    sha256: { nanoseconds: 450, bytes: 32 },
+  },
 };
 /** Most nanoseconds a PBKDF2 or EVP_BytesToKey call may spend, iterations * digests * cost: 5 s. */
 export const MAX_ITERATION_WORK = 5_000_000_000;

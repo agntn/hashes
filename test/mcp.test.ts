@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { callTool, createMcpServer, toolListings } from "../src/mcp.ts";
-import { Pbkdf2 } from "../src/algorithms/index.ts";
+import { Pbkdf2, Sha256 } from "../src/algorithms/index.ts";
 import { serverInfo } from "../src/server-info.ts";
 import {
   type AlgorithmInfo,
@@ -919,6 +919,30 @@ describe("hashes MCP server", () => {
       });
 
       expect(Object.keys(ITERATION_COSTS[kdf] ?? {}).toSorted()).toEqual(taken.toSorted());
+      for (const [digest, { bytes }] of Object.entries(ITERATION_COSTS[kdf] ?? {})) {
+        expect(bytes).toBe(create(digest).info().digestLength);
+      }
+    }
+  });
+
+  it("prices the digest the KDF runs, not a class registered under its name", async () => {
+    class WideSha256 extends Sha256 {
+      override info(): AlgorithmInfo {
+        return { ...super.info(), digestLength: 1024 };
+      }
+    }
+    register(WideSha256);
+    try {
+      const answer = await call("hashes_compute", {
+        algorithm: "pbkdf2",
+        input: "x",
+        salt: "00",
+        parameters: { digest: "sha256", keyLength: 1024, iterations: 5_000_000 },
+      });
+
+      expect(answer.text).toContain("sha256 fills 1024 bytes 32 at a time");
+    } finally {
+      register(Sha256);
     }
   });
 
