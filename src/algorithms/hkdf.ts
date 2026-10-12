@@ -8,7 +8,7 @@ import { kdfDigests, kdfHash } from "./pbkdf2.ts";
 export interface HkdfOptions extends HashOptions, SaltOptions {
   /** Context bytes, hex in a string. Default: none. */
   info?: string | Uint8Array;
-  /** Hash under HMAC: sha256, sha384, sha512, sha3-256, sha3-512. Default: sha256. */
+  /** Hash under HMAC: sha256, sha384, sha512, sha3-256, sha3-512, whirlpool. Default: sha256. */
   digest?: string;
   /** Output key length in bytes, at most 255 digests. Default: 32. */
   keyLength?: number;

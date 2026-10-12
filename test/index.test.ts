@@ -2010,6 +2010,37 @@ describe("key derivation", () => {
     }
   });
 
+  it("runs PBKDF2 and HKDF over Whirlpool, which Node lacks", () => {
+    /** PKCS-5 test 2 in VeraCrypt's `Tests.c`, a key longer than one Whirlpool digest. */
+    const veracrypt =
+      "507c366fee102e9ae28ad582727d270fe84d7f687acfb5e74367aa9893522b096e42df2c594a916d7e10aeb21a898fb98fe631a9d89f9826f4dacd7d6565de109591b48426ae43a1005b1eb83897a41e4bd26564bcfa1f3585db4f97656fbd24";
+    /** PHP 8.5.11: `hash_pbkdf2("whirlpool", "password", "salt", 1000)`. */
+    const php =
+      "5ad7361484c7dde6b23e573c4b61d1fd16023fd6c0170d0b26d70f7ac8c683f06e767804750357b4032297c2ad36cbd84d01476c1298826b71f605dbcda9e055";
+    /** PHP 8.5.11: `hash_hkdf("whirlpool", ...)` with RFC 5869's first test case. */
+    const hkdf =
+      "0d29f74ccd8640f44b0dd9638111c1b5766efed752af358109e2e7c9cd4a28ef2f90b2ad461fba0744d4";
+    const pbkdf2 = create("pbkdf2");
+    const options = { digest: "whirlpool", salt: "12345678", iterations: 5, keyLength: 96 };
+    expect(pbkdf2.hash("password", options as Pbkdf2Options).digest).toBe(veracrypt);
+    expect(
+      pbkdf2.hash("password", {
+        ...options,
+        salt: "73616c74",
+        iterations: 1000,
+        keyLength: 64,
+      } as Pbkdf2Options).digest,
+    ).toBe(php);
+    expect(
+      create("hkdf").hash(Uint8Array.fromHex("0b".repeat(22)), {
+        digest: "whirlpool",
+        salt: "000102030405060708090a0b0c",
+        info: "f0f1f2f3f4f5f6f7f8f9",
+        keyLength: 42,
+      } as HkdfOptions).digest,
+    ).toBe(hkdf);
+  });
+
   it("reads a missing HKDF salt as zeros instead of drawing one", () => {
     const result = create("hkdf").hash("secret");
     expect(result.digest).toBe(
