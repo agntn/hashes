@@ -360,12 +360,12 @@ function saltArgument(value: unknown): string | undefined {
  * Names the argument that takes an option a model put into `parameters` instead.
  *
  * @param name - The parameter name.
- * @param hmac - Whether the algorithm has an HMAC mode, and so no salt.
- * @param keyed - Whether the call has a key argument of its own.
+ * @param hmac - Whether the algorithm has an HMAC mode.
+ * @param keyed - Whether the call has a key argument of its own, and so no salt argument.
  * @returns {string | undefined} Where the option goes, or nothing for a real parameter.
  */
 function argumentFor(name: string, hmac: boolean, keyed: boolean): string | undefined {
-  const own = name === "encoding" || (name === "salt" && !hmac) || (name === "key" && keyed);
+  const own = name === "encoding" || (name === "salt" && !keyed) || (name === "key" && keyed);
   if (own) return `pass the ${name} as the ${name} argument`;
   if (name === "key" && hmac) return "pass the key to hashes_hmac_compute";
   return undefined;

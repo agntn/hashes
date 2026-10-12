@@ -609,6 +609,9 @@ describe("hashes MCP server", () => {
     expect((await compute("sha256", { encoding: "base64" })).text).toBe(
       "hashes_compute failed: Invalid option parameters=encoding: pass the encoding as the encoding argument",
     );
+    expect((await compute("sha256", { salt: "00" })).text).toBe(
+      "hashes_compute failed: Invalid option parameters=salt: pass the salt as the salt argument",
+    );
     expect((await compute("crc32", { key: "secret" })).text).toBe(
       "hashes_compute failed: Invalid option key=secret: crc32 takes variant, rounds, chain",
     );
