@@ -17,6 +17,7 @@ export type { XxhashOptions } from "../algorithms/xxhash.ts";
 export type { Crc32Options } from "../algorithms/crc32.ts";
 export type { Crc64Options } from "../algorithms/crc64.ts";
 export type { Crc24Options } from "../algorithms/crc24.ts";
+export type { HavalOptions } from "../algorithms/haval.ts";
 export {
   DependencyError,
   HashError,

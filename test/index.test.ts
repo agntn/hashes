@@ -74,6 +74,7 @@ import {
   version,
   xxhash,
   type HashOptions,
+  type HavalOptions,
   type Derivation,
   type Argon2Options,
   type BcryptOptions,
@@ -858,7 +859,8 @@ describe("hashes chains use", () => {
 
   it("haval names its variant with every digest and refuses one it doesn't define", () => {
     expect(create("haval").hash("abc").options).toEqual({ encoding: "hex", passes: 3, bits: 128 });
-    expect(create("haval").hash("abc", { key: "k", bits: 256 } as HashOptions).options).toEqual({
+    const options: HavalOptions = { key: "k", bits: 256 };
+    expect(create("haval").hash("abc", options as HashOptions).options).toEqual({
       encoding: "hex",
       passes: 3,
       bits: 256,
