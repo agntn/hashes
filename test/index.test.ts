@@ -356,6 +356,33 @@ describe("registry", () => {
     expect(() => create("constructor")).toThrow(UnknownAlgorithmError);
     expect(() => resolveAlgorithm()).toThrow("Unknown algorithm: (none)");
   });
+
+  it("names the SHA-3 lengths for sha3, never sha384", () => {
+    expect(() => resolveAlgorithm("sha3")).toThrow(
+      /^Unknown algorithm: sha3\. Did you mean sha3-256(?:, | or )sha3-512\b/,
+    );
+    expect(() => resolveAlgorithm("sha3")).not.toThrow(/sha384/);
+  });
+
+  it.each([
+    ["Keccak", "Did you mean keccak256?"],
+    ["blake2", "Did you mean blake2b, blake2b-256, blake2b-224 or blake2s?"],
+    ["argon2", "Did you mean argon2id, argon2i or argon2d?"],
+    ["CRC-32/BZIP2", "Did you mean crc32 with variant=bzip2?"],
+    ["CRC-64/XZ", "Did you mean crc64 with variant=xz?"],
+    ["HAVAL/256", "Did you mean haval with bits=256?"],
+  ])("names what %s points at instead of every key", (name, hint) => {
+    expect(() => resolveAlgorithm(name)).toThrow(UnknownAlgorithmError);
+    expect(() => resolveAlgorithm(name)).toThrow(`Unknown algorithm: ${name}. ${hint}`);
+  });
+
+  it.each(["sha2", "sha5", "sha-257", "tiger2", "whirlpool-t", "sha3-224", "crc32/foo", "/bzip2"])(
+    "suggests nothing for %s, which no key begins and no option spells",
+    (name) => {
+      expect(() => resolveAlgorithm(name)).toThrow(UnknownAlgorithmError);
+      expect(() => resolveAlgorithm(name)).toThrow(/\. Available: sha256, sha384, /);
+    },
+  );
 });
 
 describe("digests", () => {
@@ -3287,6 +3314,15 @@ describe("errors", () => {
     const unknown = new UnknownAlgorithmError("fnv99", ["fnv1a"]);
     expect(unknown).toMatchObject({ algorithm: "fnv99", available: ["fnv1a"] });
     expect(unknown.message).toBe("Unknown algorithm: fnv99. Available: fnv1a");
+    const suggested = new UnknownAlgorithmError(
+      "crc",
+      ["crc32"],
+      [{ algorithm: "crc32" }, { algorithm: "crc32", parameters: { variant: "bzip2" } }],
+    );
+    expect(suggested.suggestions).toHaveLength(2);
+    expect(suggested.message).toBe(
+      "Unknown algorithm: crc. Did you mean crc32 or crc32 with variant=bzip2?",
+    );
 
     const invalid = new InvalidOptionError("encoding", "junk", "unknown format");
     expect(invalid).toMatchObject({ option: "encoding", value: "junk", reason: "unknown format" });

@@ -821,6 +821,16 @@ describe("hashes MCP server", () => {
     expect(answer.text).toContain("Unknown algorithm: sha999. Available: sha256");
   });
 
+  it("answers a variant spelled into the name with the parameters that take it", async () => {
+    const answer = await call("hashes_compute", { algorithm: "CRC-32/BZIP2", input: "x" });
+
+    expect(answer.isError).toBe(true);
+    expect(answer.text).toContain(
+      "Unknown algorithm: CRC-32/BZIP2. Did you mean crc32 with variant=bzip2?",
+    );
+    expect(answer.text).not.toContain("Available:");
+  });
+
   it("takes the options hashes_algorithms advertises, as parameters", async () => {
     // Reference: Python xxhash.xxh64(b"abc", seed=1).
     const seeded = await call("hashes_compute", {
