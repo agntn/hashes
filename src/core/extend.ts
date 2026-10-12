@@ -9,6 +9,7 @@ import type { Hash } from "./hash.ts";
 import { MerkleDamgard, assertBytes, viewOf, writeBitLength } from "./hasher.ts";
 import { algorithms, create } from "./registry.ts";
 import { resolveAlgorithm } from "./resolve.ts";
+import { TigerHasher } from "./tiger.ts";
 
 /** What `extendDigest` takes. */
 export interface ExtendDigestOptions {
@@ -38,33 +39,38 @@ export interface ExtendedDigest {
   padding: Uint8Array;
 }
 
+/** A hasher whose digest is its whole state. */
+type ResumableHasher = MerkleDamgard | TigerHasher;
+
 /**
  * The hasher of an algorithm that length extension works on.
  *
  * @param algorithm - The algorithm.
- * @returns {MerkleDamgard | undefined} A fresh hasher, or nothing when its digest is not the state.
+ * @returns {ResumableHasher | undefined} A fresh hasher, or nothing when the digest is cut short.
  */
-function extendableHasher(algorithm: Hash): MerkleDamgard | undefined {
+function extendableHasher(algorithm: Hash): ResumableHasher | undefined {
   if (!(algorithm instanceof BlockHash)) return undefined;
   const hasher = algorithm.hasher();
+  if (hasher instanceof TigerHasher) return hasher;
   return hasher instanceof MerkleDamgard && hasher.outputLength === hasher.stateLength
     ? hasher
     : undefined;
 }
 
 /**
- * The padding a Merkle-Damgard hash appends after `length` bytes: 0x80, zeros, then the bit length.
+ * The padding after `length` bytes: 0x80, or Tiger's 0x01, zeros, then the bit length.
  *
  * @param block - The hash's block length.
  * @param littleEndian - Byte order of the bit length.
  * @param length - Bytes hashed before the padding.
+ * @param marker - The padding's first byte.
  * @returns {Uint8Array} The padding, ending on a block boundary.
  */
-function padding(block: number, littleEndian: boolean, length: number): Uint8Array {
+function padding(block: number, littleEndian: boolean, length: number, marker: number): Uint8Array {
   const least = 1 + (block >> 3);
   const size = least + ((block - ((length + least) % block)) % block);
   const out = new Uint8Array(size);
-  out[0] = 0x80;
+  out[0] = marker;
   writeBitLength(viewOf(out), size, length, littleEndian);
   return out;
 }
@@ -109,7 +115,13 @@ export function extendDigest(options: Readonly<ExtendDigestOptions>): ExtendedDi
       `${algorithm.name()} digests are ${hasher.outputLength} bytes`,
     );
   }
-  const pad = padding(hasher.blockLength, hasher.littleEndian, secretLength + message.length);
+  const marker = hasher instanceof TigerHasher ? 0x01 : 0x80;
+  const pad = padding(
+    hasher.blockLength,
+    hasher.littleEndian,
+    secretLength + message.length,
+    marker,
+  );
   const hashed = secretLength + message.length + pad.length;
   if (!Number.isSafeInteger(hashed + suffix.length)) {
     throw new InvalidOptionError("secretLength", secretLength, "is too long to count in bits");

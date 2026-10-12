@@ -83,7 +83,7 @@ export const BUILTIN_FAMILIES =
 export const BUILTIN_ALGORITHMS =
   "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, md5, md4, md2, ntlm, sha1, sha0, ripemd128, ripemd256, haval, tiger, crc32, crc64, crc24, crc16-xmodem, adler32, xxhash, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt";
 export const EXTENDABLE_ALGORITHMS =
-  "sha256, sha512, ripemd160, ripemd320, md5, md4, sha1, sha0, ripemd128, ripemd256";
+  "sha256, sha512, ripemd160, ripemd320, md5, md4, sha1, sha0, ripemd128, ripemd256, tiger";
 export const HMAC_ALGORITHMS =
   "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha3-256, sha3-512, keccak256, blake2b, blake2s, ripemd160, ripemd320, md5, md4, md2, sha1, sha0, ripemd128, ripemd256, haval, tiger";
 

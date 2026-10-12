@@ -5,6 +5,7 @@
  * of Tiger hashing one sentence over and over swap bytes between words, through the boxes being
  * swapped. The padding starts with 0x01, and the digest is the three words, each little-endian.
  */
+import { HashError } from "./errors.ts";
 import { Hasher, assertBytes, viewOf, wordsToBytes, writeBitLength } from "./hasher.ts";
 
 /** Bytes per block. */
@@ -267,6 +268,8 @@ function build(): void {
 export class TigerHasher extends Hasher {
   readonly blockLength = BLOCK;
   readonly outputLength = 24;
+  /** Byte order of the words, the length and the digest. */
+  readonly littleEndian = true;
   /** a, b and c, low half first. */
   private readonly state = IV.slice();
   /** The partial block not compressed yet. */
@@ -316,6 +319,25 @@ export class TigerHasher extends Hasher {
     writeBitLength(viewOf(buffer), BLOCK, this.length, true);
     compress(state, buffer, 0);
     wordsToBytes(state, out, this.outputLength, true);
+  }
+
+  /**
+   * Picks up from a digest as if `length` bytes, padding included, had been hashed into it.
+   *
+   * @param digest - A digest of 24 bytes, the whole state.
+   * @param length - Bytes hashed with the padding, a multiple of 64.
+   * @returns {this} The same hasher, ready for `update`.
+   */
+  resume(digest: Uint8Array, length: number): this {
+    assertBytes(digest, "digest");
+    if (digest.length !== this.outputLength || !(length >= 0 && length % BLOCK === 0)) {
+      throw new HashError(`resume takes a 24-byte digest and a multiple of ${BLOCK} bytes`);
+    }
+    const view = viewOf(digest);
+    for (let i = 0; i < 6; i++) this.state[i] = view.getInt32(i * 4, true);
+    this.position = 0;
+    this.length = length;
+    return this;
   }
 
   load(source: this): this {

@@ -2236,7 +2236,22 @@ describe("extendDigest", () => {
       "sha0",
       "ripemd128",
       "ripemd256",
+      "tiger",
     ]);
+  });
+
+  it("forges Tiger with its 0x01 padding, the digest PHP gives for the forged message", () => {
+    /* PHP 8.5.11: hash("tiger192,3", "k3y" . "user=a" . $padding . "&admin=1"). */
+    const forged = extendDigest({
+      algorithm: "tiger",
+      digest: Uint8Array.fromHex("d964522e774be39f8b2aa2030517c6359e0bb218a4395079"),
+      message: text("user=a"),
+      secretLength: 3,
+      suffix: text("&admin=1"),
+    });
+
+    expect(forged.padding.toHex()).toBe(`01${"00".repeat(46)}4800000000000000`);
+    expect(forged.digest.toHex()).toBe("d785c8e6b480bd9daa9cce15eef070584bedcbbc11f7a244");
   });
 
   it.each([
@@ -2250,6 +2265,7 @@ describe("extendDigest", () => {
     "sha0",
     "ripemd128",
     "ripemd256",
+    "tiger",
   ])("%s matches the hash of the secret and the forged message at every block offset", (name) => {
     const algorithm = create(name);
     const hash = (bytes: Uint8Array) => algorithm.hash(bytes).digest as string;
@@ -2286,7 +2302,6 @@ describe("extendDigest", () => {
     "sha3-256",
     "md2",
     "haval",
-    "tiger",
     "ntlm",
     "hash160",
   ])("refuses %s, whose digest is not a state it can resume from", (algorithm) => {
