@@ -58,13 +58,23 @@ const input = Type.Union(
 const inputEncoding = Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.inputEncoding }));
 const encoding = Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.encoding }));
 const salt = Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.salt }));
-const parameters = Type.Optional(
-  Type.Record(
-    Type.String({ pattern: PARAMETER_NAME_PATTERN }),
-    Type.Union([Type.Integer(), Type.String({ maxLength: MAX_PARAMETER_LENGTH })]),
-    { maxProperties: MAX_PARAMETERS, additionalProperties: false, description: d.parameters },
-  ),
-);
+/**
+ * The optional `parameters` argument: an algorithm's own options by name.
+ *
+ * @param description - What the tool takes in it.
+ * @returns {TOptional<TRecord>} The schema.
+ */
+function parametersArgument(description: string) {
+  return Type.Optional(
+    Type.Record(
+      Type.String({ pattern: PARAMETER_NAME_PATTERN }),
+      Type.Union([Type.Integer(), Type.String({ maxLength: MAX_PARAMETER_LENGTH })]),
+      { maxProperties: MAX_PARAMETERS, additionalProperties: false, description },
+    ),
+  );
+}
+
+const parameters = parametersArgument(d.parameters);
 
 export const hashComputeSchema = closed({
   algorithm,
@@ -86,6 +96,7 @@ export const hashHmacSchema = closed({
   key: Type.String({ maxLength: MAX_KEY_LENGTH, description: d.key }),
   keyEncoding: Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.keyEncoding })),
   encoding,
+  parameters: parametersArgument(d.hmacParameters),
 });
 
 export const hashVerifySchema = closed({

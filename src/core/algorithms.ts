@@ -35,6 +35,7 @@ export const builtinAlgorithms = [
   "sha0",
   "ripemd128",
   "ripemd256",
+  "haval",
   // Non-cryptographic
   "crc32",
   "crc64",

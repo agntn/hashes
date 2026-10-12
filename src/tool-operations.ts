@@ -99,7 +99,15 @@ export type ToolName = keyof typeof toolSchemas;
 /** Every argument each tool takes, pinned to the schemas by a test; anything else is rejected. */
 export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
   hashes_compute: ["algorithm", "input", "inputEncoding", "encoding", "salt", "parameters"],
-  hashes_hmac_compute: ["algorithm", "input", "inputEncoding", "key", "keyEncoding", "encoding"],
+  hashes_hmac_compute: [
+    "algorithm",
+    "input",
+    "inputEncoding",
+    "key",
+    "keyEncoding",
+    "encoding",
+    "parameters",
+  ],
   hashes_verify: [
     "algorithm",
     "input",
@@ -352,11 +360,13 @@ function saltArgument(value: unknown): string | undefined {
  * Names the argument that takes an option a model put into `parameters` instead.
  *
  * @param name - The parameter name.
- * @param hmac - Whether the algorithm has an HMAC mode.
+ * @param hmac - Whether the algorithm has an HMAC mode, and so no salt.
+ * @param keyed - Whether the call has a key argument of its own.
  * @returns {string | undefined} Where the option goes, or nothing for a real parameter.
  */
-function argumentFor(name: string, hmac: boolean): string | undefined {
-  if (name === "salt" || name === "encoding") return `pass the ${name} as the ${name} argument`;
+function argumentFor(name: string, hmac: boolean, keyed: boolean): string | undefined {
+  const own = name === "encoding" || (name === "salt" && !hmac) || (name === "key" && keyed);
+  if (own) return `pass the ${name} as the ${name} argument`;
   if (name === "key" && hmac) return "pass the key to hashes_hmac_compute";
   return undefined;
 }
@@ -367,8 +377,13 @@ function argumentFor(name: string, hmac: boolean): string | undefined {
  *
  * @param given - The parameters as passed.
  * @param hmac - Whether the algorithm has an HMAC mode.
+ * @param keyed - Whether the call has a key argument of its own.
  */
-function assertParameterEntries(given: Readonly<Record<string, unknown>>, hmac: boolean): void {
+function assertParameterEntries(
+  given: Readonly<Record<string, unknown>>,
+  hmac: boolean,
+  keyed: boolean,
+): void {
   const entries = Object.entries(given);
   if (entries.length > MAX_PARAMETERS) {
     throw new InvalidOptionError("parameters", "(object)", `at most ${MAX_PARAMETERS} entries`);
@@ -381,7 +396,7 @@ function assertParameterEntries(given: Readonly<Record<string, unknown>>, hmac: 
         "names are letters and digits, starting with a letter",
       );
     }
-    const redirect = argumentFor(name, hmac);
+    const redirect = argumentFor(name, hmac, keyed);
     if (redirect !== undefined) throw new InvalidOptionError("parameters", name, redirect);
     if (typeof value === "string" && value.length > MAX_PARAMETER_LENGTH) {
       throw new InvalidOptionError(
@@ -415,18 +430,20 @@ function assertWithinLimit(name: string, value: ParameterValue): void {
  * @param algorithm - The resolved algorithm.
  * @param salt - The salt argument as passed.
  * @param parameters - The parameters argument as passed.
+ * @param keyed - Whether the call has a key argument of its own, as `hashes_hmac_compute` does.
  * @returns {Record<string, ParameterValue>} The options to hash with.
  */
 function algorithmOptions(
   algorithm: Hash,
   salt: unknown,
   parameters: unknown,
+  keyed = false,
 ): Record<string, ParameterValue> {
   if (parameters !== undefined && (typeof parameters !== "object" || parameters === null)) {
     throw new InvalidOptionError("parameters", parameters, "must be an object of option values");
   }
   const given = { ...(parameters as Readonly<Record<string, unknown>> | undefined) };
-  assertParameterEntries(given, algorithm.info().hmac);
+  assertParameterEntries(given, algorithm.info().hmac, keyed);
   const hexSalt = saltArgument(salt);
   if (hexSalt !== undefined) given["salt"] = hexSalt;
   const options = checkedParameters(algorithm, given);
@@ -834,7 +851,7 @@ function digestListResult(
  * A list of inputs gets an HMAC each under the same key.
  *
  * @param params - Algorithm, input or inputs and their encoding, key and its encoding, digest
- *   encoding.
+ *   encoding, and the algorithm's own options, such as HAVAL's passes and length.
  * @returns {ToolResult<DigestDetails | DigestBatchDetails>} The HMAC, or one per input.
  */
 export function hashHmac(
@@ -850,8 +867,9 @@ export function hashHmac(params: HashHmacParams): ToolResult<DigestDetails | Dig
   if (!algorithm.info().hmac) {
     throw new InvalidOptionError("algorithm", algorithm.name(), "has no HMAC mode");
   }
+  const options = algorithmOptions(algorithm, undefined, params.parameters, true);
   const tag = (input: HashInput): DigestDetails =>
-    digestDetails(algorithm.hash(input, { encoding, key }), encoding);
+    digestDetails(algorithm.hash(input, { ...options, encoding, key } as HashOptions), encoding);
   if (!inputs.list) return digestResult(tag(inputs.value));
   return digestListResult(
     inputs.values.map((input) => settled(() => tag(input))),

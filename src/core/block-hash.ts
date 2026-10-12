@@ -2,25 +2,29 @@ import { ENCODING_OPTION, KEY_OPTION } from "./digest.ts";
 import { FixedHash, ROUND_OPTIONS } from "./fixed-hash.ts";
 import type { Hasher } from "./hasher.ts";
 import { hmac } from "./hmac.ts";
-import type { AlgorithmInfo } from "./types.ts";
+import type { AlgorithmInfo, HashOptions } from "./types.ts";
 
 /** Base class for a fixed-length digest built from a `Hasher`, with HMAC over its blocks. */
-export abstract class BlockHash extends FixedHash {
+export abstract class BlockHash<
+  Options extends HashOptions = HashOptions,
+> extends FixedHash<Options> {
   /**
    * Creates the hasher that computes the digest, for input that arrives in pieces.
    *
+   * @param options - The algorithm's own options, such as HAVAL's passes and length.
    * @returns {Hasher} A hasher with nothing absorbed.
    */
-  abstract hasher(): Hasher;
+  abstract hasher(options?: Readonly<Options>): Hasher;
 
   /**
    * Hashes the input in one pass.
    *
    * @param bytes - The input's bytes.
+   * @param options - The algorithm's own options.
    * @returns {Uint8Array} The digest.
    */
-  protected digest(bytes: Uint8Array): Uint8Array {
-    return this.hasher().update(bytes).digest();
+  protected digest(bytes: Uint8Array, options?: Readonly<Options>): Uint8Array {
+    return this.hasher(options).update(bytes).digest();
   }
 
   /**
@@ -28,10 +32,15 @@ export abstract class BlockHash extends FixedHash {
    *
    * @param key - The HMAC key.
    * @param bytes - The input's bytes.
+   * @param options - The algorithm's own options.
    * @returns {Uint8Array} The tag.
    */
-  protected override hmac(key: Uint8Array, bytes: Uint8Array): Uint8Array {
-    return hmac(() => this.hasher(), key, bytes);
+  protected override hmac(
+    key: Uint8Array,
+    bytes: Uint8Array,
+    options?: Readonly<Options>,
+  ): Uint8Array {
+    return hmac(() => this.hasher(options), key, bytes);
   }
 
   /**

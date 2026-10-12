@@ -3,6 +3,7 @@
  * as one last block. Both run every byte through a permutation drawn from the digits of π.
  */
 import { Hasher, assertBytes } from "./hasher.ts";
+import { machinPi } from "./pi.ts";
 
 /** Bytes per block, and of the digest. */
 const BLOCK = 16;
@@ -10,24 +11,14 @@ const BLOCK = 16;
 let piSubstitution: Uint8Array | undefined;
 
 /**
- * Computes π's leading decimal digits with Machin's formula.
+ * Computes π's leading decimal digits.
  *
  * @param count - Digits after the leading 3.
  * @returns {string} `"314159…"`, `count + 1` digits.
  */
 function piDigits(count: number): string {
   const guard = 10n ** 10n;
-  const one = 10n ** BigInt(count) * guard;
-  const arctanInverse = (x: bigint): bigint => {
-    let power = one / x;
-    let sum = power;
-    for (let n = 3n, sign = -1n; power !== 0n; n += 2n, sign = -sign) {
-      power /= x * x;
-      sum += (sign * power) / n;
-    }
-    return sum;
-  };
-  return String((16n * arctanInverse(5n) - 4n * arctanInverse(239n)) / guard);
+  return String(machinPi(10n ** BigInt(count) * guard) / guard);
 }
 
 /**

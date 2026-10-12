@@ -77,31 +77,51 @@ function takenBy(algorithms: readonly string[]): string {
 }
 
 /**
+ * Describes a flag by each meaning it has. `--bits` is one thing to HAVAL and another to xxHash.
+ *
+ * @param meanings - Each description, with the algorithms that declare the option with it.
+ * @returns {string} The flag's help text.
+ */
+function flagDescription(meanings: readonly (readonly [string, readonly string[]])[]): string {
+  const [only] = meanings;
+  if (meanings.length === 1 && only) return `${only[0]} (${takenBy(only[1])})`;
+  return meanings.map(([text, names]) => `${text} (${names.join(", ")})`).join("; ");
+}
+
+/**
  * One flag per option the built-in algorithms take besides encoding and key, such as `--salt`,
  * `--seed`, `--n` or `--iterations`, each naming the algorithms that declare it.
  *
+ * @param names - The algorithms whose options become flags.
+ * @param skipped - Options left out, such as `rounds` for HMAC, which runs one.
  * @returns {Record<string, TOptional<TString>>} The flags by option name.
  */
-function builtinParameters(): Record<string, TOptional<TString>> {
-  const flags = new Map<string, { description: string; algorithms: string[] }>();
-  for (const name of builtinAlgorithms) {
+function builtinParameters(
+  names: readonly string[],
+  skipped: readonly string[] = [],
+): Record<string, TOptional<TString>> {
+  const flags = new Map<string, Map<string, string[]>>();
+  for (const name of names) {
     for (const option of parameterOptions(create(name))) {
-      const flag = flags.get(option.name) ?? { description: option.description, algorithms: [] };
-      flag.algorithms.push(name);
-      flags.set(option.name, flag);
+      if (skipped.includes(option.name)) continue;
+      const meanings = flags.get(option.name) ?? new Map<string, string[]>();
+      meanings.set(option.description, [...(meanings.get(option.description) ?? []), name]);
+      flags.set(option.name, meanings);
     }
   }
   return Object.fromEntries(
-    [...flags].map(([name, flag]) => [
+    [...flags].map(([name, meanings]) => [
       name,
-      Type.Optional(
-        Type.String({ description: `${flag.description} (${takenBy(flag.algorithms)})` }),
-      ),
+      Type.Optional(Type.String({ description: flagDescription([...meanings]) })),
     ]),
   );
 }
 
-const parameters = builtinParameters();
+const parameters = builtinParameters(builtinAlgorithms);
+const hmacParameters = builtinParameters(
+  builtinAlgorithms.filter((name) => create(name).info().hmac),
+  ["rounds", "chain"],
+);
 
 /**
  * Reads the parameter flags that were given and checks them against the algorithm, so a flag
@@ -109,14 +129,16 @@ const parameters = builtinParameters();
  *
  * @param algorithm - The resolved algorithm.
  * @param args - The parsed arguments.
+ * @param flags - The parameter flags the command takes.
  * @returns {Record<string, ParameterValue>} The options to hash with.
  */
 function readParameters(
   algorithm: Hash,
   args: Readonly<Record<string, unknown>>,
+  flags: Readonly<Record<string, unknown>> = parameters,
 ): Record<string, ParameterValue> {
   const given = Object.fromEntries(
-    Object.keys(parameters)
+    Object.keys(flags)
       .filter((name) => args[name] !== undefined)
       .map((name) => [name, args[name]] as const),
   );
@@ -310,6 +332,7 @@ export const hmacCommand = defineTool({
     encoding: Type.Optional(
       Type.Enum([...TEXT_ENCODINGS, "binary"], { description: ENCODING_OPTION.description }),
     ),
+    ...hmacParameters,
   }),
   cli: {
     command: "hmac",
@@ -326,13 +349,15 @@ export const hmacCommand = defineTool({
     const texts = params.input.slice(0, -1);
     const key = decodeInput(params.input.at(-1) ?? "", params.keyEncoding ?? "utf8", "key");
     const encoding = params.encoding ?? "hex";
+    const options = readParameters(hash, params, hmacParameters);
     const [only, ...more] = texts;
     if (only !== undefined && more.length === 0) {
-      return printDigest(hash.hash(readInput(only, params.inputEncoding), { encoding, key }));
+      const input = readInput(only, params.inputEncoding);
+      return printDigest(hash.hash(input, { ...options, encoding, key } as HashOptions));
     }
     const text = listEncoding(encoding);
     return printDigests(texts, params.inputEncoding, (input) =>
-      digestDetails(hash.hash(input, { encoding: text, key }), text),
+      digestDetails(hash.hash(input, { ...options, encoding: text, key } as HashOptions), text),
     );
   },
 });

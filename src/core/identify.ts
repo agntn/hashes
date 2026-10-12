@@ -371,51 +371,69 @@ function readFormat(read: DigestFormat["read"], match: Match): FormatReading | u
 }
 
 /**
- * Lists the readings of an algorithm that one option changed from its default gives, as
- * `@agntn/encodings` does for alphabets: CRC-32's `bzip2` variant, XXH32 through `bits`. A
- * reading counts when its digest is `length` bytes.
+ * Lists the readings of an algorithm that options changed from their defaults give, as
+ * `@agntn/encodings` does for alphabets: CRC-32's `bzip2` variant, XXH32 through `bits`, HAVAL
+ * in 4 passes. A reading counts when its digest is `length` bytes.
  *
  * @param name - Registry name.
  * @param info - Its metadata.
  * @param length - Bytes the string spells.
- * @returns {DigestCandidate[]} One candidate per such choice, with the option as a parameter.
+ * @returns {DigestCandidate[]} One candidate per such set of choices, as parameters.
  */
 function choiceCandidates(name: string, info: AlgorithmInfo, length: number): DigestCandidate[] {
-  return lengthChoices(name, info, length).map(({ option, choice }) => ({
+  return lengthChoices(name, info, length).map((parameters) => ({
     name,
-    label: `${info.label} (${option} ${choice})`,
+    label: `${info.label} (${choiceText(parameters, ", ")})`,
     fit: "length",
     algorithm: name,
-    parameters: { [option]: choice },
+    parameters,
   }));
 }
 
 /**
- * Lists the values of an option with `choices`, other than its default, that make an algorithm's
- * digest `length` bytes: CRC-32's `bzip2` variant, XXH32 through `bits`. Search tries them too.
+ * Writes a set of choices as `option value` pairs.
+ *
+ * @param parameters - The choices by option name.
+ * @param separator - What goes between two pairs.
+ * @returns {string} `passes 4, bits 256` and the like.
+ */
+export function choiceText(
+  parameters: Readonly<Record<string, number | string>>,
+  separator: string,
+): string {
+  return Object.entries(parameters)
+    .map(([option, choice]) => `${option} ${choice}`)
+    .join(separator);
+}
+
+/**
+ * Lists the sets of option values with `choices`, each value alone or with others and never all of
+ * them at their defaults, that make an algorithm's digest `length` bytes: CRC-32's `bzip2`
+ * variant, XXH32 through `bits`, HAVAL-256 in 4 passes. Search tries them too.
  *
  * @param name - Registry name.
  * @param info - Its metadata.
  * @param length - Bytes the digest must have.
- * @returns {Array<{ option: string; choice: number | string }>} Each fitting option and value.
+ * @returns {Array<Record<string, number | string>>} Each fitting set, by option name.
  */
 export function lengthChoices(
   name: string,
   info: AlgorithmInfo,
   length: number,
-): Array<{ option: string; choice: number | string }> {
-  const found: Array<{ option: string; choice: number | string }> = [];
+): Array<Record<string, number | string>> {
+  let sets: Array<Record<string, number | string>> = [{}];
   for (const option of info.options) {
-    for (const choice of option.choices ?? []) {
-      if (choice === option.default) continue;
-      const digest = create(name).hash(new Uint8Array(0), {
-        [option.name]: choice,
-        encoding: "binary",
-      } as HashOptions);
-      if (digest.digestLength === length) found.push({ option: option.name, choice });
-    }
+    const others = (option.choices ?? []).filter((choice) => choice !== option.default);
+    sets = sets.flatMap((set) => [
+      set,
+      ...others.map((choice) => ({ ...set, [option.name]: choice })),
+    ]);
   }
-  return found;
+  return sets.filter((set) => {
+    if (Object.keys(set).length === 0) return false;
+    const options = { ...set, encoding: "binary" } as HashOptions;
+    return create(name).hash(new Uint8Array(0), options).digestLength === length;
+  });
 }
 
 /**

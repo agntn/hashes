@@ -35,6 +35,7 @@ import {
   callOptions,
   categoryLabel,
   digestBits,
+  ownOptions,
 } from "../../utils/algorithms";
 import { commandLine, optionFlags, shellArg } from "../../utils/format";
 import { jsonTokens, shellTokens } from "../../utils/tokens";
@@ -210,11 +211,15 @@ const searchWords = computed(() =>
 const entry = computed(() => algorithmEntry(algorithmName.value) ?? ALGORITHMS[0]!);
 const saltOption = computed(() => entry.value.info.options.find((option) => option.name === "salt"));
 const takesSalt = computed(() => saltOption.value !== undefined);
-/** Options besides encoding, key and salt: the `parameters` a tool call takes. */
+/** The `parameters` a call takes besides encoding, key and salt. HMAC runs one round. */
 const parameterFields = computed(() =>
-  callOptions(entry.value.info).filter((option) => option.name !== "salt"),
+  (operation.value === "hmac" ? ownOptions : callOptions)(entry.value.info).filter(
+    (option) => option.name !== "salt",
+  ),
 );
-const usesParameters = computed(() => operation.value === "hash" || operation.value === "verify");
+const usesParameters = computed(
+  () => operation.value === "hash" || operation.value === "hmac" || operation.value === "verify",
+);
 
 /**
  * Whether the operation can run the algorithm: HMAC needs a key mode, extension a whole state.

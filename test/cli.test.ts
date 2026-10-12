@@ -56,6 +56,9 @@ describe("hashes CLI", () => {
       "previous digest (all but scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt)",
     );
     expect(usage.stdout).toContain("Seed value for xxHash (xxhash)");
+    expect(usage.stdout).toContain(
+      "Fingerprint length in bits, 128 to 256 in steps of 32 (haval); 64 for XXH64, 32 for XXH32, the one lz4 frames use (xxhash)",
+    );
     for (const output of [help, usage]) {
       expect(output.stdout + output.stderr).not.toContain("\u001B");
     }
@@ -209,6 +212,21 @@ describe("hashes CLI", () => {
     }
   });
 
+  it("HMACs with HAVAL's passes and length, and takes no rounds", () => {
+    /* PHP 8.5.11: hash_hmac("haval160,3", "what do ya want for nothing?", "Jefe"). */
+    expect(run(["hmac", "haval", "what do ya want for nothing?", "Jefe", "--bits", "160"])).toEqual(
+      {
+        code: 0,
+        stderr: "",
+        stdout: "3c08cd84a4cf016876d7bdae17cb96161fcbd24a\n",
+      },
+    );
+    expect(run(["hmac", "sha256", "m", "k", "--rounds", "2"])).toMatchObject({ code: 1 });
+    expect(run(["hmac", "sha256", "m", "k", "--rounds", "2"]).stderr).toContain(
+      'unknown option "--rounds"',
+    );
+  });
+
   it("HMACs several inputs under the key that comes last", () => {
     const tag = (text: string): string => createHmac("sha256", "k").update(text).digest("hex");
 
@@ -255,7 +273,7 @@ describe("hashes CLI", () => {
 
     expect(both).toEqual({
       code: 0,
-      stderr: "Searching 44 hashes\nMATCH for 2 of 2 digests after 34 of 44 hashes\n",
+      stderr: "Searching 56 hashes\nMATCH for 2 of 2 digests after 43 of 56 hashes\n",
       stdout: [
         `${sha256("beta-alpha")} MATCH`,
         'sha256 of the words "beta", "alpha" joined by "-", case as-is',
@@ -271,7 +289,7 @@ describe("hashes CLI", () => {
       `${sha256("alpha")} MATCH\nsha256 of the word "alpha", case as-is\ninput "alpha"\n${sha256("x")} NO MATCH\n`,
     );
     expect(one.stderr).toMatch(
-      /^Searching 44 hashes\nMATCH for 1 of 2 digests after 44 of 44 hashes\nCovered 1 to 2 of the words "alpha", "beta"; joiners "-"; cases as-is; algorithms sha256, /,
+      /^Searching 56 hashes\nMATCH for 1 of 2 digests after 56 of 56 hashes\nCovered 1 to 2 of the words "alpha", "beta"; joiners "-"; cases as-is; algorithms sha256, /,
     );
   });
 
@@ -329,6 +347,9 @@ describe("hashes CLI", () => {
         "ripemd160: RIPEMD-160, computable",
         "hash160: HASH160, computable",
         "sha0: SHA-0, computable",
+        "haval: HAVAL (bits 160), computable, bits 160",
+        "haval: HAVAL (passes 4, bits 160), computable, passes 4, bits 160",
+        "haval: HAVAL (passes 5, bits 160), computable, passes 5, bits 160",
         "Any length: scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, with keyLength 20",
         "",
       ].join("\n"),

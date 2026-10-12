@@ -79,13 +79,13 @@ export const HASH_CATEGORIES = [
   "password",
 ] as const;
 export const BUILTIN_FAMILIES =
-  "SHA, Keccak, BLAKE, RIPEMD, MD, CRC, Adler, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2, bcrypt";
+  "SHA, Keccak, BLAKE, RIPEMD, MD, HAVAL, CRC, Adler, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2, bcrypt";
 export const BUILTIN_ALGORITHMS =
-  "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, md5, md4, md2, ntlm, sha1, sha0, ripemd128, ripemd256, crc32, crc64, crc24, crc16-xmodem, adler32, xxhash, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt";
+  "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, md5, md4, md2, ntlm, sha1, sha0, ripemd128, ripemd256, haval, crc32, crc64, crc24, crc16-xmodem, adler32, xxhash, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt";
 export const EXTENDABLE_ALGORITHMS =
   "sha256, sha512, ripemd160, ripemd320, md5, md4, sha1, sha0, ripemd128, ripemd256";
 export const HMAC_ALGORITHMS =
-  "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha3-256, sha3-512, keccak256, blake2b, blake2s, ripemd160, ripemd320, md5, md4, md2, sha1, sha0, ripemd128, ripemd256";
+  "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha3-256, sha3-512, keccak256, blake2b, blake2s, ripemd160, ripemd320, md5, md4, md2, sha1, sha0, ripemd128, ripemd256, haval";
 
 /** What each tool does, the same text on every surface. */
 export const TOOL_DESCRIPTIONS = {
@@ -140,7 +140,9 @@ function parameterDescriptions() {
     verifySalt:
       "KDFs only (scrypt, pbkdf2, argon2id, argon2i, argon2d, bcrypt, hkdf, evp-bytestokey): the salt in hex the expected digest was made with, required for scrypt, pbkdf2, argon2 and bcrypt",
     parameters:
-      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but the KDFs, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2, info (hex), digest and keyLength for hkdf, digest, iterations, keyLength and ivLength for evp-bytestokey, memory (KiB), iterations, parallelism, keyLength, secret (hex) and associatedData (hex) for argon2id, argon2i and argon2d, cost (4 to 31) for bcrypt",
+      "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but the KDFs, passes and bits for haval, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2, info (hex), digest and keyLength for hkdf, digest, iterations, keyLength and ivLength for evp-bytestokey, memory (KiB), iterations, parallelism, keyLength, secret (hex) and associatedData (hex) for argon2id, argon2i and argon2d, cost (4 to 31) for bcrypt",
+    hmacParameters:
+      "Options the algorithm takes besides encoding and key, as hashes_algorithms lists them: passes (3, 4 or 5) and bits (128 to 256) for haval. HMAC runs one round",
     extendAlgorithm: `Merkle-Damgard algorithm whose digest is its whole state: ${EXTENDABLE_ALGORITHMS}`,
     knownDigest: "The known digest of the secret followed by message, in hex without a 0x prefix",
     message: "The message that followed the secret, read as messageEncoding says",
