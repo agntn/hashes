@@ -886,12 +886,12 @@ describe("hashes MCP server", () => {
         .text;
 
     expect(
-      await refusal("pbkdf2", { digest: "whirlpool", keyLength: 1024, iterations: 10_000_000 }),
+      await refusal("pbkdf2", { digest: "whirlpool", keyLength: 1024, iterations: 40_000 }),
     ).toBe(
-      "hashes_compute failed: Invalid option iterations=10000000: whirlpool fills 1024 bytes 64 at a time, so a tool call runs at most 36337 iterations; lower iterations or ask for fewer bytes",
+      "hashes_compute failed: Invalid option iterations=40000: whirlpool fills 1024 bytes 64 at a time, so a tool call runs at most 36337 iterations; lower iterations or ask for fewer bytes",
     );
     expect(
-      await refusal("pbkdf2", { digest: "sha3-256", keyLength: 64, iterations: 10_000_000 }),
+      await refusal("pbkdf2", { digest: "sha3-256", keyLength: 64, iterations: 600_000 }),
     ).toContain("sha3-256 fills 64 bytes 32 at a time, so a tool call runs at most 581395");
     expect(await refusal("pbkdf2", { digest: "sha256", iterations: 3_000_000 })).toContain(
       "sha256 fills 64 bytes 32 at a time, so a tool call runs at most 2500000",
@@ -937,7 +937,7 @@ describe("hashes MCP server", () => {
         algorithm: "pbkdf2",
         input: "x",
         salt: "00",
-        parameters: { digest: "sha256", keyLength: 1024, iterations: 5_000_000 },
+        parameters: { digest: "sha256", keyLength: 1024, iterations: 160_000 },
       });
 
       expect(answer.text).toContain("sha256 fills 1024 bytes 32 at a time");
