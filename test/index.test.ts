@@ -954,8 +954,8 @@ describe("hashes chains use", () => {
     );
   });
 
-  it("whirlpool matches the ISO/IEC 10118-3 strings", () => {
-    /* The strings of the authors' iso-test-vectors.txt, digests from PHP 8.5.11 and RHash 1.4.6. */
+  it("whirlpool matches the authors' NESSIE vectors", () => {
+    /* The authors' vectors in Linux's crypto/testmgr.h, and a million a's from PHP and RHash. */
     const vectors: Record<string, string> = {
       "": "19fa61d75522a4669b44e39c1d2e1726c530232130d407f89afee0964997f7a73e83be698b288febcf88e3e03c4f0757ea8964e59b63d93708b138cc42a66eb3",
       a: "8aca2602792aec6f11a67206531fb7d7f0dff59413145e6973c45001d0087b42d11bc645413aeff63a42391a39145a591a92200d560195e53b478584fdae231a",

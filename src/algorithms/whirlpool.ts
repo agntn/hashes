@@ -12,7 +12,7 @@ export class Whirlpool extends BlockHash {
     category: "cryptographic",
     digestLength: 64,
     securityNote:
-      "No attack on the full hash. Collisions reach 5.5 of its 10 rounds, a distinguisher the full compression function. The digest is the whole state, so a secret prefix is no MAC: use HMAC.",
+      "No attack on the full hash. Collisions reach 5.5 of its 10 rounds, 8 on the compression function alone. The digest is the whole state, so a secret prefix is no MAC: use HMAC.",
   } as const;
 
   /**
