@@ -320,6 +320,36 @@ describe("hashes MCP server", () => {
     expect(verify.text.startsWith("MATCH")).toBe(true);
   });
 
+  it("takes HAVAL's passes and length for an HMAC and names them with the tag", async () => {
+    const hmac = (algorithm: string, parameters: Readonly<Record<string, unknown>>) =>
+      call("hashes_hmac_compute", {
+        algorithm,
+        input: "what do ya want for nothing?",
+        key: "Jefe",
+        parameters,
+      });
+
+    /* PHP 8.5.11: hash_hmac("haval256,5", "what do ya want for nothing?", "Jefe"). */
+    expect((await hmac("haval", { passes: 5, bits: 256 })).text).toBe(
+      "47031a21970c8a80ce3eccd850bc921471904a4c9ef1e12a4eef0df27c76267f\nHMAC-haval, hex, 32 bytes, passes 5, bits 256",
+    );
+    expect((await hmac("haval", { rounds: 2 })).text).toBe(
+      "hashes_hmac_compute failed: Invalid option rounds=2: HMAC runs one round",
+    );
+    expect((await hmac("haval", { chain: "hex" })).text).toBe(
+      "hashes_hmac_compute failed: Invalid option chain=hex: HMAC runs one round",
+    );
+    expect((await hmac("haval", { key: "x" })).text).toBe(
+      "hashes_hmac_compute failed: Invalid option parameters=key: pass the key as the key argument",
+    );
+    expect((await hmac("haval", { salt: "00" })).text).toBe(
+      "hashes_hmac_compute failed: Invalid option salt=00: haval takes passes, bits, rounds, chain",
+    );
+    expect((await hmac("sha256", { bits: 160 })).text).toBe(
+      "hashes_hmac_compute failed: Invalid option bits=160: sha256 takes rounds, chain",
+    );
+  });
+
   it("reads a hex or base64 key as the bytes it spells, RFC 4231 case 3", async () => {
     const key = Buffer.alloc(20, 0xaa);
     const hmac = createHmac("sha256", key).update(Buffer.alloc(50, 0xdd)).digest("hex");
@@ -581,6 +611,9 @@ describe("hashes MCP server", () => {
     );
     expect((await compute("sha256", { encoding: "base64" })).text).toBe(
       "hashes_compute failed: Invalid option parameters=encoding: pass the encoding as the encoding argument",
+    );
+    expect((await compute("sha256", { salt: "00" })).text).toBe(
+      "hashes_compute failed: Invalid option parameters=salt: pass the salt as the salt argument",
     );
     expect((await compute("crc32", { key: "secret" })).text).toBe(
       "hashes_compute failed: Invalid option key=secret: crc32 takes variant, rounds, chain",
@@ -852,7 +885,7 @@ describe("hashes MCP server", () => {
     expect(answer.isError).toBe(false);
     expect(answer.text).toBe(
       [
-        "MATCH after 1112 of 1683 hashes",
+        "MATCH after 1415 of 2142 hashes",
         'sha256 of the words "jacquefresco", "giveitjustonesecond", "heisenbergsuncertaintyprinciple" joined by "", case as-is',
         'input "jacquefrescogiveitjustonesecondheisenbergsuncertaintyprinciple"',
       ].join("\n"),
@@ -1047,6 +1080,9 @@ describe("hashes MCP server", () => {
         "md2: MD2, computable",
         "ntlm: NTLM, computable",
         "ripemd128: RIPEMD-128, computable",
+        "haval: HAVAL, computable",
+        "haval: HAVAL (passes 4), computable, passes 4",
+        "haval: HAVAL (passes 5), computable, passes 5",
         "lm: LM, not in this package",
         "Any length: scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, with keyLength 16",
         "Next: hashes_verify a known input with each computable candidate. Only a MATCH settles it.",

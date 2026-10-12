@@ -18,6 +18,7 @@ import { EvpBytesToKey } from "./evp-bytestokey.ts";
 import { Fnv1a } from "./fnv1a.ts";
 import { Hash160 } from "./hash160.ts";
 import { Hash256 } from "./hash256.ts";
+import { Haval } from "./haval.ts";
 import { Hkdf } from "./hkdf.ts";
 import { Keccak256 } from "./keccak256.ts";
 import { Md2 } from "./md2.ts";
@@ -76,6 +77,7 @@ export const builtins: readonly HashConstructor[] = [
   Sha0,
   Ripemd128,
   Ripemd256,
+  Haval,
   Crc32,
   Crc64,
   Crc24,
@@ -109,6 +111,7 @@ export {
   Fnv1a,
   Hash160,
   Hash256,
+  Haval,
   Hkdf,
   Keccak256,
   Md2,

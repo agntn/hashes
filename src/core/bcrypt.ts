@@ -5,6 +5,7 @@
  */
 import { InvalidOptionError } from "./errors.ts";
 import { assertBytes } from "./hasher.ts";
+import { piWords } from "./pi.ts";
 
 /** Words in the P-array, and the four S-boxes after it. */
 const P_WORDS = 18;
@@ -22,33 +23,16 @@ export const BCRYPT_MAX_COST = 31;
 /** Bytes of the result: the `$2b$` string encodes 23 of the 24 it encrypts. */
 const OUTPUT_LENGTH = 23;
 
-let piWords: Uint32Array | undefined;
+let blowfishWords: Uint32Array | undefined;
 
 /**
- * Computes Blowfish's π words once with Machin's formula, instead of shipping 8336 hex digits.
+ * Computes Blowfish's π words once, instead of shipping 8336 hex digits.
  *
  * @returns {Uint32Array} 1042 words, `0x243f6a88` first.
  */
 function blowfishPi(): Uint32Array {
-  if (piWords) return piWords;
-  const bits = BigInt(32 * STATE_WORDS + 64);
-  const one = 1n << bits;
-  const arctanInverse = (x: bigint): bigint => {
-    let power = one / x;
-    let sum = power;
-    for (let n = 3n, sign = -1n; power !== 0n; n += 2n, sign = -sign) {
-      power /= x * x;
-      sum += (sign * power) / n;
-    }
-    return sum;
-  };
-  const pi = 16n * arctanInverse(5n) - 4n * arctanInverse(239n);
-  const fraction = (pi - (3n << bits)) >> 64n;
-  const hex = fraction.toString(16).padStart(8 * STATE_WORDS, "0");
-  piWords = new Uint32Array(STATE_WORDS);
-  for (let i = 0; i < STATE_WORDS; i++)
-    piWords[i] = Number.parseInt(hex.slice(8 * i, 8 * i + 8), 16);
-  return piWords;
+  blowfishWords ??= piWords(STATE_WORDS);
+  return blowfishWords;
 }
 
 /**

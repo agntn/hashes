@@ -5,6 +5,7 @@ import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
 import { Md4, Md5, Scrypt, Sha1, builtins } from "../src/algorithms/index.ts";
 import { algorithmInfos } from "../src/core/resolve.ts";
+import { HAVAL_BITS, HAVAL_PASSES, HavalHasher, type HavalBits } from "../src/core/haval.ts";
 import { Md2Hasher } from "../src/core/md2.ts";
 import { Sha512tHasher } from "../src/core/sha2.ts";
 import {
@@ -73,6 +74,7 @@ import {
   version,
   xxhash,
   type HashOptions,
+  type HavalOptions,
   type Derivation,
   type Argon2Options,
   type BcryptOptions,
@@ -746,6 +748,132 @@ describe("hashes chains use", () => {
     );
     expect(create("md2").hash("a".repeat(1_000_000)).digest).toBe(
       "8c0a09ff1216ecaf95c8130953c62efd",
+    );
+  });
+
+  it("haval matches Barreto's vectors in every pass count and length", () => {
+    /* The vectors MrHash's haval.cpp lists, Barreto's public domain code by way of libmhash. */
+    const vectors: Record<string, readonly string[]> = {
+      abc: [
+        "9e40ed883fb63e985d299b40cda2b8f2",
+        "b21e876c4d391e2a897661149d83576b5530a089",
+        "a7b14c9ef3092319b0e75e3b20b957d180bf20745629e8de",
+        "5bc955220ba2346a948d2848eca37bdd5eca6ecca7b594bd32923fab",
+        "8699f1e3384d05b2a84b032693e2b6f46df85a13a50d93808d6874bb8fb9e86c",
+        "6f2132867c9648419adcd5013e532fa2",
+        "77aca22f5b12cc09010afc9c0797308638b1cb9b",
+        "7e29881ed05c915903dd5e24a8e81cde5d910142ae66207c",
+        "124c43d2ba4884599d013e8c872bfea4c88b0b6bf6303974cbe04e68",
+        "8f409f1bb6b30c5016fdce55f652642261575bedca0b9533f32f5455459142b5",
+        "d054232fe874d9c6c6dc8e6a853519ea",
+        "ae646b04845e3351f00c5161d138940e1fa0c11c",
+        "d12091104555b00119a8d07808a3380bf9e60018915b9025",
+        "8081027a500147c512e5f1055986674d746d92af4841abeb89da64ad",
+        "976cd6254c337969e5913b158392a2921af16fca51f5601d486e0a9de01156e7",
+      ],
+      abcdefghijklmnopqrstuvwxyz: [
+        "dc502247fb3eb8376109eda32d361d82",
+        "eba9fa6050f24c07c29d1834a60900ea4e32e61b",
+        "a25e1456e6863e7d7c74017bb3e098e086ad4be0580d7056",
+        "06ae38ebc43db58bd6b1d477c7b4e01b85a1e7b19b0bd088e33b58d1",
+        "72fad4bde1da8c8332fb60561a780e7f504f21547b98686824fc33fc796afa76",
+        "b2a73b99775ffb17cd8781b85ec66221",
+        "1c7884af86d11ac120fe5df75cee792d2dfa48ef",
+        "2e2e581d725e799fda1948c75e85a28cfe1cf0c6324a1ada",
+        "a0ac696cdb2030fa67f6cc1d14613b1962a7b69b4378a9a1b9738796",
+        "124f6eb645dc407637f8f719cc31250089c89903bf1db8fac21ea4614df4e99a",
+        "0efff71d7d14344cba1f4b25f924a693",
+        "917836a9d27eed42d406f6002e7d11a0f87c404c",
+        "85f1f1c0eca04330cf2de5c8c83cf85a611b696f793284de",
+        "1b360acff7806502b5d40c71d237cc0c40343d2000ae2f65cf487c94",
+        "c9c7d8afa159fd9e965cb83ff5ee6f58aeda352c0eff005548153a61551c38ee",
+      ],
+      "haval test vector": [
+        "3a32babe845b476841d09615c049ed54",
+        "dc597ba0b31181eaecd07d16a7bacb938b4535fe",
+        "d303fab309a48f588129e30d944aaffb47e4312828f90a45",
+        "db787e0434dbc763752b38d0119b96aa6d3b171df7b415909ed2d132",
+        "6760b03b9dab7f46af14b385b563c4e8eddc1d102278f1296d76523ac444c4ba",
+        "cabe71b3a20822ae457d4391d483de76",
+        "9b4f0fada7d58eb548f2a789cca6c8de42c2a047",
+        "1d2fa58831c4f7e219133db04debf518e1029b757a0a8958",
+        "01566e57d13c43bef667dcaa909b1a021feaca43a6d855c0ce754133",
+        "6c4a6cf0bd92a99ed509b746b01fc6ec34503f83bd2ecd6f09b73c01029e8478",
+        "aa673b41bc54d467969a41c0c06e9bee",
+        "7857f533520bab5689ed95c8019f0b84a5a8053b",
+        "459a0399abac23ceb4d6a89e7eb312a69eca335fa180a504",
+        "5ad21f9ac2bbd8c906312de06d554f10d1f058fe6d1ef397facb0b69",
+        "cde2484665a560f21ead246eff408828fec111381d92eddcfb502b36969fea25",
+      ],
+    };
+    for (const [input, digests] of Object.entries(vectors)) {
+      const found = HAVAL_PASSES.flatMap((passes) =>
+        HAVAL_BITS.map(
+          (bits) => create("haval").hash(input, { passes, bits } as HashOptions).digest,
+        ),
+      );
+      expect(found).toEqual(digests);
+    }
+  });
+
+  it("haval and its HMAC match PHP's hash() at every length up to 299, fed whole or in pieces", () => {
+    /* Every expected value is what PHP 8.5.11's hash() and hash_hmac() give for the same bytes and keys. */
+    const variants = HAVAL_PASSES.flatMap((passes) => HAVAL_BITS.map((bits) => ({ passes, bits })));
+    const digests: Uint8Array[] = [];
+    const tags: Uint8Array[] = [];
+    for (const { passes, bits } of variants) {
+      for (let length = 0; length < 300; length++) {
+        const data = Uint8Array.from({ length }, (_, i) => (i * 31 + length) & 0xff);
+        const key = Uint8Array.from({ length: length % 40 }, (_, i) => (i * 17 + 3) & 0xff);
+        const step = 1 + (length % 23);
+        const pieces = new HavalHasher(passes, bits);
+        for (let offset = 0; offset < length; offset += step) {
+          pieces.update(data.subarray(offset, offset + step));
+        }
+        const options = { passes, bits, encoding: "binary" } as HashOptions;
+        const digest = create("haval").hash(data, options).digest as Uint8Array;
+        expect(pieces.digest()).toEqual(digest);
+        digests.push(digest);
+        tags.push(create("haval").hash(data, { ...options, key }).digest as Uint8Array);
+      }
+    }
+    expect(createHash("sha256").update(Buffer.concat(digests)).digest("hex")).toBe(
+      "316dca8a92f48aee41b193f45923d742f27de517c99ec8452c3f280b5c6e7e39",
+    );
+    expect(createHash("sha256").update(Buffer.concat(tags)).digest("hex")).toBe(
+      "a008ced57a96c6525bc4f0ea6ef567d090d692b29cc9bc31604c56bbc49e4f48",
+    );
+    const jefe = "what do ya want for nothing?";
+    expect(create("haval").hash(jefe, { key: "Jefe" }).digest).toBe(
+      "a243045973c49c89e88da55757fe4d27",
+    );
+    expect(
+      create("haval").hash(jefe, { key: "Jefe", passes: 5, bits: 256 } as HashOptions).digest,
+    ).toBe("47031a21970c8a80ce3eccd850bc921471904a4c9ef1e12a4eef0df27c76267f");
+    const million = "a".repeat(1_000_000);
+    expect(create("haval").hash(million).digest).toBe("8beaa7dd5bb591c8009e429d79041813");
+    expect(create("haval").hash(million, { passes: 5, bits: 256 } as HashOptions).digest).toBe(
+      "3f2be6dd53dc7944290e8939192bcccc8077c99b622e0c20355942dd6a4ec009",
+    );
+  });
+
+  it("haval names its variant with every digest and refuses one it doesn't define", () => {
+    expect(create("haval").hash("abc").options).toEqual({ encoding: "hex", passes: 3, bits: 128 });
+    const options: HavalOptions = { key: "k", bits: 256 };
+    expect(create("haval").hash("abc", options as HashOptions).options).toEqual({
+      encoding: "hex",
+      passes: 3,
+      bits: 256,
+      hmac: true,
+    });
+    expect(() => create("haval").hash("abc", { key: "k", chain: "hex" })).toThrow(
+      "Invalid option chain=hex: HMAC runs one round",
+    );
+    expect(() => create("haval").hash("abc", { passes: 6 } as HashOptions)).toThrow(
+      "Invalid option passes=6: use one of 3, 4, 5",
+    );
+    expect(() => new HavalHasher(3, 100 as HavalBits)).toThrow(
+      "Invalid option bits=100: use one of 128, 160, 192, 224, 256",
     );
   });
 
@@ -2081,6 +2209,7 @@ describe("extendDigest", () => {
     "sha512-half",
     "sha3-256",
     "md2",
+    "haval",
     "ntlm",
     "hash160",
   ])("refuses %s, whose digest is not a state it can resume from", (algorithm) => {
@@ -2346,12 +2475,21 @@ describe("identifyDigest", () => {
       ["md2", "length", "md2"],
       ["ntlm", "length", "ntlm"],
       ["ripemd128", "length", "ripemd128"],
+      ["haval", "length", "haval"],
+      ["haval", "length", "haval"],
+      ["haval", "length", "haval"],
       ["lm", "length", undefined],
       ...["scrypt", "pbkdf2", "hkdf", "evp-bytestokey", "argon2id", "argon2i", "argon2d"].map(
         (name) => [name, "keyLength", name],
       ),
     ]);
     expect(found.candidates.at(-1)!.parameters).toEqual({ keyLength: 16 });
+    const haval = (length: number): unknown[] =>
+      identifyDigest("00".repeat(length))
+        .candidates.filter((candidate) => candidate.name === "haval")
+        .map((candidate) => candidate.parameters);
+    expect(haval(16)).toEqual([undefined, { passes: 4 }, { passes: 5 }]);
+    expect(haval(32)).toEqual([{ bits: 256 }, { passes: 4, bits: 256 }, { passes: 5, bits: 256 }]);
   });
 
   it("reads base64 in either alphabet, padded or not, after hex fails", () => {
@@ -2505,8 +2643,8 @@ describe("searchDigest", () => {
   it("counts every algorithm, round and chain in the total", () => {
     const found = searchDigest(Buffer.alloc(32), { words: ["a", "b", "c"], rounds: 3 });
 
-    expect(found.scope.algorithms).toHaveLength(11);
-    expect(found.total).toBe(102 * 11 * (1 + 3 * 2));
+    expect(found.scope.algorithms).toHaveLength(14);
+    expect(found.total).toBe(102 * 14 * (1 + 3 * 2));
     expect(found.tried).toBe(found.total);
   });
 

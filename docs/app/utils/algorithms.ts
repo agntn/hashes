@@ -95,6 +95,10 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
     icon: "i-lucide-fingerprint",
     blurb: "RIPEMD-128 at 32 bytes, and not a bit stronger",
   },
+  haval: {
+    icon: "i-lucide-shield-alert",
+    blurb: "Fifteen hashes under one name, 3 passes and 128 bits unless asked",
+  },
   crc32: { icon: "i-lucide-file-digit", blurb: "The checksum in every ZIP, PNG, gzip and bzip2" },
   crc64: { icon: "i-lucide-file-digit", blurb: "Eight bytes after every xz block" },
   crc24: { icon: "i-lucide-mail-check", blurb: "Four base64 characters after the = in PGP armor" },

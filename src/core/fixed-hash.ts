@@ -37,9 +37,10 @@ export abstract class FixedHash<Options extends HashOptions = HashOptions> exten
    *
    * @param _key - The HMAC key.
    * @param _bytes - The input's bytes.
+   * @param _options - The algorithm's own options.
    * @returns {Uint8Array} The tag.
    */
-  protected hmac(_key: Uint8Array, _bytes: Uint8Array): Uint8Array {
+  protected hmac(_key: Uint8Array, _bytes: Uint8Array, _options?: Readonly<Options>): Uint8Array {
     throw new Error(`${this.key} has no HMAC mode`);
   }
 
@@ -86,8 +87,11 @@ export abstract class FixedHash<Options extends HashOptions = HashOptions> exten
       const { rounds, chain } = roundOptions(options);
       if (options?.key !== undefined) {
         assertOneRound(options, "HMAC runs one round");
-        const tag = this.hmac(toBytes(options.key), toBytes(input));
-        return encodeDigest(tag, this.key, "hmac", encoding, { hmac: true });
+        const tag = this.hmac(toBytes(options.key), toBytes(input), options);
+        return encodeDigest(tag, this.key, "hmac", encoding, {
+          ...this.reported(options),
+          hmac: true,
+        });
       }
       let digest = this.digest(toBytes(input), options);
       for (let round = 1; round < rounds; round++) {
