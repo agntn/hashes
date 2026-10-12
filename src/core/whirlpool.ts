@@ -6,14 +6,8 @@
  * 256-bit length. Whirlpool-0 drew a random S-box and Whirlpool-T kept cir(1, 1, 3, 1, 5, 8, 9, 5),
  * so neither gives these digests.
  */
-import { HashError } from "./errors.ts";
-import { assertBytes, viewOf, wordsToBytes } from "./hasher.ts";
 import { ResumableHasher } from "./resumable.ts";
 
-/** Bytes per block. */
-const BLOCK = 64;
-/** Where the 256-bit length starts in the last block. */
-const LENGTH_FIELD = BLOCK - 32;
 /** Rounds of W. */
 const ROUNDS = 10;
 /** The first row of the diffusion matrix. Each row after it turns one byte right. */
@@ -30,8 +24,7 @@ const RC = /* @__PURE__ */ new Int32Array(ROUNDS * 2);
 /** Whether `C` and `RC` hold the tables yet. */
 let built = false;
 
-/** The block, the round key, the cipher state and the next of either, high half first. */
-const M = /* @__PURE__ */ new Int32Array(16);
+/** The round key, the cipher state and the next of either, high half first. */
 const K = /* @__PURE__ */ new Int32Array(16);
 const S = /* @__PURE__ */ new Int32Array(16);
 const L = /* @__PURE__ */ new Int32Array(16);
@@ -62,15 +55,17 @@ function build(): void {
     const mixed = R[high ^ low]!;
     sbox[u] = (E[high ^ mixed]! << 4) | inverse[low ^ mixed]!;
   }
-  const row = new Uint8Array(8);
   for (let x = 0; x < 256; x++) {
-    for (let j = 0; j < 8; j++) row[j] = times(sbox[x]!, MATRIX[j]!);
-    for (let k = 0; k < 8; k++) {
-      const at = ((k << 8) | x) << 1;
-      for (let j = 0; j < 8; j++) {
-        const byte = row[(j - k) & 7]!;
-        C[at + (j >> 2)] = C[at + (j >> 2)]! | (byte << (24 - ((j & 3) << 3)));
-      }
+    let high = 0;
+    let low = 0;
+    for (let j = 0; j < 4; j++) {
+      high = (high << 8) | times(sbox[x]!, MATRIX[j]!);
+      low = (low << 8) | times(sbox[x]!, MATRIX[j + 4]!);
+    }
+    for (let at = x << 1; at < C.length; at += 512) {
+      C[at] = high;
+      C[at + 1] = low;
+      [high, low] = [(high >>> 8) | (low << 24), (low >>> 8) | (high << 24)];
     }
   }
   for (let i = 0; i < ROUNDS * 8; i++) {
@@ -108,7 +103,7 @@ function transform(from: Int32Array): void {
 }
 
 /**
- * Runs one block through W keyed by the state, then XORs the block and the old state in.
+ * Runs one block through W keyed by the state, then XORs in the block and the old state.
  *
  * @param state - The chaining value, high half first.
  * @param block - Bytes holding the block.
@@ -117,9 +112,11 @@ function transform(from: Int32Array): void {
 function compress(state: Int32Array, block: Uint8Array, offset: number): void {
   for (let i = 0; i < 16; i++) {
     const at = offset + 4 * i;
-    M[i] = (block[at]! << 24) | (block[at + 1]! << 16) | (block[at + 2]! << 8) | block[at + 3]!;
+    const word =
+      (block[at]! << 24) | (block[at + 1]! << 16) | (block[at + 2]! << 8) | block[at + 3]!;
     K[i] = state[i]!;
-    S[i] = M[i]! ^ K[i]!;
+    S[i] = word ^ K[i]!;
+    state[i] = S[i]!;
   }
   for (let round = 0; round < ROUNDS; round++) {
     transform(K);
@@ -129,106 +126,17 @@ function compress(state: Int32Array, block: Uint8Array, offset: number): void {
     transform(S);
     for (let i = 0; i < 16; i++) S[i] = L[i]! ^ K[i]!;
   }
-  for (let i = 0; i < 16; i++) state[i] = state[i]! ^ S[i]! ^ M[i]!;
-}
-
-/**
- * Writes the bit length big-endian before `end`. The 24 bytes above it stay zero.
- *
- * @param out - The block or padding being written.
- * @param end - Where the length field ends.
- * @param length - Bytes hashed.
- */
-function writeLength(out: Uint8Array, end: number, length: number): void {
-  const high = Math.floor(length / 0x2000_0000);
-  const low = (length % 0x2000_0000) * 8;
-  for (let i = 0; i < 4; i++) {
-    out[end - 8 + i] = high >>> (24 - 8 * i);
-    out[end - 4 + i] = low >>> (24 - 8 * i);
-  }
+  for (let i = 0; i < 16; i++) state[i] = state[i]! ^ S[i]!;
 }
 
 /** Whirlpool, the final revision: 512 bits, ten rounds, 0x80 padding and a 256-bit length. */
 export class WhirlpoolHasher extends ResumableHasher {
-  readonly blockLength = BLOCK;
   readonly outputLength = 64;
+  protected readonly littleEndian = false;
+  protected readonly marker = 0x80;
+  protected readonly lengthBytes = 32;
   /** The chaining value, high half first, starting at zero. */
-  private readonly state = new Int32Array(16);
-  /** The partial block not compressed yet. */
-  private readonly buffer = new Uint8Array(BLOCK);
-  /** Bytes waiting in the buffer. */
-  private position = 0;
-  /** Bytes absorbed so far. */
-  private length = 0;
-
-  update(data: Uint8Array): this {
-    assertBytes(data, "data");
-    const { buffer } = this;
-    const length = data.length;
-    let position = this.position;
-    let offset = 0;
-    this.length += length;
-    if (position > 0) {
-      while (offset < length && position < BLOCK) buffer[position++] = data[offset++]!;
-      if (position < BLOCK) {
-        this.position = position;
-        return this;
-      }
-      this.compressBlock(buffer, 0);
-      position = 0;
-    }
-    for (; length - offset >= BLOCK; offset += BLOCK) this.compressBlock(data, offset);
-    while (offset < length) buffer[position++] = data[offset++]!;
-    this.position = position;
-    return this;
-  }
-
-  digestInto(out: Uint8Array): void {
-    const { buffer } = this;
-    let position = this.position;
-    buffer[position++] = 0x80;
-    if (position > LENGTH_FIELD) {
-      buffer.fill(0, position);
-      this.compressBlock(buffer, 0);
-      position = 0;
-    }
-    buffer.fill(0, position, BLOCK - 8);
-    writeLength(buffer, BLOCK, this.length);
-    this.compressBlock(buffer, 0);
-    wordsToBytes(this.state, out, this.outputLength, false);
-  }
-
-  padding(length: number): Uint8Array {
-    const least = 1 + BLOCK - LENGTH_FIELD;
-    const size = least + ((BLOCK - ((length + least) % BLOCK)) % BLOCK);
-    const out = new Uint8Array(size);
-    out[0] = 0x80;
-    writeLength(out, size, length);
-    return out;
-  }
-
-  resume(digest: Uint8Array, length: number): this {
-    assertBytes(digest, "digest");
-    const { state } = this;
-    if (digest.length !== this.outputLength || !(length >= 0 && length % BLOCK === 0)) {
-      throw new HashError(
-        `resume takes a ${this.outputLength}-byte digest and a multiple of ${BLOCK} bytes`,
-      );
-    }
-    const view = viewOf(digest);
-    for (let i = 0; i < state.length; i++) state[i] = view.getInt32(i * 4, false);
-    this.position = 0;
-    this.length = length;
-    return this;
-  }
-
-  load(source: this): this {
-    this.state.set(source.state);
-    this.buffer.set(source.buffer);
-    this.position = source.position;
-    this.length = source.length;
-    return this;
-  }
+  protected readonly state = new Int32Array(16);
 
   /**
    * Compresses a block, building the tables first, so a hasher made only to be listed is free.
@@ -236,7 +144,7 @@ export class WhirlpoolHasher extends ResumableHasher {
    * @param block - Bytes holding the block.
    * @param offset - Where the block starts.
    */
-  private compressBlock(block: Uint8Array, offset: number): void {
+  protected compress(block: Uint8Array, offset: number): void {
     if (!built) build();
     compress(this.state, block, offset);
   }

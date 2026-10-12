@@ -984,8 +984,6 @@ describe("hashes chains use", () => {
     expect(fox).toBe(
       "b97de512e91e3828b40d2b0fdce9ceb3c4a71f9bea8d88e75c4fa854df36725fd2b52eb6544edcacd6f8beddfea403cb55ae31f03ad62a5ef54e42ee82c3fb35",
     );
-    expect(fox).not.toMatch(/^4f8f5cb5/);
-    expect(fox).not.toMatch(/^3ccf8252/);
     expect(() => create("whirlpool-t")).toThrow("Unknown algorithm");
   });
 
