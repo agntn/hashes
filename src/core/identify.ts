@@ -383,27 +383,11 @@ function readFormat(read: DigestFormat["read"], match: Match): FormatReading | u
 function choiceCandidates(name: string, info: AlgorithmInfo, length: number): DigestCandidate[] {
   return lengthChoices(name, info, length).map((parameters) => ({
     name,
-    label: `${info.label} (${choiceText(parameters, ", ")})`,
+    label: `${info.label} (${parameterText(parameters)})`,
     fit: "length",
     algorithm: name,
     parameters,
   }));
-}
-
-/**
- * Writes a set of choices as `option value` pairs.
- *
- * @param parameters - The choices by option name.
- * @param separator - What goes between two pairs.
- * @returns {string} `passes 4, bits 256` and the like.
- */
-export function choiceText(
-  parameters: Readonly<Record<string, number | string>>,
-  separator: string,
-): string {
-  return Object.entries(parameters)
-    .map(([option, choice]) => `${option} ${choice}`)
-    .join(separator);
 }
 
 /**
@@ -429,10 +413,11 @@ export function lengthChoices(
       ...others.map((choice) => ({ ...set, [option.name]: choice })),
     ]);
   }
+  const hash = create(name);
   return sets.filter((set) => {
     if (Object.keys(set).length === 0) return false;
     const options = { ...set, encoding: "binary" } as HashOptions;
-    return create(name).hash(new Uint8Array(0), options).digestLength === length;
+    return hash.hash(new Uint8Array(0), options).digestLength === length;
   });
 }
 

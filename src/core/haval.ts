@@ -16,6 +16,9 @@ export const HAVAL_BITS = [128, 160, 192, 224, 256] as const;
 export type HavalPasses = (typeof HAVAL_PASSES)[number];
 /** A fingerprint length in bits. */
 export type HavalBits = (typeof HAVAL_BITS)[number];
+/** What the reference `haval.h` builds unless told otherwise. */
+export const HAVAL_DEFAULT_PASSES: HavalPasses = 3;
+export const HAVAL_DEFAULT_BITS: HavalBits = 128;
 
 /** Bytes per block. */
 const BLOCK = 128;
@@ -45,8 +48,11 @@ const FUNCTIONS: readonly BooleanFunction[] = [
   (x6, x5, x4, x3, x2, x1, x0) => (x0 & ((x1 & x2 & x3) ^ ~x5)) ^ (x1 & x4) ^ (x2 & x5) ^ (x3 & x6),
 ];
 
-/** Which word each function argument reads, x6 first, pass by pass, for 3, 4 and 5 passes. */
-const PERMUTATIONS: readonly (readonly (readonly number[])[])[] = [
+/** The word each argument of a Boolean function reads, x6 first. */
+type Permutation = readonly [number, number, number, number, number, number, number];
+
+/** Which word each function argument reads, pass by pass, for 3, 4 and 5 passes. */
+const PERMUTATIONS: readonly (readonly Permutation[])[] = [
   [
     [1, 0, 3, 5, 6, 2, 4],
     [4, 2, 1, 0, 5, 3, 6],
@@ -88,40 +94,40 @@ const ORDERS: readonly Uint8Array[] = [
   ]),
 ];
 
-/** For each word kept: masks over words 7 to 4, how far to turn the field, rotate or shift. */
-type Fold = readonly [number, number, number, number, number, boolean];
+/** For each word kept: masks over words 7 to 4, then how far to turn the field right. */
+type Fold = readonly [number, number, number, number, number];
 
 /** The folds of the reference implementation, by fingerprint length. */
 const FOLDS: Readonly<Record<Exclude<HavalBits, 256>, readonly Fold[]>> = {
   128: [
-    [0x00_00_00_ff, 0xff_00_00_00, 0x00_ff_00_00, 0x00_00_ff_00, 8, true],
-    [0x00_00_ff_00, 0x00_00_00_ff, 0xff_00_00_00, 0x00_ff_00_00, 16, true],
-    [0x00_ff_00_00, 0x00_00_ff_00, 0x00_00_00_ff, 0xff_00_00_00, 24, true],
-    [0xff_00_00_00, 0x00_ff_00_00, 0x00_00_ff_00, 0x00_00_00_ff, 0, false],
+    [0x00_00_00_ff, 0xff_00_00_00, 0x00_ff_00_00, 0x00_00_ff_00, 8],
+    [0x00_00_ff_00, 0x00_00_00_ff, 0xff_00_00_00, 0x00_ff_00_00, 16],
+    [0x00_ff_00_00, 0x00_00_ff_00, 0x00_00_00_ff, 0xff_00_00_00, 24],
+    [0xff_00_00_00, 0x00_ff_00_00, 0x00_00_ff_00, 0x00_00_00_ff, 0],
   ],
   160: [
-    [0x00_00_00_3f, 0xfe_00_00_00, 0x01_f8_00_00, 0, 19, true],
-    [0x00_00_0f_c0, 0x00_00_00_3f, 0xfe_00_00_00, 0, 25, true],
-    [0x00_07_f0_00, 0x00_00_0f_c0, 0x00_00_00_3f, 0, 0, false],
-    [0x01_f8_00_00, 0x00_07_f0_00, 0x00_00_0f_c0, 0, 6, false],
-    [0xfe_00_00_00, 0x01_f8_00_00, 0x00_07_f0_00, 0, 12, false],
+    [0x00_00_00_3f, 0xfe_00_00_00, 0x01_f8_00_00, 0, 19],
+    [0x00_00_0f_c0, 0x00_00_00_3f, 0xfe_00_00_00, 0, 25],
+    [0x00_07_f0_00, 0x00_00_0f_c0, 0x00_00_00_3f, 0, 0],
+    [0x01_f8_00_00, 0x00_07_f0_00, 0x00_00_0f_c0, 0, 6],
+    [0xfe_00_00_00, 0x01_f8_00_00, 0x00_07_f0_00, 0, 12],
   ],
   192: [
-    [0x00_00_00_1f, 0xfc_00_00_00, 0, 0, 26, true],
-    [0x00_00_03_e0, 0x00_00_00_1f, 0, 0, 0, false],
-    [0x00_00_fc_00, 0x00_00_03_e0, 0, 0, 5, false],
-    [0x00_1f_00_00, 0x00_00_fc_00, 0, 0, 10, false],
-    [0x03_e0_00_00, 0x00_1f_00_00, 0, 0, 16, false],
-    [0xfc_00_00_00, 0x03_e0_00_00, 0, 0, 21, false],
+    [0x00_00_00_1f, 0xfc_00_00_00, 0, 0, 26],
+    [0x00_00_03_e0, 0x00_00_00_1f, 0, 0, 0],
+    [0x00_00_fc_00, 0x00_00_03_e0, 0, 0, 5],
+    [0x00_1f_00_00, 0x00_00_fc_00, 0, 0, 10],
+    [0x03_e0_00_00, 0x00_1f_00_00, 0, 0, 16],
+    [0xfc_00_00_00, 0x03_e0_00_00, 0, 0, 21],
   ],
   224: [
-    [0xf8_00_00_00, 0, 0, 0, 27, false],
-    [0x07_c0_00_00, 0, 0, 0, 22, false],
-    [0x00_3c_00_00, 0, 0, 0, 18, false],
-    [0x00_03_e0_00, 0, 0, 0, 13, false],
-    [0x00_00_1e_00, 0, 0, 0, 9, false],
-    [0x00_00_01_f0, 0, 0, 0, 4, false],
-    [0x00_00_00_0f, 0, 0, 0, 0, false],
+    [0xf8_00_00_00, 0, 0, 0, 27],
+    [0x07_c0_00_00, 0, 0, 0, 22],
+    [0x00_3c_00_00, 0, 0, 0, 18],
+    [0x00_03_e0_00, 0, 0, 0, 13],
+    [0x00_00_1e_00, 0, 0, 0, 9],
+    [0x00_00_01_f0, 0, 0, 0, 4],
+    [0x00_00_00_0f, 0, 0, 0, 0],
   ],
 };
 
@@ -181,7 +187,7 @@ export class HavalHasher extends Hasher {
    * @param passes - 3, 4 or 5. Default: 3, as the reference implementation's `haval.h`.
    * @param bits - 128, 160, 192, 224 or 256. Default: 128, as `haval.h` again.
    */
-  constructor(passes: HavalPasses = 3, bits: HavalBits = 128) {
+  constructor(passes: HavalPasses = HAVAL_DEFAULT_PASSES, bits: HavalBits = HAVAL_DEFAULT_BITS) {
     super();
     if (!HAVAL_PASSES.includes(passes)) {
       throw new InvalidOptionError("passes", passes, `use one of ${HAVAL_PASSES.join(", ")}`);
@@ -270,15 +276,7 @@ export class HavalHasher extends Hasher {
     const t = REGISTERS;
     const f = FUNCTIONS[index]!;
     const order = ORDERS[index]!;
-    const [p6, p5, p4, p3, p2, p1, p0] = PERMUTATIONS[this.passes - 3]![index]! as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ];
+    const [p6, p5, p4, p3, p2, p1, p0] = PERMUTATIONS[this.passes - 3]![index]!;
     const constants = this.table;
     const base = 8 + 32 * index;
     for (let j = 0; j < 32; j++) {
@@ -303,9 +301,9 @@ export class HavalHasher extends Hasher {
     const s = this.state;
     const [w7, w6, w5, w4] = [s[7]!, s[6]!, s[5]!, s[4]!];
     let i = 0;
-    for (const [m7, m6, m5, m4, amount, rotate] of FOLDS[this.bits]) {
+    for (const [m7, m6, m5, m4, amount] of FOLDS[this.bits]) {
       const field = (w7 & m7) | (w6 & m6) | (w5 & m5) | (w4 & m4);
-      s[i] = (s[i]! + (rotate ? rotr(field, amount) : field >>> amount)) | 0;
+      s[i] = (s[i]! + rotr(field, amount)) | 0;
       i++;
     }
   }

@@ -16,6 +16,7 @@ import {
 import { INPUT_ENCODINGS, TEXT_ENCODINGS } from "../packages/shared/tool-contract.ts";
 import { ENCODING_OPTION, decodeInput, parameterText, type InputEncoding } from "./core/digest.ts";
 import { quoted, shown } from "./core/errors.ts";
+import { ROUND_OPTIONS } from "./core/fixed-hash.ts";
 import { identifyDigest, identityText, type DigestIdentity } from "./core/identify.ts";
 import {
   searchDigest,
@@ -120,7 +121,7 @@ function builtinParameters(
 const parameters = builtinParameters(builtinAlgorithms);
 const hmacParameters = builtinParameters(
   builtinAlgorithms.filter((name) => create(name).info().hmac),
-  ["rounds", "chain"],
+  ROUND_OPTIONS.map((option) => option.name),
 );
 
 /**

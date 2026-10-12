@@ -8,11 +8,11 @@ import {
   SEARCH_CHAINS,
   SEARCH_JOINERS,
 } from "../../packages/shared/tool-contract.ts";
-import { toBytes } from "./digest.ts";
+import { parameterText, toBytes } from "./digest.ts";
 import { HashError, InvalidOptionError, quoted } from "./errors.ts";
 import { algorithms, create } from "./registry.ts";
 import { resolveAlgorithm } from "./resolve.ts";
-import { choiceText, lengthChoices } from "./identify.ts";
+import { lengthChoices } from "./identify.ts";
 import type { Hash } from "./hash.ts";
 import type { HashOptions } from "./types.ts";
 
@@ -490,7 +490,7 @@ function readingsOf(hash: Hash, length: number): Reading[] {
       ? [{ hash, label: name, textOnly: hashesTextOnly(hash, undefined) }]
       : [];
   for (const parameters of lengthChoices(name, info, length)) {
-    const label = `${name} ${choiceText(parameters, " ")}`;
+    const label = `${name} ${parameterText(parameters)}`;
     found.push({ hash, parameters, label, textOnly: hashesTextOnly(hash, parameters) });
   }
   return found;

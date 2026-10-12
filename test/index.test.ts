@@ -866,6 +866,9 @@ describe("hashes chains use", () => {
       bits: 256,
       hmac: true,
     });
+    expect(() => create("haval").hash("abc", { key: "k", chain: "hex" })).toThrow(
+      "Invalid option chain=hex: HMAC runs one round",
+    );
     expect(() => create("haval").hash("abc", { passes: 6 } as HashOptions)).toThrow(
       "Invalid option passes=6: use one of 3, 4, 5",
     );

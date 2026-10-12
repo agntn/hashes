@@ -1,6 +1,8 @@
 import { BlockHash } from "../core/block-hash.ts";
 import {
   HAVAL_BITS,
+  HAVAL_DEFAULT_BITS,
+  HAVAL_DEFAULT_PASSES,
   HAVAL_PASSES,
   HavalHasher,
   type HavalBits,
@@ -34,7 +36,7 @@ export class Haval extends BlockHash<HavalOptions> {
       name: "passes",
       type: "number",
       required: false,
-      default: 3,
+      default: HAVAL_DEFAULT_PASSES,
       choices: HAVAL_PASSES,
       description: "Passes over each block, 3, 4 or 5, as the reference haval.h numbers them",
     },
@@ -42,7 +44,7 @@ export class Haval extends BlockHash<HavalOptions> {
       name: "bits",
       type: "number",
       required: false,
-      default: 128,
+      default: HAVAL_DEFAULT_BITS,
       choices: HAVAL_BITS,
       description: "Fingerprint length in bits, 128 to 256 in steps of 32",
     },
@@ -65,6 +67,9 @@ export class Haval extends BlockHash<HavalOptions> {
    * @returns {Record<string, unknown>} The passes and bits used.
    */
   protected override reported(options?: Readonly<HavalOptions>): Record<string, unknown> {
-    return { passes: options?.passes ?? 3, bits: options?.bits ?? 128 };
+    return {
+      passes: options?.passes ?? HAVAL_DEFAULT_PASSES,
+      bits: options?.bits ?? HAVAL_DEFAULT_BITS,
+    };
   }
 }

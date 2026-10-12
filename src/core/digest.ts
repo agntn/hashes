@@ -89,7 +89,8 @@ export function roundOptions(options?: Readonly<HashOptions>): {
 }
 
 /**
- * Refuses more than one round where rounds do not apply, instead of computing one quietly.
+ * Refuses more than one round, or a chain between rounds, where rounds do not apply, instead of
+ * computing one quietly.
  *
  * @param options - The caller's options.
  * @param reason - Why one round is all there is, for the error.
@@ -98,6 +99,7 @@ export function assertOneRound(options: Readonly<HashOptions> | undefined, reaso
   if (options?.rounds !== undefined && options.rounds !== 1) {
     throw new InvalidOptionError("rounds", options.rounds, reason);
   }
+  if (options?.chain !== undefined) throw new InvalidOptionError("chain", options.chain, reason);
 }
 
 /**
