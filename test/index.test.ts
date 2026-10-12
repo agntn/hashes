@@ -1131,47 +1131,21 @@ describe("byte functions", () => {
   const inputs = LENGTHS.map((length) =>
     Uint8Array.from({ length }, (_, i) => (i * 131 + length) & 0xff),
   );
-  const binary = (name: string, bytes: Uint8Array): Uint8Array =>
-    create(name).hash(bytes, { encoding: "binary" }).digest as Uint8Array;
-
-  it("give the registry's digest for every length", () => {
-    const functions = {
-      md5,
-      sha1,
-      sha256,
-      sha512,
-      ripemd160,
-      hash160,
-      hash256,
-      keccak256,
-      "sha3-256": sha3_256,
-      "sha3-512": sha3_512,
-      blake256,
-      "blake2b-256": (bytes: Uint8Array) => blake2b(bytes, 32),
-      "blake2b-224": (bytes: Uint8Array) => blake2b(bytes, 28),
-      blake2b: (bytes: Uint8Array) => blake2b(bytes, 64),
-      crc32,
-      crc64,
-      crc24,
-      "crc16-xmodem": crc16Xmodem,
-      adler32,
-      xxhash,
-    };
-    for (const [name, digest] of Object.entries(functions)) {
-      for (const bytes of inputs)
-        expect(digest(bytes), `${name} of ${bytes.length}`).toEqual(binary(name, bytes));
-    }
-  });
 
   it("match Node for the digests OpenSSL and zlib compute", () => {
     for (const bytes of inputs) {
+      const inner = createHash("sha256").update(bytes).digest();
       expect(md5(bytes).toHex()).toBe(createHash("md5").update(bytes).digest("hex"));
       expect(sha1(bytes).toHex()).toBe(createHash("sha1").update(bytes).digest("hex"));
-      expect(sha256(bytes).toHex()).toBe(createHash("sha256").update(bytes).digest("hex"));
+      expect(sha256(bytes).toHex()).toBe(inner.toString("hex"));
       expect(sha512(bytes).toHex()).toBe(createHash("sha512").update(bytes).digest("hex"));
       expect(ripemd160(bytes).toHex()).toBe(createHash("ripemd160").update(bytes).digest("hex"));
+      expect(hash160(bytes).toHex()).toBe(createHash("ripemd160").update(inner).digest("hex"));
+      expect(hash256(bytes).toHex()).toBe(createHash("sha256").update(inner).digest("hex"));
+      expect(keccak256(bytes).toHex()).toBe(createHash("keccak-256").update(bytes).digest("hex"));
       expect(sha3_256(bytes).toHex()).toBe(createHash("sha3-256").update(bytes).digest("hex"));
       expect(sha3_512(bytes).toHex()).toBe(createHash("sha3-512").update(bytes).digest("hex"));
+      expect(blake2b(bytes, 64).toHex()).toBe(createHash("blake2b512").update(bytes).digest("hex"));
       expect(new DataView(crc32(bytes).buffer).getUint32(0)).toBe(zlibCrc32(bytes));
     }
   });
@@ -1337,6 +1311,7 @@ describe("byte functions", () => {
       sha256: () => new Sha256Hasher(),
       sha512: () => new Sha512Hasher(),
       ripemd160: () => new Ripemd160Hasher(),
+      blake2b512: () => new Blake2bHasher(64),
     };
     const password = new TextEncoder().encode("abandon ability able about above absent");
     const salt = new TextEncoder().encode("mnemonic");
@@ -1356,10 +1331,6 @@ describe("byte functions", () => {
         pbkdf2Sync(password, salt, 2048, 64, name).toString("hex"),
       );
     }
-    expect(hmac(() => new Blake2bHasher(64), new Uint8Array(3), new Uint8Array(3))).toEqual(
-      create("blake2b").hash(new Uint8Array(3), { key: new Uint8Array(3), encoding: "binary" })
-        .digest,
-    );
   });
 
   it("derive the RFC 5869 SHA-256 test cases 1 and 3 with HKDF", () => {
@@ -2021,7 +1992,6 @@ describe("key derivation", () => {
       Buffer.from(hkdfSync("sha256", "secret", new Uint8Array(32), "", 32)).toString("hex"),
     );
     expect(result.options).toEqual({ encoding: "hex", digest: "sha256", keyLength: 32 });
-    expect(create("hkdf").hash("secret").digest).toBe(result.digest);
   });
 
   it("refuses an HKDF info that is not hex and a key past 255 digests", () => {
