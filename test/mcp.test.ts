@@ -1396,6 +1396,46 @@ describe("hashes MCP server", () => {
     expect(verified.text).toMatch(/^MATCH/);
   });
 
+  it("answers a bcrypt string sent to hashes_verify with the call identify reads out of it", async () => {
+    const bcrypt = await call("hashes_verify", {
+      algorithm: "bcrypt",
+      input: "ProbablyFine-2026",
+      expected: "$2y$04$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6",
+    });
+    const shadow = await call("hashes_verify", {
+      algorithm: "sha512",
+      input: "password",
+      expected: `$6$saltsalt$${"a".repeat(86)}`,
+    });
+
+    expect(bcrypt).toEqual({
+      isError: true,
+      text: "hashes_verify failed: Invalid option expected=60 characters: must be hex digit pairs, without a 0x prefix; its prefix reads as bcrypt: bcrypt, computable, salt 6789a16455a136b8a4b2add0ec3b3cd4, cost 4, expected 1a3468800371d3214970cdd239fdf82d8ac06665a92aaf",
+    });
+    expect(shadow.text).toMatch(
+      /; its prefix reads as sha512crypt: SHA-512 crypt, not in this package$/,
+    );
+  });
+
+  it("names the tool limit a format string's costs break when hashes_verify refuses it", async () => {
+    const answer = await call("hashes_verify", {
+      algorithm: "bcrypt",
+      input: "ProbablyFine-2026",
+      expected: "$2y$17$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6",
+    });
+    const search = await call("hashes_digest_search", {
+      digest: ["00", "$2y$17$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6"],
+      words: ["x"],
+    });
+
+    expect(answer.isError).toBe(true);
+    expect(answer.text).toMatch(
+      /cost 17, expected 1a3468800371d3214970cdd239fdf82d8ac06665a92aaf; bcrypt is past what hashes_verify runs: Invalid option cost=17: must be 1 to 16 in a tool call$/,
+    );
+    expect(search.text).toContain("Invalid option digest 2=60 characters");
+    expect(search.text).toContain("; bcrypt is past what hashes_verify runs:");
+  });
+
   it("names the tool limit a string's costs break instead of sending it to hashes_verify", async () => {
     const bcrypt = await call("hashes_digest_identify", {
       digest: "$2y$17$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6",

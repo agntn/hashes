@@ -1,5 +1,6 @@
 import { HashError, InvalidOptionError, MissingOptionError } from "./errors.ts";
 import type { Hash } from "./hash.ts";
+import { formatLine } from "./identify.ts";
 import { Kdf } from "./kdf.ts";
 import type { AlgorithmInfo, HashOptions, HashResult } from "./types.ts";
 
@@ -33,7 +34,8 @@ function decodeExpected(
 /**
  * Refuses an expected digest that is not valid in its encoding. `digestMatches` answers false for
  * one, and a verify that printed that false would call a `0x`-prefixed hex digest, or a base64 one
- * checked as hex, a different digest when it is a wrong argument.
+ * checked as hex, a different digest when it is a wrong argument. A `$2b$` or PHC string gets the
+ * salt, costs and digest identify reads out of it, since that's the call it wanted.
  *
  * @param expected - The digest to compare against, as text.
  * @param encoding - Its encoding.
@@ -48,7 +50,9 @@ export function assertExpected(
   const bytes = decodeExpected(expected, encoding);
   if (bytes !== undefined) return bytes;
   const form = encoding === "hex" ? "hex digit pairs, without a 0x prefix" : encoding;
-  throw new InvalidOptionError(name, `${expected.length} characters`, `must be ${form}`);
+  const format = formatLine(expected.trim(), encoding);
+  const reason = format === undefined ? "" : `; its prefix reads as ${format}`;
+  throw new InvalidOptionError(name, `${expected.length} characters`, `must be ${form}${reason}`);
 }
 
 /**

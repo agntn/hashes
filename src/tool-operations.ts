@@ -1002,7 +1002,7 @@ export function hashVerify(
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
   if (expected === "") throw new InvalidOptionError("expected", "", "must not be empty");
   const encoding = encodingArgument(params.encoding);
-  const expectedLength = assertExpected(expected, encoding).length;
+  const expectedLength = toolExpected(expected, encoding).length;
   const options = algorithmOptions(
     algorithm,
     params.salt,
@@ -1387,10 +1387,10 @@ function searchTargets(
 ): Uint8Array | Uint8Array[] {
   if (!Array.isArray(digest)) {
     const one = textArgument("digest", digest, MAX_EXPECTED_LENGTH).trim();
-    return assertExpected(one, encoding, "digest");
+    return toolExpected(one, encoding, "digest");
   }
   const digests = listArgument("digest", digest, MAX_BATCH_DIGESTS, MAX_EXPECTED_LENGTH) ?? [];
-  return digests.map((each, index) => assertExpected(each.trim(), encoding, `digest ${index + 1}`));
+  return digests.map((each, index) => toolExpected(each.trim(), encoding, `digest ${index + 1}`));
 }
 
 /**
@@ -1451,6 +1451,44 @@ export function hashDigestSearch(
     : [];
   const text = [...heading, ...lines, ...next].join("\n");
   return { content: [{ type: "text", text }], details: found };
+}
+
+/**
+ * Decodes an expected digest like `assertExpected`, adding the tool limit a format's costs break.
+ *
+ * @param expected - The digest as given, trimmed.
+ * @param encoding - Its encoding.
+ * @param name - The argument that carried it.
+ * @returns {Uint8Array} Its bytes.
+ */
+function toolExpected(
+  expected: string,
+  encoding: HashResult["encoding"],
+  name = "expected",
+): Uint8Array {
+  try {
+    return assertExpected(expected, encoding, name);
+  } catch (error) {
+    if (!(error instanceof InvalidOptionError)) throw error;
+    const over = formatLimit(expected);
+    if (over === undefined) throw error;
+    throw new InvalidOptionError(error.option, error.value, `${error.reason}; ${over}`);
+  }
+}
+
+/**
+ * Names the tool limit the costs a format string carries break, the way identify does.
+ *
+ * @param text - A string that failed to decode as a digest.
+ * @returns {string | undefined} The limit, or nothing when the call would run or no format fits.
+ */
+function formatLimit(text: string): string | undefined {
+  const [candidate] = identifyDigest(text).candidates;
+  if (candidate?.fit !== "format" || candidate.algorithm === undefined) return undefined;
+  const reason = toolRefusal(candidate.algorithm, candidate.salt, candidate.parameters);
+  return reason === undefined
+    ? undefined
+    : `${candidate.name} is past what hashes_verify runs: ${reason}`;
 }
 
 /**
