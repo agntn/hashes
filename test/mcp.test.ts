@@ -37,6 +37,7 @@ import {
   hashDigestSearch,
   hashHmac,
   hashVerify,
+  lengthMismatch,
   kdfMemory,
 } from "../src/tool-operations.ts";
 import { lengthFixes } from "../src/core/verify.ts";
@@ -562,6 +563,28 @@ describe("hashes MCP server", () => {
     }
 
     expect(lengthFixes(new Five(), { iterations: 5 }, 32, 16)).toEqual([{ keyLength: 16 }]);
+  });
+
+  it("names a list's length mismatch only when every input gave the same length", () => {
+    const verdict = (digestLength: number) => ({
+      algorithm: "custom",
+      operation: "hash" as const,
+      encoding: "hex" as const,
+      digest: "00".repeat(digestLength),
+      digestLength,
+      options: {},
+      expected: "11".repeat(32),
+      expectedLength: 32,
+      match: false,
+    });
+    const md5 = create("md5");
+
+    expect(lengthMismatch(md5, {}, [verdict(16), verdict(32)])).toBeUndefined();
+    expect(lengthMismatch(md5, {}, [verdict(16), { error: "x" }, verdict(16)])).toEqual({
+      expected: 32,
+      actual: 16,
+      fixes: [],
+    });
   });
 
   it("adds no length note when the lengths agree or an input matches", () => {

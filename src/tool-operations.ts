@@ -964,7 +964,7 @@ export function hashVerify(
 }
 
 /**
- * Finds a mismatch of lengths and the options that would give the expected one.
+ * Finds a length every input missed by the same bytes, and the options that would give it.
  *
  * @param hash - The algorithm.
  * @param options - The options it ran with.
@@ -979,9 +979,10 @@ export function lengthMismatch(
 ): LengthMismatch | undefined {
   const verdicts = items.filter((item) => "match" in item);
   const [first] = verdicts;
-  if (first === undefined || verdicts.some((item) => item.match)) return undefined;
+  if (first === undefined) return undefined;
   const { expectedLength: expected, digestLength: actual } = first;
-  if (expected === actual) return undefined;
+  const shared = verdicts.every((item) => !item.match && item.digestLength === actual);
+  if (!shared || expected === actual) return undefined;
   return { expected, actual, fixes: lengthFixes(hash, options, actual, expected) };
 }
 
