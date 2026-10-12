@@ -1427,6 +1427,25 @@ describe("hashes MCP server", () => {
     );
   });
 
+  it("forges HAVAL-256 with its passes and bits named in the answer", async () => {
+    /* PHP 8.5.11: hash("haval256,4", "k3y" . "user=a" . $padding . "&admin=1"). */
+    const answer = await call("hashes_digest_extend", {
+      algorithm: "haval",
+      digest: "206c3be5e68bae6a479028c23a69b369bc643dc7d106260a89b4a8f4506334f2",
+      message: "user=a",
+      suffix: "&admin=1",
+      secretLength: 3,
+      parameters: { passes: 4, bits: 256 },
+    });
+    const [, block] = answer.text.split("\n\n");
+
+    expect(answer.isError).toBe(false);
+    expect(block!.split("\n").slice(0, 2)).toEqual([
+      "haval, passes 4, bits 256, secret of 3 bytes",
+      "digest  742f315b0257b1345e7fc65dcf9fef3b963d1d3f72f19c50cec93da4676a45e0",
+    ]);
+  });
+
   it.each([
     [{ algorithm: "sha384", digest: "00".repeat(48) }, "cannot be extended, use one of sha256"],
     [{ digest: "00".repeat(31) }, "sha256 digests are 32 bytes"],
@@ -1434,6 +1453,10 @@ describe("hashes MCP server", () => {
     [{ secretLength: 5, secretLengthMax: 4 }, "secretLengthMax=4: must be a whole number from 5"],
     [{ secretLength: 0, secretLengthMax: 64 }, "tries 65 lengths, at most 64 in one call"],
     [{ message: "x".repeat(MAX_INPUT_LENGTH) }, "run past 1000000 hex digits"],
+    [{ algorithm: "haval" }, "bits=128: haval extends with bits 256"],
+    [{ parameters: { rounds: 2 } }, "rounds=2: a second round hides the state"],
+    [{ parameters: { salt: "00" } }, "sha256 takes rounds, chain"],
+    [{ parameters: { rounds: 1_000_001 } }, "rounds=1000001"],
   ])("refuses %o", async (args, message) => {
     const answer = await call("hashes_digest_extend", {
       algorithm: "sha256",

@@ -128,6 +128,7 @@ export const hashDigestExtendSchema = closed({
   suffixEncoding: Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.suffixEncoding })),
   secretLength: Type.Integer({ ...secretLength, description: d.secretLength }),
   secretLengthMax: Type.Optional(Type.Integer({ ...secretLength, description: d.secretLengthMax })),
+  parameters: parametersArgument(d.extendParameters),
 });
 
 const unknownDigest = Type.String({ minLength: 1, maxLength: MAX_EXPECTED_LENGTH });

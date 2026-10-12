@@ -5,8 +5,8 @@
  * Blowfish too.
  */
 import { InvalidOptionError } from "./errors.ts";
-import { Hasher, assertBytes, viewOf, wordsToBytes, writeBitLength } from "./hasher.ts";
 import { piWords } from "./pi.ts";
+import { ResumableHasher } from "./resumable.ts";
 
 /** Passes HAVAL defines. */
 export const HAVAL_PASSES = [3, 4, 5] as const;
@@ -22,8 +22,6 @@ export const HAVAL_DEFAULT_BITS: HavalBits = 128;
 
 /** Bytes per block. */
 const BLOCK = 128;
-/** Where the padding's version, pass and length fields start: ten bytes before the block ends. */
-const TRAILER = BLOCK - 10;
 /** The version the padding names. There has only ever been 1. */
 const VERSION = 1;
 
@@ -164,31 +162,28 @@ function rotr(x: number, n: number): number {
   return (x >>> n) | (x << (32 - n));
 }
 
-/** HAVAL. */
-export class HavalHasher extends Hasher {
-  readonly blockLength = BLOCK;
+/** HAVAL. Only the 256-bit fingerprint prints the whole state, so only it extends. */
+export class HavalHasher extends ResumableHasher {
   readonly outputLength: number;
   /** Passes over each block. */
   readonly passes: HavalPasses;
   /** Fingerprint length in bits. */
   readonly bits: HavalBits;
+  protected readonly littleEndian = true;
+  protected readonly marker = 0x01;
+  /** Ten bytes: the version, passes and fingerprint length packed into two, then the bit count. */
+  protected readonly lengthBytes = 10;
   /** The eight chaining words. */
-  private readonly state: Int32Array;
+  protected readonly state: Int32Array;
   /** π's words and step constants. */
   private readonly table = table();
-  /** The partial block not compressed yet. */
-  private readonly buffer = new Uint8Array(BLOCK);
-  /** Bytes waiting in the buffer. */
-  private position = 0;
-  /** Bytes absorbed so far. */
-  private length = 0;
 
   /**
    * @param passes - 3, 4 or 5. Default: 3, as the reference implementation's `haval.h`.
    * @param bits - 128, 160, 192, 224 or 256. Default: 128, as `haval.h` again.
    */
   constructor(passes: HavalPasses = HAVAL_DEFAULT_PASSES, bits: HavalBits = HAVAL_DEFAULT_BITS) {
-    super();
+    super(BLOCK);
     if (!HAVAL_PASSES.includes(passes)) {
       throw new InvalidOptionError("passes", passes, `use one of ${HAVAL_PASSES.join(", ")}`);
     }
@@ -201,52 +196,16 @@ export class HavalHasher extends Hasher {
     this.state = this.table.slice(0, 8);
   }
 
-  update(data: Uint8Array): this {
-    assertBytes(data, "data");
-    const { buffer } = this;
-    const length = data.length;
-    let position = this.position;
-    let offset = 0;
-    this.length += length;
-    if (position > 0) {
-      while (offset < length && position < BLOCK) buffer[position++] = data[offset++]!;
-      if (position < BLOCK) {
-        this.position = position;
-        return this;
-      }
-      this.compress(buffer, 0);
-      position = 0;
-    }
-    for (; length - offset >= BLOCK; offset += BLOCK) this.compress(data, offset);
-    while (offset < length) buffer[position++] = data[offset++]!;
-    this.position = position;
-    return this;
-  }
-
-  digestInto(out: Uint8Array): void {
-    const { buffer, bits } = this;
-    let position = this.position;
-    buffer[position++] = 0x01;
-    if (position > TRAILER) {
-      buffer.fill(0, position);
-      this.compress(buffer, 0);
-      position = 0;
-    }
-    buffer.fill(0, position, TRAILER);
-    buffer[TRAILER] = ((bits & 3) << 6) | (this.passes << 3) | VERSION;
-    buffer[TRAILER + 1] = bits >>> 2;
-    writeBitLength(viewOf(buffer), BLOCK, this.length, true);
-    this.compress(buffer, 0);
-    this.fold();
-    wordsToBytes(this.state, out, this.outputLength, true);
-  }
-
-  load(source: this): this {
-    this.state.set(source.state);
-    this.buffer.set(source.buffer);
-    this.position = source.position;
-    this.length = source.length;
-    return this;
+  /**
+   * Packs the version, passes and fingerprint length into the two bytes before the bit count.
+   *
+   * @param out - The block or padding being written.
+   * @param at - Where the bit count starts.
+   */
+  protected override writeFields(out: Uint8Array, at: number): void {
+    const { bits } = this;
+    out[at - 2] = ((bits & 3) << 6) | (this.passes << 3) | VERSION;
+    out[at - 1] = bits >>> 2;
   }
 
   /**
@@ -255,7 +214,7 @@ export class HavalHasher extends Hasher {
    * @param block - Bytes holding the block.
    * @param offset - Where the block starts.
    */
-  private compress(block: Uint8Array, offset: number): void {
+  protected compress(block: Uint8Array, offset: number): void {
     const { state } = this;
     for (let i = 0; i < 32; i++) {
       const at = offset + 4 * i;
@@ -296,7 +255,7 @@ export class HavalHasher extends Hasher {
   }
 
   /** Folds the eight words down to `bits`, adding fields of the dropped words to the kept ones. */
-  private fold(): void {
+  protected override finish(): void {
     if (this.bits === 256) return;
     const s = this.state;
     const [w7, w6, w5, w4] = [s[7]!, s[6]!, s[5]!, s[4]!];

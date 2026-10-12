@@ -227,6 +227,31 @@ describe("hashes CLI", () => {
     );
   });
 
+  it("extends HAVAL-256 with its passes and bits as JSON, and names bits 256 without them", () => {
+    /* PHP 8.5.11: hash("haval256,4", "k3y" . "user=a" . $padding . "&admin=1"). */
+    const digest = "206c3be5e68bae6a479028c23a69b369bc643dc7d106260a89b4a8f4506334f2";
+    const args = ["extend", "haval", digest, "--message", "user=a", "--suffix", "&admin=1"];
+    const forged = run([
+      ...args,
+      "--secret-length",
+      "3",
+      "--parameters",
+      '{"passes":4,"bits":256}',
+    ]);
+
+    expect(forged.code).toBe(0);
+    expect(forged.stdout.split("\n").slice(2, 4)).toEqual([
+      "haval, passes 4, bits 256, secret of 3 bytes",
+      "digest  742f315b0257b1345e7fc65dcf9fef3b963d1d3f72f19c50cec93da4676a45e0",
+    ]);
+    expect(run([...args, "--secret-length", "3"])).toEqual({
+      code: 1,
+      stderr:
+        "Invalid option bits=128: haval extends with bits 256, where the digest is the whole state\n",
+      stdout: "",
+    });
+  });
+
   it("HMACs several inputs under the key that comes last", () => {
     const tag = (text: string): string => createHmac("sha256", "k").update(text).digest("hex");
 

@@ -83,7 +83,7 @@ export const BUILTIN_FAMILIES =
 export const BUILTIN_ALGORITHMS =
   "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, whirlpool, md5, md4, md2, ntlm, sha1, sha0, ripemd128, ripemd256, haval, tiger, crc32, crc64, crc24, crc16-xmodem, adler32, xxhash, fnv1a, scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt";
 export const EXTENDABLE_ALGORITHMS =
-  "sha256, sha512, ripemd160, ripemd320, whirlpool, md5, md4, sha1, sha0, ripemd128, ripemd256, tiger";
+  "sha256, sha512, ripemd160, ripemd320, whirlpool, md5, md4, sha1, sha0, ripemd128, ripemd256, haval, tiger";
 export const HMAC_ALGORITHMS =
   "sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha3-256, sha3-512, keccak256, blake2b, blake2s, ripemd160, ripemd320, whirlpool, md5, md4, md2, sha1, sha0, ripemd128, ripemd256, haval, tiger";
 
@@ -143,7 +143,7 @@ function parameterDescriptions() {
       "Options the algorithm takes besides encoding, key and salt, as hashes_algorithms lists them: rounds and chain (bytes or hex) for every algorithm but the KDFs, passes and bits for haval, seed for xxhash, N, r, p and keyLength for scrypt, iterations, digest and keyLength for pbkdf2, info (hex), digest and keyLength for hkdf, digest, iterations, keyLength and ivLength for evp-bytestokey, memory (KiB), iterations, parallelism, keyLength, secret (hex) and associatedData (hex) for argon2id, argon2i and argon2d, cost (4 to 31) for bcrypt",
     hmacParameters:
       "Options the algorithm takes besides encoding and key, as hashes_algorithms lists them: passes (3, 4 or 5) and bits (128 to 256) for haval. HMAC runs one round",
-    extendAlgorithm: `Merkle-Damgard algorithm whose digest is its whole state: ${EXTENDABLE_ALGORITHMS}`,
+    extendAlgorithm: `Merkle-Damgard algorithm whose digest is its whole state: ${EXTENDABLE_ALGORITHMS}. haval only at bits 256, set in parameters`,
     knownDigest: "The known digest of the secret followed by message, in hex without a 0x prefix",
     message: "The message that followed the secret, read as messageEncoding says",
     messageEncoding: "How to read message (default utf8): utf8, or hex and base64 for bytes",
@@ -151,6 +151,8 @@ function parameterDescriptions() {
     suffixEncoding: "How to read suffix (default utf8): utf8, or hex and base64 for bytes",
     secretLength: "Length of the secret in bytes",
     secretLengthMax: `Try every secret length from secretLength up to this one, at most ${MAX_SECRET_LENGTHS} lengths. Omit to try secretLength alone`,
+    extendParameters:
+      "Options the algorithm takes, as hashes_algorithms lists them: passes (3, 4 or 5) and bits for haval, which extends only at 256 bits. Extension runs one round",
     unknownDigest: `The hash to identify, as found: hex (a 0x prefix allowed), base64, or a string with a prefix such as $2b$ or $argon2id$. Or a list of up to ${MAX_BATCH_DIGESTS} of them`,
     targetDigest: `The digest to explain, written as encoding says. Or a list of up to ${MAX_BATCH_DIGESTS} of them, searched in one pass: each text is hashed once and held against every digest of its length, until each has a recipe`,
     targetEncoding: "Encoding of digest (default hex). Hex takes no 0x prefix",

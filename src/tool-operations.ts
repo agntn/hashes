@@ -126,6 +126,7 @@ export const TOOL_ARGUMENTS: Record<ToolName, readonly string[]> = {
     "suffixEncoding",
     "secretLength",
     "secretLengthMax",
+    "parameters",
   ],
   hashes_digest_identify: ["digest"],
   hashes_digest_search: [
@@ -191,6 +192,8 @@ export interface Extension {
 
 export interface ExtendDetails {
   algorithm: string;
+  /** The options the digest was read with, such as HAVAL's passes and bits, when it has any. */
+  parameters?: Record<string, ParameterValue>;
   extensions: Extension[];
 }
 
@@ -1078,7 +1081,8 @@ function secretLengthArgument(name: string, value: unknown): number {
 /**
  * Forges a digest per secret length, the message in hex since its padding is binary.
  *
- * @param params - Algorithm, known digest, message, suffix with their encodings, secret lengths.
+ * @param params - Algorithm, known digest, message, suffix with their encodings, secret lengths,
+ *   and the algorithm's own options, such as HAVAL's passes and bits.
  * @returns {ToolResult<ExtendDetails>} One forged message per secret length.
  */
 export function hashDigestExtend(params: HashDigestExtendParams): ToolResult<ExtendDetails> {
@@ -1113,12 +1117,27 @@ export function hashDigestExtend(params: HashDigestExtendParams): ToolResult<Ext
       ? undefined
       : secretLengthArgument("secretLengthMax", params.secretLengthMax);
   const lengths = secretLengths(first, last, MAX_SECRET_LENGTHS);
-  const algorithm = textArgument("algorithm", params.algorithm, MAX_ALGORITHM_LENGTH);
+  const algorithm = algorithmArgument(params.algorithm);
+  const parameters = algorithmOptions(
+    algorithm,
+    undefined,
+    params.parameters,
+    TOOL_ARGUMENTS.hashes_digest_extend,
+  );
   const digest = Uint8Array.fromHex(hex);
   const extensions: Extension[] = [];
+  let reported: Record<string, ParameterValue> = {};
   let forgedLength = 0;
   for (const secretLength of lengths) {
-    const forged = extendDigest({ algorithm, digest, message, secretLength, suffix });
+    const forged = extendDigest({
+      algorithm: algorithm.name(),
+      parameters,
+      digest,
+      message,
+      secretLength,
+      suffix,
+    });
+    reported = forged.parameters;
     forgedLength += forged.message.length * 2;
     if (forgedLength > MAX_FORGED_LENGTH) {
       throw new InvalidOptionError(
@@ -1134,10 +1153,27 @@ export function hashDigestExtend(params: HashDigestExtendParams): ToolResult<Ext
       padding: forged.padding.toHex(),
     });
   }
-  const name = resolveAlgorithm(algorithm).name();
+  return extendResult(algorithm.name(), reported, extensions);
+}
+
+/**
+ * Writes the forged messages out, each under the algorithm and the options it was read with.
+ *
+ * @param name - The algorithm's registry name.
+ * @param parameters - Its options, such as HAVAL's passes and bits, or none.
+ * @param extensions - One forged message per secret length.
+ * @returns {ToolResult<ExtendDetails>} The answer.
+ */
+function extendResult(
+  name: string,
+  parameters: Readonly<Record<string, ParameterValue>>,
+  extensions: readonly Readonly<Extension>[],
+): ToolResult<ExtendDetails> {
+  const about = parameterText(parameters);
+  const heading = about === "" ? name : `${name}, ${about}`;
   const blocks = extensions.map((extension) =>
     [
-      `${name}, secret of ${extension.secretLength} bytes`,
+      `${heading}, secret of ${extension.secretLength} bytes`,
       `digest  ${extension.digest}`,
       `message ${extension.message}`,
       `padding ${extension.padding}`,
@@ -1147,7 +1183,12 @@ export function hashDigestExtend(params: HashDigestExtendParams): ToolResult<Ext
     "Send message (the original, the padding, the suffix) with digest. The server prepends the secret.",
     ...blocks,
   ].join("\n\n");
-  return { content: [{ type: "text", text }], details: { algorithm: name, extensions } };
+  const details: ExtendDetails = {
+    algorithm: name,
+    ...(about === "" ? {} : { parameters: { ...parameters } }),
+    extensions: [...extensions],
+  };
+  return { content: [{ type: "text", text }], details };
 }
 
 /**

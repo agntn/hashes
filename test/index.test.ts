@@ -2269,6 +2269,7 @@ describe("extendDigest", () => {
       "sha0",
       "ripemd128",
       "ripemd256",
+      "haval",
       "tiger",
     ]);
   });
@@ -2306,6 +2307,63 @@ describe("extendDigest", () => {
   });
 
   it.each([
+    [
+      3,
+      "74d434e738a3f4239f5f88ae2d66b0cf5bbe862346f8efac6924920da10ad1c7",
+      "19",
+      "d2cf644f40e852da1d52b32e0d5e28e75edf643c2b1273c198fe1b68baf83ee3",
+    ],
+    [
+      4,
+      "206c3be5e68bae6a479028c23a69b369bc643dc7d106260a89b4a8f4506334f2",
+      "21",
+      "742f315b0257b1345e7fc65dcf9fef3b963d1d3f72f19c50cec93da4676a45e0",
+    ],
+    [
+      5,
+      "b2b41bfa4b9c862f960220704f6e08af340be7e9af3489640f878ad6f0cceef4",
+      "29",
+      "075623c5e7211e31323794f110b5a74f774ead5d3e2c2c2f1cfeb212f66d98dd",
+    ],
+  ] as const)(
+    "forges HAVAL-256 in %i passes past its version field, the digest PHP gives",
+    (passes, known, field, expected) => {
+      /* PHP 8.5.11: hash("haval256,<passes>", "k3y" . "user=a" . $padding . "&admin=1"). */
+      const forged = extendDigest({
+        algorithm: "haval",
+        parameters: { passes, bits: 256 },
+        digest: Uint8Array.fromHex(known),
+        message: text("user=a"),
+        secretLength: 3,
+        suffix: text("&admin=1"),
+      });
+
+      expect(forged.padding.toHex()).toBe(`01${"00".repeat(108)}${field}404800000000000000`);
+      expect(forged.digest.toHex()).toBe(expected);
+      expect(forged.parameters).toEqual({ passes, bits: 256 });
+    },
+  );
+
+  it("forges HAVAL-256 when the padding spills into a second block, as PHP does", () => {
+    /* PHP 8.5.11: hash("haval256,5", "k3y" . str_repeat("a", 116) . $padding . "&admin=1"). */
+    const forged = extendDigest({
+      algorithm: "haval",
+      parameters: { passes: 5, bits: 256 },
+      digest: Uint8Array.fromHex(
+        "5058f1dc3b15a94df55d1f92348a01d01c8333b12ab90beec31c0dc469deedeb",
+      ),
+      message: text("a".repeat(116)),
+      secretLength: 3,
+      suffix: text("&admin=1"),
+    });
+
+    expect(forged.padding).toHaveLength(137);
+    expect(forged.digest.toHex()).toBe(
+      "78cb4c57b9c7381f248720cef1911df7fdbe2d39a656ffe53a9cf38b9e57d8dc",
+    );
+  });
+
+  it.each([
     "sha256",
     "sha512",
     "ripemd160",
@@ -2317,10 +2375,17 @@ describe("extendDigest", () => {
     "sha0",
     "ripemd128",
     "ripemd256",
+    "haval passes 3",
+    "haval passes 4",
+    "haval passes 5",
     "tiger",
-  ])("%s matches the hash of the secret and the forged message at every block offset", (name) => {
+  ])("%s matches the hash of the secret and the forged message at every block offset", (row) => {
+    const [name = row, passes] = row.split(" passes ");
+    const parameters: Record<string, number> =
+      passes === undefined ? {} : { passes: Number(passes), bits: 256 };
     const algorithm = create(name);
-    const hash = (bytes: Uint8Array) => algorithm.hash(bytes).digest as string;
+    const hash = (bytes: Uint8Array) =>
+      algorithm.hash(bytes, parameters as HashOptions).digest as string;
     for (let prefix = 0; prefix <= 260; prefix += 7) {
       for (const suffixLength of [0, 1, 55, 64, 129]) {
         const secretLength = prefix % 19;
@@ -2330,6 +2395,7 @@ describe("extendDigest", () => {
         const known = new Uint8Array([...secret, ...message]);
         const forged = extendDigest({
           algorithm: name,
+          parameters,
           digest: Uint8Array.fromHex(hash(known)),
           message,
           secretLength,
@@ -2353,7 +2419,6 @@ describe("extendDigest", () => {
     "sha512-half",
     "sha3-256",
     "md2",
-    "haval",
     "ntlm",
     "hash160",
   ])("refuses %s, whose digest is not a state it can resume from", (algorithm) => {
@@ -2368,6 +2433,44 @@ describe("extendDigest", () => {
 
     expect(call).toThrow(InvalidOptionError);
     expect(call).toThrow("cannot be extended, use one of sha256, sha512");
+  });
+
+  it("names bits 256 when HAVAL folds its state away, whatever the passes", () => {
+    const base = {
+      algorithm: "haval",
+      digest: new Uint8Array(32),
+      message: new Uint8Array(),
+      secretLength: 1,
+      suffix: new Uint8Array(),
+    };
+
+    expect(() => extendDigest(base)).toThrow(
+      "Invalid option bits=128: haval extends with bits 256, where the digest is the whole state",
+    );
+    expect(() => extendDigest({ ...base, parameters: { passes: 5, bits: 224 } })).toThrow(
+      "Invalid option bits=224: haval extends with bits 256",
+    );
+  });
+
+  it("refuses a second round and an option the algorithm doesn't declare", () => {
+    const base = {
+      algorithm: "md5",
+      digest: new Uint8Array(16),
+      message: new Uint8Array(),
+      secretLength: 1,
+      suffix: new Uint8Array(),
+    };
+
+    expect(() => extendDigest({ ...base, parameters: { rounds: 2 } })).toThrow(
+      "Invalid option rounds=2: a second round hides the state, so it can't be extended",
+    );
+    expect(() => extendDigest({ ...base, parameters: { chain: "hex" } })).toThrow(
+      "Invalid option chain=hex",
+    );
+    expect(() => extendDigest({ ...base, algorithm: "haval", parameters: { bitz: 256 } })).toThrow(
+      "haval takes passes, bits, rounds, chain",
+    );
+    expect(extendDigest({ ...base, parameters: { rounds: 1 } }).parameters).toEqual({});
   });
 
   it("refuses a digest of the wrong length, a bad secret length and anything but bytes", () => {
@@ -2397,6 +2500,12 @@ describe("extendDigest", () => {
     expect(() => new Sha256Hasher().resume(new Uint8Array(32), 63)).toThrow(HashError);
     expect(() => new Sha256Hasher().resume(new Uint8Array(32), Number.NaN)).toThrow(HashError);
     expect(() => new Sha224Hasher().resume(new Uint8Array(28), 64)).toThrow(HashError);
+    expect(() => new HavalHasher(3, 128).resume(new Uint8Array(16), 128)).toThrow(
+      "a 16-byte digest leaves part of the state out",
+    );
+    expect(() => new HavalHasher(3, 256).resume(new Uint8Array(32), 64)).toThrow(
+      "resume takes a 32-byte digest and a multiple of 128 bytes",
+    );
     expect(() => new Sha256Hasher().resume("x".repeat(32) as unknown as Uint8Array, 64)).toThrow(
       "digest must be a Uint8Array",
     );
