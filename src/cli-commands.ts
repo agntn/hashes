@@ -385,7 +385,7 @@ export const verifyCommand = defineTool({
     ...parameters,
   }),
   cli: { positional: ["algorithm"], rest: "input", short: { encoding: "e" } },
-  execute: (params): ToolResult<VerifyOne | VerifyList> => {
+  execute: (params): ToolResult<VerifyDetails | VerifyList> => {
     const hash = resolveAlgorithm(params.algorithm);
     const encoding = params.encoding ?? "hex";
     const texts = params.input.slice(0, -1);
@@ -405,17 +405,19 @@ export const verifyCommand = defineTool({
     const digest = String(result.digest);
     const match = digestMatches(result, expected);
     if (!match) process.exitCode = 1;
-    const verdict = { ...digestDetails(result, encoding), expected, expectedLength, match };
+    const verdict: VerifyDetails = {
+      ...digestDetails(result, encoding),
+      expected,
+      expectedLength,
+      match,
+    };
     const note = lengthNote(hash, options, [verdict]);
     const text = match
       ? `MATCH ${hash.name()} ${digest}`
       : [`MISMATCH ${hash.name()}`, `expected ${shown(expected)}`, `actual   ${digest}`]
           .concat(note === undefined ? [] : [note])
           .join("\n  ");
-    return {
-      content: [{ type: "text", text }],
-      details: { match, algorithm: hash.name(), digest },
-    };
+    return { content: [{ type: "text", text }], details: verdict };
   },
 });
 
@@ -488,13 +490,6 @@ function flagText(values: Readonly<Record<string, number | string>>): string {
   return Object.entries(values)
     .map(([name, value]) => `--${name.replaceAll(/(?<!^)[A-Z]/gu, "-$&").toLowerCase()} ${value}`)
     .join(" ");
-}
-
-/** The verdict on one input. */
-interface VerifyOne {
-  match: boolean;
-  algorithm: string;
-  digest: string;
 }
 
 /** The verdict on every candidate of a list. */

@@ -371,6 +371,14 @@ describe("hashes CLI", () => {
       "  lengths differ: expected is 32 bytes, haval gave 16; --bits 256 gives 32, hashes identify names the other algorithms that do",
     );
     expect(run(["verify", "haval", "abc", haval256, "--bits", "256"]).code).toBe(0);
+    expect(JSON.parse(run(["verify", "haval", "abc", haval256, "--json"]).stdout)).toMatchObject({
+      algorithm: "haval",
+      digest: "9e40ed883fb63e985d299b40cda2b8f2",
+      digestLength: 16,
+      expected: haval256,
+      expectedLength: 32,
+      match: false,
+    });
     expect(run(["verify", "scrypt", "pw", "00", "--salt", "00", "--n", "16"]).stdout).toContain(
       "; --key-length 1 gives 1,",
     );
