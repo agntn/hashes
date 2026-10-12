@@ -19,6 +19,7 @@ export type { Crc64Options } from "../algorithms/crc64.ts";
 export type { Crc24Options } from "../algorithms/crc24.ts";
 export type { HavalOptions } from "../algorithms/haval.ts";
 export {
+  type AlgorithmSuggestion,
   DependencyError,
   HashError,
   InvalidOptionError,

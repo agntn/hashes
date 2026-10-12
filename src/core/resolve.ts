@@ -1,5 +1,5 @@
 import { hashCategories } from "./algorithms.ts";
-import { InvalidOptionError, UnknownAlgorithmError } from "./errors.ts";
+import { type AlgorithmSuggestion, InvalidOptionError, UnknownAlgorithmError } from "./errors.ts";
 import { algorithms, create, has } from "./registry.ts";
 import type { Hash } from "./hash.ts";
 import type { AlgorithmInfo } from "./types.ts";
@@ -25,13 +25,75 @@ export function normalizeAlgorithmName(name: string): string {
  * @returns {Hash} The matching algorithm.
  */
 export function resolveAlgorithm(preferred?: string): Hash {
-  if (preferred) {
-    const normalized = normalizeAlgorithmName(preferred);
-    if (has(normalized)) return create(normalized);
-    const spelled = spelledAlgorithm(preferred);
-    if (spelled !== undefined) return create(spelled);
-  }
-  throw new UnknownAlgorithmError(preferred ?? "(none)", algorithms());
+  const key = preferred ? knownAlgorithm(preferred) : undefined;
+  if (key !== undefined) return create(key);
+  throw new UnknownAlgorithmError(
+    preferred ?? "(none)",
+    algorithms(),
+    preferred ? suggestedAlgorithms(preferred) : [],
+  );
+}
+
+/**
+ * Points an unknown name at a `family/variant` option or the keys it begins, never at a typo's
+ * neighbour: `tiger2` is one letter off `tiger` and another digest.
+ *
+ * @param name - Name as typed.
+ * @returns {AlgorithmSuggestion[]} The suggestions, empty when the name points nowhere.
+ */
+function suggestedAlgorithms(name: string): AlgorithmSuggestion[] {
+  const variants = variantSuggestions(name);
+  if (variants.length > 0) return variants;
+  const wanted = compactName(name);
+  return algorithms()
+    .filter(
+      (key) =>
+        segmentPrefixes(key).includes(wanted) ||
+        segmentPrefixes(create(key).info().label).includes(wanted),
+    )
+    .map((algorithm) => ({ algorithm }));
+}
+
+/**
+ * Cuts a name into runs of letters and of digits and joins every leading run of them, so
+ * `sha3-256` gives `sha`, `sha3` and `sha3256`, while `sha384` never gives `sha3`.
+ *
+ * @param name - Key or label.
+ * @returns {string[]} The prefixes, compacted as `compactName` writes them.
+ */
+function segmentPrefixes(name: string): string[] {
+  const segments = name.toLowerCase().match(/[a-z]+|\d+/g) ?? [];
+  return segments.map((_, index) => segments.slice(0, index + 1).join(""));
+}
+
+/**
+ * Reads `CRC-32/BZIP2` as the algorithm before the last slash and an option value after it.
+ *
+ * @param name - Name as typed.
+ * @returns {AlgorithmSuggestion[]} One suggestion per option the value belongs to.
+ */
+function variantSuggestions(name: string): AlgorithmSuggestion[] {
+  const slash = name.lastIndexOf("/");
+  const algorithm = slash > 0 ? knownAlgorithm(name.slice(0, slash)) : undefined;
+  if (algorithm === undefined) return [];
+  const value = compactName(name.slice(slash + 1));
+  return create(algorithm)
+    .info()
+    .options.flatMap((option) => {
+      const choice = option.choices?.find((candidate) => compactName(String(candidate)) === value);
+      return choice === undefined ? [] : [{ algorithm, parameters: { [option.name]: choice } }];
+    });
+}
+
+/**
+ * Looks a name up the way `resolveAlgorithm` does, without throwing.
+ *
+ * @param name - Name as typed.
+ * @returns {string | undefined} The algorithm's key, or nothing when it resolves to none.
+ */
+function knownAlgorithm(name: string): string | undefined {
+  const normalized = normalizeAlgorithmName(name);
+  return has(normalized) ? normalized : spelledAlgorithm(name);
 }
 
 /**

@@ -38,22 +38,66 @@ export class HashError extends Error {
   }
 }
 
+/** A registered algorithm an unknown name points at, with the option values its spelling names. */
+export interface AlgorithmSuggestion {
+  readonly algorithm: string;
+  /** Option values the name spells out, such as `variant: "bzip2"` for `CRC-32/BZIP2`. */
+  readonly parameters?: Readonly<Record<string, number | string>>;
+}
+
 /** Algorithm not found in the registry. */
 export class UnknownAlgorithmError extends HashError {
   readonly algorithm: string;
   /** Names that were registered when the lookup failed. */
   readonly available: readonly string[];
+  /** Algorithms the name points at; the message names these instead of every key. */
+  readonly suggestions: readonly AlgorithmSuggestion[];
 
-  constructor(algorithm: string, available: readonly string[] = []) {
-    super(
-      available.length > 0
-        ? `Unknown algorithm: ${shown(algorithm)}. Available: ${available.join(", ")}`
-        : `Unknown algorithm: ${shown(algorithm)}`,
-    );
+  constructor(
+    algorithm: string,
+    available: readonly string[] = [],
+    suggestions: readonly AlgorithmSuggestion[] = [],
+  ) {
+    super(`Unknown algorithm: ${shown(algorithm)}${unknownAlgorithmHint(available, suggestions)}`);
     this.name = "UnknownAlgorithmError";
     this.algorithm = algorithm;
     this.available = available;
+    this.suggestions = suggestions;
   }
+}
+
+/**
+ * Writes what follows an unknown name: the suggestions when there are any, else every key.
+ *
+ * @param available - Registered names.
+ * @param suggestions - Algorithms the name points at.
+ * @returns {string} The hint, or nothing when there is neither.
+ */
+function unknownAlgorithmHint(
+  available: readonly string[],
+  suggestions: readonly AlgorithmSuggestion[],
+): string {
+  if (suggestions.length > 0) {
+    const named = suggestions.map(suggestionText);
+    const last = named.pop()!;
+    return `. Did you mean ${named.length > 0 ? `${named.join(", ")} or ${last}` : last}?`;
+  }
+  return available.length > 0 ? `. Available: ${available.join(", ")}` : "";
+}
+
+/**
+ * Writes one suggestion as the message names it: `sha3-256`, or `crc32 with variant=bzip2`.
+ *
+ * @param suggestion - The algorithm and the option values its name spells out.
+ * @returns {string} The suggestion as text.
+ */
+function suggestionText(suggestion: AlgorithmSuggestion): string {
+  const values = Object.entries(suggestion.parameters ?? {}).map(
+    ([name, value]) => `${name}=${value}`,
+  );
+  return values.length > 0
+    ? `${suggestion.algorithm} with ${values.join(", ")}`
+    : suggestion.algorithm;
 }
 
 /** Invalid option value. */
