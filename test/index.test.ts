@@ -752,7 +752,7 @@ describe("hashes chains use", () => {
   });
 
   it("haval matches Barreto's vectors in every pass count and length", () => {
-    /* From Paulo Barreto's public domain HAVAL in libmhash: passes 3 to 5, each from 128 to 256 bits. */
+    /* The vectors MrHash's haval.cpp lists, Barreto's public domain code by way of libmhash. */
     const vectors: Record<string, readonly string[]> = {
       abc: [
         "9e40ed883fb63e985d299b40cda2b8f2",
