@@ -23,7 +23,7 @@ import {
   type SearchChain,
   type SearchDigestOptions,
 } from "./core/search.ts";
-import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
+import { assertDrawnOptions, assertExpected, lengthFixes } from "./core/verify.ts";
 import {
   InvalidOptionError,
   MissingOptionError,
@@ -167,6 +167,18 @@ export interface DigestDetails {
 export interface VerifyDetails extends DigestDetails {
   match: boolean;
   expected: string;
+  /** Bytes the expected digest spells, which `digestLength` has to equal for a match. */
+  expectedLength: number;
+}
+
+/** A mismatch no input could turn into a match, since the lengths differ. */
+export interface LengthMismatch {
+  /** Bytes the expected digest spells. */
+  readonly expected: number;
+  /** Bytes the algorithm gave with the options it ran with. */
+  readonly actual: number;
+  /** Option changes that give the expected length, empty when none does. */
+  readonly fixes: readonly Readonly<Record<string, number | string>>[];
 }
 
 /** One forged message, its bytes in hex. */
@@ -918,7 +930,7 @@ export function hashVerify(
   const expected = textArgument("expected", params.expected, MAX_EXPECTED_LENGTH).trim();
   if (expected === "") throw new InvalidOptionError("expected", "", "must not be empty");
   const encoding = encodingArgument(params.encoding);
-  assertExpected(expected, encoding);
+  const expectedLength = assertExpected(expected, encoding).length;
   const options = algorithmOptions(
     algorithm,
     params.salt,
@@ -928,9 +940,17 @@ export function hashVerify(
   assertDrawnOptions(algorithm.info(), options);
   const verdict = (input: HashInput): VerifyDetails => {
     const result = algorithm.hash(input, { encoding, ...options } as HashOptions);
-    return { ...digestDetails(result, encoding), expected, match: digestMatches(result, expected) };
+    const match = digestMatches(result, expected);
+    return { ...digestDetails(result, encoding), expected, expectedLength, match };
   };
-  if (!inputs.list) return verifyResult(verdict(inputs.value), algorithm.name());
+  const lengthNote = (items: readonly (VerifyDetails | BatchError)[]): string | undefined => {
+    const mismatch = lengthMismatch(algorithm, options, items);
+    return mismatch && lengthText(algorithm.name(), mismatch);
+  };
+  if (!inputs.list) {
+    const details = verdict(inputs.value);
+    return verifyResult(details, algorithm.name(), lengthNote([details]));
+  }
   assertBatchCost(algorithm, options, inputs.values.length);
   const items = inputs.values.map((input) => settled(() => verdict(input)));
   const { text, matches, hashedAny } = verifyListText(
@@ -938,8 +958,47 @@ export function hashVerify(
     inputs.texts,
     algorithm.name(),
     expected,
+    lengthNote(items),
   );
   return listResult(text, { expected, matches, items }, hashedAny);
+}
+
+/**
+ * Finds a length every input missed by the same bytes, and the options that would give it.
+ *
+ * @param hash - The algorithm.
+ * @param options - The options it ran with.
+ * @param items - Every verdict, or the refusal of its input.
+ * @returns {LengthMismatch | undefined} Both lengths and the fixes, or nothing when the lengths
+ *   agree or an input matched.
+ */
+export function lengthMismatch(
+  hash: Hash,
+  options: Readonly<Record<string, unknown>>,
+  items: readonly (VerifyDetails | BatchError)[],
+): LengthMismatch | undefined {
+  const verdicts = items.filter((item) => "match" in item);
+  const [first] = verdicts;
+  if (first === undefined) return undefined;
+  const { expectedLength: expected, digestLength: actual } = first;
+  const shared = verdicts.every((item) => !item.match && item.digestLength === actual);
+  if (!shared || expected === actual) return undefined;
+  return { expected, actual, fixes: lengthFixes(hash, options, actual, expected) };
+}
+
+/**
+ * Names a length mismatch for a model: both lengths, then the call that gets the right one.
+ *
+ * @param name - The algorithm.
+ * @param mismatch - The lengths and fixes.
+ * @returns {string} One line.
+ */
+function lengthText(name: string, mismatch: LengthMismatch): string {
+  const { expected, actual, fixes } = mismatch;
+  const sizes = `The lengths differ: expected is ${counted(expected, "byte")}, ${name} gave ${actual}.`;
+  return fixes.length > 0
+    ? `${sizes} Next: hashes_verify with ${fixes.map(parameterText).join(" or ")}, which gives ${expected}, or hashes_digest_identify for the other algorithms that do.`
+    : `${sizes} Next: hashes_digest_identify for the algorithms that give ${expected}.`;
 }
 
 /**
@@ -949,6 +1008,7 @@ export function hashVerify(
  * @param texts - The inputs as passed, for their labels.
  * @param name - The algorithm.
  * @param expected - The expected digest.
+ * @param note - Why no input could match, under the expected digest.
  * @returns {{ text: string; matches: number; hashedAny: boolean }} The text, the count of
  *   matches and whether any input got a digest.
  */
@@ -957,6 +1017,7 @@ export function verifyListText(
   texts: readonly string[],
   name: string,
   expected: string,
+  note?: string,
 ): { text: string; matches: number; hashedAny: boolean } {
   const matches = items.filter((item) => !("error" in item) && item.match).length;
   const verdicts = items.map((item) =>
@@ -967,21 +1028,33 @@ export function verifyListText(
     matches > 0
       ? `MATCH: ${matches} of ${counted(items.length, "input")} ${matches === 1 ? "gives" : "give"} the expected ${name} digest`
       : `MISMATCH: none of ${counted(items.length, "input")} gives the expected ${name} digest`;
-  const text = [heading, `expected ${shown(expected)}`, ...lines].join("\n");
+  const notes = note === undefined ? [] : [note];
+  const text = [heading, `expected ${shown(expected)}`, ...notes, ...lines].join("\n");
   return { text, matches, hashedAny: about !== undefined };
 }
 
 /**
- * The answer to one input: MATCH with the digest, or MISMATCH with both.
+ * The answer to one input: MATCH with the digest, or MISMATCH with both and any length note.
  *
  * @param details - The verdict.
  * @param name - The algorithm.
+ * @param note - Why the input could not match.
  * @returns {ToolResult<VerifyDetails>} The result.
  */
-function verifyResult(details: VerifyDetails, name: string): ToolResult<VerifyDetails> {
-  const text = details.match
-    ? `MATCH: ${name} digest equals the expected value\n${details.digest}`
-    : `MISMATCH: ${name} digest differs\nexpected ${shown(details.expected)}\nactual   ${details.digest}`;
+function verifyResult(
+  details: VerifyDetails,
+  name: string,
+  note: string | undefined,
+): ToolResult<VerifyDetails> {
+  const lines = details.match
+    ? [`MATCH: ${name} digest equals the expected value`, details.digest]
+    : [
+        `MISMATCH: ${name} digest differs`,
+        `expected ${shown(details.expected)}`,
+        `actual   ${details.digest}`,
+      ];
+  if (note !== undefined) lines.push(note);
+  const text = lines.join("\n");
   return { content: [{ type: "text", text }], details };
 }
 

@@ -36,6 +36,7 @@ export class Scrypt extends Kdf<ScryptOptions> {
     securityNote:
       "Memory-hard KDF. For passwords OWASP asks for N=2^17 with p=1, or N=2^14 with p=5 (r=8 in both). The default N=16384, p=1 is below that.",
   } as const;
+  override readonly floorCosts = { N: 2, r: 1, p: 1 };
   protected override readonly options = [
     SALT_OPTION,
     {

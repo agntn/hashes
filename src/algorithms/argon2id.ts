@@ -71,6 +71,7 @@ function reported(parameters: Readonly<Argon2Parameters>): Record<string, number
 
 /** Argon2 as RFC 9106 runs it; each variant names itself and its function. */
 export abstract class Argon2 extends Kdf<Argon2Options> {
+  override readonly floorCosts = { memory: 8, iterations: 1, parallelism: 1 };
   protected override readonly options = [
     SALT_OPTION,
     {

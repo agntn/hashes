@@ -7,10 +7,13 @@ import { Pbkdf2 } from "../src/algorithms/index.ts";
 import { serverInfo } from "../src/server-info.ts";
 import {
   type AlgorithmInfo,
+  type Derivation,
   Hash,
   type HashInput,
   type HashOptions,
   type HashResult,
+  InvalidOptionError,
+  Kdf,
   builtinAlgorithms,
   create,
   extendableAlgorithms,
@@ -34,8 +37,10 @@ import {
   hashDigestSearch,
   hashHmac,
   hashVerify,
+  lengthMismatch,
   kdfMemory,
 } from "../src/tool-operations.ts";
+import { lengthFixes } from "../src/core/verify.ts";
 import {
   hashAlgorithmsSchema,
   hashComputeSchema,
@@ -442,6 +447,157 @@ describe("hashes MCP server", () => {
     expect(upperHex.text).toMatch(/^MATCH/);
   });
 
+  it("names a length mismatch and the parameter that gives the expected length", () => {
+    const haval256 = String(
+      hashCompute({ algorithm: "haval", input: "abc", parameters: { bits: 256 } }).details.digest,
+    );
+    const haval = hashVerify({ algorithm: "haval", input: "abc", expected: haval256 });
+    const fixed = hashVerify({
+      algorithm: "haval",
+      input: "abc",
+      expected: haval256,
+      parameters: { bits: 256 },
+    });
+    const xxh32 = hashVerify({ algorithm: "xxhash", input: "abc", expected: "32d153ff" });
+    const md5 = createHash("md5").update("abc").digest("hex");
+    const sha256 = hashVerify({ algorithm: "sha256", input: ["abc", "abd"], expected: md5 });
+
+    expect(haval.content[0]?.text.split("\n").slice(1)).toEqual([
+      `expected ${haval256}`,
+      "actual   9e40ed883fb63e985d299b40cda2b8f2",
+      "The lengths differ: expected is 32 bytes, haval gave 16. Next: hashes_verify with bits 256, which gives 32, or hashes_digest_identify for the other algorithms that do.",
+    ]);
+    expect(haval.details).toMatchObject({ match: false, expectedLength: 32, digestLength: 16 });
+    expect(fixed.content[0]?.text).toMatch(/^MATCH/);
+    expect(xxh32.content[0]?.text).toContain("Next: hashes_verify with bits 32, which gives 4,");
+    expect(sha256.content[0]?.text.split("\n").slice(0, 3)).toEqual([
+      "MISMATCH: none of 2 inputs gives the expected sha256 digest",
+      `expected ${md5}`,
+      "The lengths differ: expected is 16 bytes, sha256 gave 32. Next: hashes_digest_identify for the algorithms that give 16.",
+    ]);
+  });
+
+  it("gives a KDF the keyLength that makes the expected length, past EVP_BytesToKey's IV", () => {
+    const evp = hashCompute({
+      algorithm: "evp-bytestokey",
+      input: "pw",
+      parameters: { keyLength: 24 },
+    });
+    const expected = String(evp.details.digest);
+    const missed = hashVerify({ algorithm: "evp-bytestokey", input: "pw", expected });
+    const hkdf = hashVerify({ algorithm: "hkdf", input: "pw", expected: "00".repeat(64) });
+
+    expect(missed.content[0]?.text).toContain(
+      "expected is 40 bytes, evp-bytestokey gave 48. Next: hashes_verify with keyLength 24,",
+    );
+    expect(
+      hashVerify({
+        algorithm: "evp-bytestokey",
+        input: "pw",
+        expected,
+        parameters: { keyLength: 24 },
+      }).content[0]?.text,
+    ).toMatch(/^MATCH/);
+    expect(hkdf.content[0]?.text).toContain("Next: hashes_verify with keyLength 64,");
+  });
+
+  it("offers no length fix the library would refuse with the other options", () => {
+    const seeded = hashVerify({
+      algorithm: "xxhash",
+      input: "abc",
+      expected: "00000000",
+      parameters: { seed: 2 ** 33 },
+    });
+    const argon2 = hashVerify({
+      algorithm: "argon2id",
+      input: "pw",
+      salt: "00".repeat(16),
+      expected: "0000",
+      parameters: { memory: 64, iterations: 1, parallelism: 1 },
+    });
+
+    expect(seeded.content[0]?.text.split("\n").at(-1)).toBe(
+      "The lengths differ: expected is 4 bytes, xxhash gave 8. Next: hashes_digest_identify for the algorithms that give 4.",
+    );
+    expect(argon2.content[0]?.text.split("\n").at(-1)).toBe(
+      "The lengths differ: expected is 2 bytes, argon2id gave 32. Next: hashes_digest_identify for the algorithms that give 2.",
+    );
+  });
+
+  it("checks a KDF's keyLength fix at its floor costs, never at the caller's", () => {
+    const argon2 = { salt: "00".repeat(16), memory: 2 ** 22, iterations: 1e6, parallelism: 8192 };
+
+    expect(lengthFixes(create("pbkdf2"), { salt: "00", iterations: 1e9 }, 64, 32)).toEqual([
+      { keyLength: 32 },
+    ]);
+    expect(lengthFixes(create("scrypt"), { salt: "00", N: 2 ** 20, r: 8 }, 64, 32)).toEqual([
+      { keyLength: 32 },
+    ]);
+    expect(lengthFixes(create("argon2id"), argon2, 32, 64)).toEqual([{ keyLength: 64 }]);
+  });
+
+  it("checks a KDF without floorCosts at the caller's costs", () => {
+    interface FiveOptions extends HashOptions {
+      iterations?: number;
+      keyLength?: number;
+    }
+    /* A KDF that refuses fewer than five iterations and declares no floor. */
+    class Five extends Kdf<FiveOptions> {
+      static readonly key = "five";
+      protected readonly about = {
+        label: "Five",
+        description: "Refuses fewer than five iterations",
+        family: "Probe",
+        category: "password",
+      } as const;
+      protected override readonly options = [
+        { name: "iterations", type: "number", required: false, default: 5, description: "Rounds" },
+        { name: "keyLength", type: "number", required: false, default: 32, description: "Bytes" },
+      ] as const;
+
+      protected derive(bytes: Uint8Array, options?: Readonly<FiveOptions>): Derivation {
+        const { iterations = 5, keyLength = 32 } = options ?? {};
+        if (iterations < 5) throw new InvalidOptionError("iterations", iterations, "at least 5");
+        return { digest: new Uint8Array(keyLength).fill(bytes.length), reported: { keyLength } };
+      }
+    }
+
+    expect(lengthFixes(new Five(), { iterations: 5 }, 32, 16)).toEqual([{ keyLength: 16 }]);
+  });
+
+  it("names a list's length mismatch only when every input gave the same length", () => {
+    const verdict = (digestLength: number) => ({
+      algorithm: "custom",
+      operation: "hash" as const,
+      encoding: "hex" as const,
+      digest: "00".repeat(digestLength),
+      digestLength,
+      options: {},
+      expected: "11".repeat(32),
+      expectedLength: 32,
+      match: false,
+    });
+    const md5 = create("md5");
+
+    expect(lengthMismatch(md5, {}, [verdict(16), verdict(32)])).toBeUndefined();
+    expect(lengthMismatch(md5, {}, [verdict(16), { error: "x" }, verdict(16)])).toEqual({
+      expected: 32,
+      actual: 16,
+      fixes: [],
+    });
+  });
+
+  it("adds no length note when the lengths agree or an input matches", () => {
+    const md5 = createHash("md5").update("hello").digest("hex");
+
+    expect(
+      hashVerify({ algorithm: "md4", input: "hello", expected: md5 }).content[0]?.text,
+    ).not.toContain("lengths");
+    expect(
+      hashVerify({ algorithm: "md5", input: ["hello", "x"], expected: md5 }).content[0]?.text,
+    ).not.toContain("lengths");
+  });
+
   it("verifies a KDF digest only with its salt", async () => {
     const salt = "00112233445566778899aabbccddeeff";
     const digest = scryptSync("pw", Buffer.from(salt, "hex"), 64, { N: 16384 }).toString("hex");
@@ -827,8 +983,9 @@ describe("hashes MCP server", () => {
     });
 
     expect(answer.text).toMatch(/^MISMATCH/);
-    expect(answer.text.split("\n")).toHaveLength(3);
+    expect(answer.text.split("\n")).toHaveLength(4);
     expect(answer.text).toContain('expected "AAAA\\nMATCHforged"');
+    expect(answer.text.split("\n")[3]).toMatch(/^The lengths differ: expected is 11 bytes,/);
   });
 
   it("refuses an expected digest that is not valid in its encoding instead of calling it a mismatch", async () => {
@@ -1560,7 +1717,7 @@ describe("executors without a schema in front", () => {
       }
       const text = verify();
       expect(text).not.toContain(separator);
-      expect(text.split("\n")).toHaveLength(3);
+      expect(text.split("\n")).toHaveLength(4);
     }
   });
 

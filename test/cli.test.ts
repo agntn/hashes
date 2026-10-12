@@ -361,6 +361,36 @@ describe("hashes CLI", () => {
     });
   });
 
+  it("names a length mismatch with the flag that gives the expected length", () => {
+    const haval256 = run(["haval", "abc", "--bits", "256"]).stdout.trim();
+    const one = run(["verify", "haval", "abc", haval256]);
+    const list = run(["verify", "sha256", "a", "b", createHash("md5").update("a").digest("hex")]);
+
+    expect(one.code).toBe(1);
+    expect(one.stdout.split("\n").at(-2)).toBe(
+      "  lengths differ: expected is 32 bytes, haval gave 16; --bits 256 gives 32, hashes identify names the other algorithms that do",
+    );
+    expect(run(["verify", "haval", "abc", haval256, "--bits", "256"]).code).toBe(0);
+    expect(JSON.parse(run(["verify", "haval", "abc", haval256, "--json"]).stdout)).toMatchObject({
+      algorithm: "haval",
+      digest: "9e40ed883fb63e985d299b40cda2b8f2",
+      digestLength: 16,
+      expected: haval256,
+      expectedLength: 32,
+      match: false,
+    });
+    expect(run(["verify", "scrypt", "pw", "00", "--salt", "00", "--n", "16"]).stdout).toContain(
+      "; --key-length 1 gives 1,",
+    );
+    expect(run(["verify", "hkdf", "pw", "00".repeat(8161)]).stdout).toContain(
+      "; hashes identify names the algorithms that give 8161",
+    );
+    expect(list.code).toBe(1);
+    expect(list.stdout.split("\n")[2]).toBe(
+      "lengths differ: expected is 16 bytes, sha256 gave 32; hashes identify names the algorithms that give 16",
+    );
+  });
+
   it("refuses an expected digest that is not valid in its encoding instead of a mismatch", () => {
     const prefixed = run(["verify", "sha256", "abc", `0x${sha256("abc")}`]);
     expect(prefixed.code).toBe(1);
