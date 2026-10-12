@@ -9,6 +9,7 @@ import type { Hash } from "./hash.ts";
 import { MerkleDamgard, assertBytes, viewOf, writeBitLength } from "./hasher.ts";
 import { algorithms, create } from "./registry.ts";
 import { resolveAlgorithm } from "./resolve.ts";
+import { ResumableHasher } from "./resumable.ts";
 
 /** What `extendDigest` takes. */
 export interface ExtendDigestOptions {
@@ -42,11 +43,12 @@ export interface ExtendedDigest {
  * The hasher of an algorithm that length extension works on.
  *
  * @param algorithm - The algorithm.
- * @returns {MerkleDamgard | undefined} A fresh hasher, or nothing when its digest is not the state.
+ * @returns {MerkleDamgard | ResumableHasher | undefined} A fresh hasher, or nothing.
  */
-function extendableHasher(algorithm: Hash): MerkleDamgard | undefined {
+function extendableHasher(algorithm: Hash): MerkleDamgard | ResumableHasher | undefined {
   if (!(algorithm instanceof BlockHash)) return undefined;
   const hasher = algorithm.hasher();
+  if (hasher instanceof ResumableHasher) return hasher;
   return hasher instanceof MerkleDamgard && hasher.outputLength === hasher.stateLength
     ? hasher
     : undefined;
@@ -109,8 +111,12 @@ export function extendDigest(options: Readonly<ExtendDigestOptions>): ExtendedDi
       `${algorithm.name()} digests are ${hasher.outputLength} bytes`,
     );
   }
-  const pad = padding(hasher.blockLength, hasher.littleEndian, secretLength + message.length);
-  const hashed = secretLength + message.length + pad.length;
+  const known = secretLength + message.length;
+  const pad =
+    hasher instanceof ResumableHasher
+      ? hasher.padding(known)
+      : padding(hasher.blockLength, hasher.littleEndian, known);
+  const hashed = known + pad.length;
   if (!Number.isSafeInteger(hashed + suffix.length)) {
     throw new InvalidOptionError("secretLength", secretLength, "is too long to count in bits");
   }

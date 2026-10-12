@@ -321,7 +321,7 @@ const OTHER_DIGESTS: readonly (readonly [number, string, string])[] = [
   [4, "crc32c", "CRC-32C"],
   [8, "mysql323", "MySQL 3.23 PASSWORD()"],
   [16, "lm", "LM"],
-  [24, "tiger192", "Tiger-192"],
+  [24, "tiger2", "Tiger2"],
   [28, "sha3-224", "SHA3-224"],
   [32, "streebog256", "Streebog-256"],
   [32, "gost94", "GOST R 34.11-94"],
@@ -331,7 +331,15 @@ const OTHER_DIGESTS: readonly (readonly [number, string, string])[] = [
 ];
 
 /** The digests met most often, first among those of their length; the rest keep registry order. */
-const COMMON_DIGESTS: readonly string[] = ["md5", "sha1", "sha256", "sha512", "sha384", "sha224"];
+const COMMON_DIGESTS: readonly string[] = [
+  "md5",
+  "sha1",
+  "sha256",
+  "sha512",
+  "sha384",
+  "sha224",
+  "tiger",
+];
 
 /** Shortest output a KDF is listed for: a shorter one is a checksum far more often. */
 const MIN_KDF_LENGTH = 16;

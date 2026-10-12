@@ -42,6 +42,7 @@ import { Sha512 } from "./sha512.ts";
 import { Sha512_224 } from "./sha512-224.ts";
 import { Sha512_256 } from "./sha512-256.ts";
 import { Sha512Half } from "./sha512-half.ts";
+import { Tiger } from "./tiger.ts";
 import { Xxhash } from "./xxhash.ts";
 
 /**
@@ -78,6 +79,7 @@ export const builtins: readonly HashConstructor[] = [
   Ripemd128,
   Ripemd256,
   Haval,
+  Tiger,
   Crc32,
   Crc64,
   Crc24,
@@ -135,5 +137,6 @@ export {
   Sha512_224,
   Sha512_256,
   Sha512Half,
+  Tiger,
   Xxhash,
 };
