@@ -435,6 +435,9 @@ describe("hashes CLI", () => {
     expect(mysql.stderr).toContain(
       "; its prefix reads as mysql41: MySQL 4.1 PASSWORD(), SHA-1 of the SHA-1 bytes, computable as sha1, rounds 2, expected 2470c0c06dee42fd1618bb99005adca2ec9d1e19",
     );
+    const htpasswd = "$2y$04$X2kfXDUfLpgiqo1O5Bq6z.EhPme.LvywDHaK1QMd12JWp.XkUnIo6";
+    const base64 = run(["verify", "bcrypt", "ProbablyFine-2026", htpasswd, "-e", "base64"]);
+    expect(base64.stderr).toContain("cost 4, expected GjRogANx0yFJcM3SOf34LYrAZmWpKq8=\n");
     expect(
       run([
         "verify",

@@ -50,7 +50,7 @@ export function assertExpected(
   const bytes = decodeExpected(expected, encoding);
   if (bytes !== undefined) return bytes;
   const form = encoding === "hex" ? "hex digit pairs, without a 0x prefix" : encoding;
-  const format = formatLine(expected.trim());
+  const format = formatLine(expected.trim(), encoding);
   const reason = format === undefined ? "" : `; its prefix reads as ${format}`;
   throw new InvalidOptionError(name, `${expected.length} characters`, `must be ${form}${reason}`);
 }

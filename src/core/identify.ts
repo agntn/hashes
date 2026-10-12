@@ -8,7 +8,7 @@ import { bcryptBase64, BCRYPT_MAX_COST, BCRYPT_MIN_COST } from "./bcrypt.ts";
 import { parameterText } from "./digest.ts";
 import { InvalidOptionError } from "./errors.ts";
 import { algorithms, create, has } from "./registry.ts";
-import type { AlgorithmInfo, HashOptions } from "./types.ts";
+import type { AlgorithmInfo, HashOptions, HashResult } from "./types.ts";
 
 /** What fits: a format's whole layout, its prefix alone, the digest size, or a KDF's output. */
 export type DigestFit = "format" | "prefix" | "length" | "keyLength";
@@ -606,14 +606,20 @@ export function identityText(found: DigestIdentity): {
 }
 
 /**
- * Describes a string by the format its prefix names, in the line identify gives that format.
+ * Describes a string by the format its prefix names, in the line identify gives that format, with
+ * the digest in the encoding the caller compares in, since hex reads as valid base64 too.
  *
  * @param text - The trimmed string.
+ * @param encoding - The encoding of the expected digest.
  * @returns {string | undefined} The line, or nothing when no format's prefix fits.
  */
-export function formatLine(text: string): string | undefined {
+export function formatLine(text: string, encoding: HashResult["encoding"]): string | undefined {
   const [format] = formatCandidates(text);
-  return format && candidateLine(format);
+  if (format?.expected === undefined || encoding === "hex") return format && candidateLine(format);
+  const options =
+    encoding === "base64url" ? ({ alphabet: "base64url", omitPadding: true } as const) : {};
+  const expected = Uint8Array.fromHex(format.expected).toBase64(options);
+  return candidateLine({ ...format, expected });
 }
 
 /**
