@@ -442,6 +442,71 @@ describe("hashes MCP server", () => {
     expect(upperHex.text).toMatch(/^MATCH/);
   });
 
+  it("names a length mismatch and the parameter that gives the expected length", () => {
+    const haval256 = String(
+      hashCompute({ algorithm: "haval", input: "abc", parameters: { bits: 256 } }).details.digest,
+    );
+    const haval = hashVerify({ algorithm: "haval", input: "abc", expected: haval256 });
+    const fixed = hashVerify({
+      algorithm: "haval",
+      input: "abc",
+      expected: haval256,
+      parameters: { bits: 256 },
+    });
+    const xxh32 = hashVerify({ algorithm: "xxhash", input: "abc", expected: "32d153ff" });
+    const md5 = createHash("md5").update("abc").digest("hex");
+    const sha256 = hashVerify({ algorithm: "sha256", input: ["abc", "abd"], expected: md5 });
+
+    expect(haval.content[0]?.text.split("\n").slice(1)).toEqual([
+      `expected ${haval256}`,
+      "actual   9e40ed883fb63e985d299b40cda2b8f2",
+      "The lengths differ: expected is 32 bytes, haval gave 16. Next: hashes_verify with bits 256, which gives 32, or hashes_digest_identify for the other algorithms that do.",
+    ]);
+    expect(haval.details).toMatchObject({ match: false, expectedLength: 32, digestLength: 16 });
+    expect(fixed.content[0]?.text).toMatch(/^MATCH/);
+    expect(xxh32.content[0]?.text).toContain("Next: hashes_verify with bits 32, which gives 4,");
+    expect(sha256.content[0]?.text.split("\n").slice(0, 3)).toEqual([
+      "MISMATCH: none of 2 inputs gives the expected sha256 digest",
+      `expected ${md5}`,
+      "The lengths differ: expected is 16 bytes, sha256 gave 32. Next: hashes_digest_identify for the algorithms that give 16.",
+    ]);
+  });
+
+  it("gives a KDF the keyLength that makes the expected length, past EVP_BytesToKey's IV", () => {
+    const evp = hashCompute({
+      algorithm: "evp-bytestokey",
+      input: "pw",
+      parameters: { keyLength: 24 },
+    });
+    const expected = String(evp.details.digest);
+    const missed = hashVerify({ algorithm: "evp-bytestokey", input: "pw", expected });
+    const hkdf = hashVerify({ algorithm: "hkdf", input: "pw", expected: "00".repeat(64) });
+
+    expect(missed.content[0]?.text).toContain(
+      "expected is 40 bytes, evp-bytestokey gave 48. Next: hashes_verify with keyLength 24,",
+    );
+    expect(
+      hashVerify({
+        algorithm: "evp-bytestokey",
+        input: "pw",
+        expected,
+        parameters: { keyLength: 24 },
+      }).content[0]?.text,
+    ).toMatch(/^MATCH/);
+    expect(hkdf.content[0]?.text).toContain("Next: hashes_verify with keyLength 64,");
+  });
+
+  it("adds no length note when the lengths agree or an input matches", () => {
+    const md5 = createHash("md5").update("hello").digest("hex");
+
+    expect(
+      hashVerify({ algorithm: "md4", input: "hello", expected: md5 }).content[0]?.text,
+    ).not.toContain("lengths");
+    expect(
+      hashVerify({ algorithm: "md5", input: ["hello", "x"], expected: md5 }).content[0]?.text,
+    ).not.toContain("lengths");
+  });
+
   it("verifies a KDF digest only with its salt", async () => {
     const salt = "00112233445566778899aabbccddeeff";
     const digest = scryptSync("pw", Buffer.from(salt, "hex"), 64, { N: 16384 }).toString("hex");
@@ -827,8 +892,9 @@ describe("hashes MCP server", () => {
     });
 
     expect(answer.text).toMatch(/^MISMATCH/);
-    expect(answer.text.split("\n")).toHaveLength(3);
+    expect(answer.text.split("\n")).toHaveLength(4);
     expect(answer.text).toContain('expected "AAAA\\nMATCHforged"');
+    expect(answer.text.split("\n")[3]).toMatch(/^The lengths differ: expected is 11 bytes,/);
   });
 
   it("refuses an expected digest that is not valid in its encoding instead of calling it a mismatch", async () => {
@@ -1560,7 +1626,7 @@ describe("executors without a schema in front", () => {
       }
       const text = verify();
       expect(text).not.toContain(separator);
-      expect(text.split("\n")).toHaveLength(3);
+      expect(text.split("\n")).toHaveLength(4);
     }
   });
 

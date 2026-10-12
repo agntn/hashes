@@ -1884,9 +1884,15 @@ const shareLink = computed(() => {
                 <template v-if="answer.details.match"
                   >Every byte of the expected digest equals the one computed here.</template
                 >
+                <template
+                  v-else-if="answer.details.expectedLength !== answer.details.digestLength"
+                  >The expected digest is {{ answer.details.expectedLength }} bytes and
+                  {{ answeredEntry.slug }} gave {{ answer.details.digestLength }}. No input was
+                  ever going to match, so check the variant before the password.</template
+                >
                 <template v-else
-                  >The expected digest names other bytes, or isn't valid
-                  {{ answer.details.encoding }} at all.</template
+                  >Same length, other bytes. Wrong input, or an option that keeps the length and
+                  changes everything else.</template
                 >
               </p>
             </div>

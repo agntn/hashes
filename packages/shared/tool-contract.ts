@@ -94,7 +94,7 @@ export const TOOL_DESCRIPTIONS = {
   hashes_hmac_compute:
     "Compute an HMAC of text or bytes with a key, using an algorithm that has an HMAC mode. A list of inputs gets one HMAC each under the same key.",
   hashes_verify:
-    "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests. scrypt, pbkdf2, argon2 and bcrypt need the salt the expected digest was made with. Pass a list of candidate inputs to learn which of them gives the expected digest.",
+    "Hash text or bytes and compare the digest with an expected one in constant time. Answers MATCH or MISMATCH with both digests, and a MISMATCH of lengths names the parameters that give the expected one. scrypt, pbkdf2, argon2 and bcrypt need the salt the expected digest was made with. Pass a list of candidate inputs to learn which of them gives the expected digest.",
   hashes_digest_extend:
     "Forge a digest by length extension: from H(secret || message) and the secret's length, the digest of secret || message || padding || suffix, without the secret. The answer is the message to send in hex, the padding inside it and the new digest, once per secret length tried.",
   hashes_digest_identify:

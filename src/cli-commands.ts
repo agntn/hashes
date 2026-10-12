@@ -44,6 +44,7 @@ import {
   counted,
   digestDetails,
   digestLines,
+  lengthMismatch,
   settled,
   verifyListText,
   type BatchError,
@@ -390,7 +391,7 @@ export const verifyCommand = defineTool({
     const texts = params.input.slice(0, -1);
     const expected = (params.input.at(-1) ?? "").trim();
     if (expected === "") throw new InvalidOptionError("expected", "", "must not be empty");
-    assertExpected(expected, encoding);
+    const expectedLength = assertExpected(expected, encoding).length;
     const options = readParameters(hash, params);
     assertDrawnOptions(hash.info(), options);
     const [only, ...more] = texts;
@@ -404,9 +405,13 @@ export const verifyCommand = defineTool({
     const digest = String(result.digest);
     const match = digestMatches(result, expected);
     if (!match) process.exitCode = 1;
+    const verdict = { ...digestDetails(result, encoding), expected, expectedLength, match };
+    const note = lengthNote(hash, options, [verdict]);
     const text = match
       ? `MATCH ${hash.name()} ${digest}`
-      : `MISMATCH ${hash.name()}\n  expected ${shown(expected)}\n  actual   ${digest}`;
+      : [`MISMATCH ${hash.name()}`, `expected ${shown(expected)}`, `actual   ${digest}`]
+          .concat(note === undefined ? [] : [note])
+          .join("\n  ");
     return {
       content: [{ type: "text", text }],
       details: { match, algorithm: hash.name(), digest },
@@ -431,6 +436,7 @@ function verifyList(
   options: Readonly<Record<string, ParameterValue>> & { readonly encoding: TextEncoding },
   expected: string,
 ): ToolResult<VerifyList> {
+  const expectedLength = assertExpected(expected, options.encoding).length;
   const items = readInputs(texts, encoding).map((input) =>
     isBatchError(input)
       ? input
@@ -439,13 +445,49 @@ function verifyList(
           return {
             ...digestDetails(result, options.encoding),
             expected,
+            expectedLength,
             match: digestMatches(result, expected),
           };
         }),
   );
-  const { text, matches } = verifyListText(items, texts, hash.name(), expected);
+  const note = lengthNote(hash, options, items);
+  const { text, matches } = verifyListText(items, texts, hash.name(), expected, note);
   if (matches === 0) process.exitCode = 1;
   return { content: [{ type: "text", text }], details: { expected, matches, items } };
+}
+
+/**
+ * Names a length mismatch in the CLI's words: both lengths, then the flag that fixes it.
+ *
+ * @param hash - The algorithm.
+ * @param options - The options it ran with.
+ * @param items - Every verdict, or the refusal of its input.
+ * @returns {string | undefined} One line, or nothing when the lengths agree or an input matched.
+ */
+function lengthNote(
+  hash: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+  items: readonly (VerifyDetails | BatchError)[],
+): string | undefined {
+  const mismatch = lengthMismatch(hash, options, items);
+  if (mismatch === undefined) return undefined;
+  const { expected, actual, fixes } = mismatch;
+  const sizes = `lengths differ: expected is ${counted(expected, "byte")}, ${hash.name()} gave ${actual}`;
+  return fixes.length > 0
+    ? `${sizes}; ${fixes.map(flagText).join(" or ")} gives ${expected}, hashes identify names the other algorithms that do`
+    : `${sizes}; hashes identify names the algorithms that give ${expected}`;
+}
+
+/**
+ * Spells option values as the flags that set them, `keyLength` as `--key-length`.
+ *
+ * @param values - Option values by name.
+ * @returns {string} The flags.
+ */
+function flagText(values: Readonly<Record<string, number | string>>): string {
+  return Object.entries(values)
+    .map(([name, value]) => `--${name.replaceAll(/(?<!^)[A-Z]/gu, "-$&").toLowerCase()} ${value}`)
+    .join(" ");
 }
 
 /** The verdict on one input. */

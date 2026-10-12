@@ -1,5 +1,7 @@
 import { InvalidOptionError, MissingOptionError } from "./errors.ts";
-import type { AlgorithmInfo, HashResult } from "./types.ts";
+import type { Hash } from "./hash.ts";
+import { Kdf } from "./kdf.ts";
+import type { AlgorithmInfo, HashOptions, HashResult } from "./types.ts";
 
 /**
  * Decodes an expected digest written in the result's encoding. Hex ignores case; base64 and
@@ -71,6 +73,60 @@ export function digestMatches(result: HashResult, expected: string): boolean {
   let difference = 0;
   for (let i = 0; i < want.length; i++) difference |= want[i]! ^ have[i]!;
   return difference === 0;
+}
+
+/**
+ * Lists the single option changes, HAVAL's `bits` or a KDF's `keyLength`, that give `length`.
+ *
+ * @param hash - The algorithm.
+ * @param options - The options the digest was computed with.
+ * @param actual - Bytes those options give.
+ * @param length - Bytes the expected digest has.
+ * @returns {Array<Record<string, number | string>>} Each change that fits, one option apiece.
+ */
+export function lengthFixes(
+  hash: Hash,
+  options: Readonly<Record<string, unknown>>,
+  actual: number,
+  length: number,
+): Array<Record<string, number | string>> {
+  if (hash instanceof Kdf) return keyLengthFixes(hash.info(), options, actual, length);
+  const declared = hash.info().options.filter((option) => option.choices !== undefined);
+  const chosen = Object.fromEntries(
+    declared.flatMap((option) =>
+      options[option.name] === undefined ? [] : [[option.name, options[option.name]]],
+    ),
+  );
+  return declared.flatMap((option) =>
+    (option.choices ?? [])
+      .filter((choice) => choice !== (options[option.name] ?? option.default))
+      .filter((choice) => {
+        const probe = { ...chosen, [option.name]: choice, encoding: "binary" } as HashOptions;
+        return hash.hash(new Uint8Array(0), probe).digestLength === length;
+      })
+      .map((choice) => ({ [option.name]: choice })),
+  );
+}
+
+/**
+ * Shifts `keyLength` by the difference, since EVP_BytesToKey puts its IV on top of the key.
+ *
+ * @param info - The KDF's metadata.
+ * @param options - The options it ran with.
+ * @param actual - Bytes they gave.
+ * @param length - Bytes wanted.
+ * @returns {Array<Record<string, number>>} The fitting `keyLength`, or nothing without one.
+ */
+function keyLengthFixes(
+  info: AlgorithmInfo,
+  options: Readonly<Record<string, unknown>>,
+  actual: number,
+  length: number,
+): Array<Record<string, number>> {
+  const declared = info.options.find((option) => option.name === "keyLength");
+  if (declared === undefined) return [];
+  const keyLength = Number(options.keyLength ?? declared.default) + length - actual;
+  return keyLength >= 1 ? [{ keyLength }] : [];
 }
 
 /**
