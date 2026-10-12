@@ -447,39 +447,43 @@ describe("hashes CLI", () => {
     expect(run(["algorithms", "--category", "SHA"]).code).toBe(1);
   });
 
-  it("refuses a flag or an argument the command does not take", () => {
-    for (const [args, flag] of [
-      [["sha256", "abc", "--key", "secret"], "--key"],
-      [["sha256", "abc", "--rounds", "2", "--typo=3"], "--typo=3"],
-      [["verify", "sha256", "abc", sha256("abc"), "--key", "x"], "--key"],
-      [["hmac", "sha256", "abc", "k", "--salt", "00"], "--salt"],
-      [["info", "sha256", "-x"], "-x"],
-      [["search", sha256("x"), "x", "--bogus"], "--bogus"],
-    ] as const) {
+  describe("refuses a flag or an argument the command does not take", () => {
+    it.each([
+      { flag: "--key", args: ["sha256", "abc", "--key", "secret"] },
+      { flag: "--typo=3", args: ["sha256", "abc", "--rounds", "2", "--typo=3"] },
+      { flag: "--key", args: ["verify", "sha256", "abc", sha256("abc"), "--key", "x"] },
+      { flag: "--salt", args: ["hmac", "sha256", "abc", "k", "--salt", "00"] },
+      { flag: "-x", args: ["info", "sha256", "-x"] },
+      { flag: "--bogus", args: ["search", sha256("x"), "x", "--bogus"] },
+    ])("$flag in $args.0", ({ args, flag }) => {
       const refused = run(args);
       expect(refused).toMatchObject({ code: 1, stdout: "" });
       expect(refused.stderr).toMatch(
         new RegExp(`^Invalid arguments: unknown option "${flag}"; takes `, "u"),
       );
-    }
-    for (const args of [
+    });
+
+    it.each([
       ["extend", "sha256", "x", "y", "z", "1", "2"],
       ["info", "sha256", "md5"],
-    ]) {
-      expect(run(args)).toMatchObject({ code: 1, stdout: "" });
-      expect(run(args).stderr).toMatch(
-        /^Invalid arguments: \d+ unexpected positional arguments?\n$/,
-      );
-    }
-    for (const command of ["hmac", "verify"]) {
+    ])("a positional too many for %s", (...args) => {
+      const refused = run(args);
+      expect(refused).toMatchObject({ code: 1, stdout: "" });
+      expect(refused.stderr).toMatch(/^Invalid arguments: \d+ unexpected positional arguments?\n$/);
+    });
+
+    it.each(["hmac", "verify"])("%s with one positional short", (command) => {
       expect(run([command, "sha256", "only"])).toMatchObject({
         code: 1,
         stdout: "",
         stderr: "Invalid arguments at <INPUT...>: must not have fewer than 2 items\n",
       });
-    }
-    expect(run(["sha256", "--", "--key"]).stdout).toBe(`${sha256("--key")}\n`);
-    expect(run(["sha256", "abc", "--inputEncoding", "utf8"]).code).toBe(1);
+    });
+
+    it("a camelCase flag, but hashes what follows `--`", () => {
+      expect(run(["sha256", "--", "--key"]).stdout).toBe(`${sha256("--key")}\n`);
+      expect(run(["sha256", "abc", "--inputEncoding", "utf8"]).code).toBe(1);
+    });
   });
 
   it("passes every advertised option as a flag and refuses one the algorithm lacks", () => {
