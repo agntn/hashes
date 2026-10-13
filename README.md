@@ -5,33 +5,16 @@
 [![license](https://npmx.dev/api/registry/badge/license/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/hashes)
 
-#️⃣ Forty-six hash algorithms behind one call. You give it text, you get a digest. Same answer in the terminal, in TypeScript and in an agent.
-
-Docs, and a playground where the library runs in your browser: [hashes.agntn.dev](https://hashes.agntn.dev).
+#️⃣ Forty-six hash algorithms for your terminal, TypeScript and agents. Give it text or bytes, get a digest and the options needed to repeat it.
 
 > [!CAUTION]
 > **Not audited.** This code has never had a security audit. Do not use it in production, with real funds or with sensitive data. It is meant for agents, puzzles and local experiments only. It comes as is, without warranty of any kind, and the authors are not liable for any loss, as the MIT license states. Anything that matters wants an audited library.
 
 ## Why?
 
-Ask a model for the SHA-256 of a string. It will give you 64 hex characters, very confidently. They will be wrong. Hashing is the one thing a language model can't fake, so it should call something that actually hashes. This is that something.
+A puzzle asks for SHA-256 twice. Twice over bytes, or over the hex from round one? Congratulations, now you have two answers. This package runs either recipe and gives your agent something better than a confident guess.
 
-## ✨ Features
-
-- 🧮 **Forty-six algorithms.** SHA-2, SHA-3, BLAKE2, BLAKE3, RIPEMD, Whirlpool, MD2, MD4, MD5, NTLM, SHA-1, SHA-0, all fifteen HAVALs under one name, Tiger, every checksum gzip, bzip2, xz, zlib and lz4 write, the CRC-24 at the foot of PGP armor, xxHash, FNV-1a, scrypt, Argon2, bcrypt, PBKDF2, HKDF and OpenSSL's EVP_BytesToKey.
-- 🪙 **The ones chains use.** Keccak-256, HASH160, double SHA-256, BLAKE2b-256 and -224, BLAKE-256, SHA-512Half, SHA-512/256 and CRC-16/XMODEM. Ethereum, Bitcoin, Sui, Cardano, Decred, XRP Ledger, Algorand, Stellar and TON, covered.
-- 🔑 **HMAC where it exists.** Twenty-three of them take a key. The rest say no instead of pretending.
-- 🧂 **KDFs that tell you the salt.** No salt given, scrypt, Argon2 and PBKDF2 draw a random one and print it next to the digest. Without it that digest is useless.
-- ⚖️ **Verify that respects the encoding.** Hex ignores case. Base64 doesn't, because `A` and `a` are different bytes.
-- ⚡ **Plain TypeScript.** Every algorithm is computed right here. The library imports nothing from `node:*`, and there's no hashing dependency at all.
-- 📥 **Text or bytes.** Pass `-` and it hashes stdin, so files work too. Got a public key in hex? `--input-encoding hex` hashes its bytes, not the letters.
-- 🔤 **Hex, base64, base64url, raw bytes.** Pick with `-e`.
-- 🔁 **Ten thousand rounds, one call.** `--rounds 10000 --chain hex` hashes each digest again. Bytes or hex in between? Puzzles use both, so you pick.
-- ✂️ **Length extension.** Got `md5(secret + message)` and the secret's length? `hashes extend` signs a longer message. No secret needed.
-- 🔎 **No name on the digest?** `hashes identify` lists what fits its length or its `$2b$` prefix. Argon2, bcrypt, scrypt and PBKDF2 strings come apart into salt, costs and digest.
-- 🔀 **Words but no recipe?** `hashes search <digest> <words...>` tries every order, joiner, case, algorithm and round count until one gives the digest. It tells you the total before it starts. Five digests from the same words? Split them by commas and they share one pass.
-- 🤖 **Six ways in.** CLI, library, MCP, AI SDK, Pi and OMP. The agent ones share the same tools and the code behind them, and the MCP one also runs at [hashes.agntn.dev/mcp](https://hashes.agntn.dev/guide/agents#remote-mcp) with nothing to install.
-- 🧩 **Bring your own.** A digest extends `FixedHash`, a KDF extends `Kdf`. Then `register()` the class.
+Docs and a browser playground: [hashes.agntn.dev](https://hashes.agntn.dev).
 
 ## 📦 Install
 
@@ -39,7 +22,7 @@ Ask a model for the SHA-256 of a string. It will give you 64 hex characters, ver
 pnpm add @agntn/hashes
 ```
 
-Node.js 26 or newer. No network, no keys, no config.
+Node.js 26 or newer. Local hashing needs no network, API key or config.
 
 ## 🚀 First call
 
@@ -47,77 +30,78 @@ Node.js 26 or newer. No network, no keys, no config.
 npx @agntn/hashes sha256 "hello world"
 ```
 
-```
+```text
 b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
 ```
 
-The first word is the algorithm. Only the digest goes to stdout, so it pipes. For the bare `hashes` below, `pnpm add -g @agntn/hashes` once.
+One input, just the digest on stdout. Ready for a pipe. For the bare `hashes` commands below, install once with `pnpm add -g @agntn/hashes`.
 
-A KDF is more talkative:
-
-```bash
-hashes scrypt "correct horse battery staple"
-```
-
-```
-N 16384, r 8, p 1, keyLength 64, salt 31f4aa33e6346bfa6d576a5dce9eec1c0d6c8e959271d03c2f489a71ac52453b
-bc010c96df4510eef56ce1a1fc1d140ee276b92d30a31e2ca2e065f6dac8977c9c1bd5d20951e54fbd5b4474984c0f45f5adbe8c7b18daeeacbef09dc330a902
-```
-
-The first line is stderr. Keep the salt, `--salt` takes it back. Run it again without one and you get a different digest. Salts are supposed to do that.
-
-And verify, twice:
+Check a digest too:
 
 ```bash
 hashes verify sha256 abc "ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=" -e base64
 hashes verify sha256 abc "ungwv48bz+pbqudexa4ii7adyaowf3qctbd/yfiafa0=" -e base64
 ```
 
-```
+```text
 MATCH sha256 ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=
 MISMATCH sha256
   expected ungwv48bz+pbqudexa4ii7adyaowf3qctbd/yfiafa0=
   actual   ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=
 ```
 
-Same letters, other bytes. The second one exits with 1.
+Hex ignores case. Base64 doesn't. Same letters, different bytes, and the second command exits with 1. Lowercasing everything isn't cleanup here, it's sabotage.
 
 ### Commands
 
-| Command      | What it does                                                | Example                                                               |
-| ------------ | ----------------------------------------------------------- | --------------------------------------------------------------------- |
-| `hash`       | Digest of text, or of stdin with `-`                        | `hashes hash blake3 - < file.bin`                                     |
-| `hmac`       | Keyed digest                                                | `hashes hmac sha256 "message" "secret"`                               |
-| `verify`     | Compare with an expected digest, exit 1 if not              | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592`            |
-| `extend`     | Length extension, a digest per secret length                | `hashes extend md5 <digest> --message m --suffix x --secret-length 3` |
-| `identify`   | Candidates for a hash, by prefix or length                  | `hashes identify 5d41402abc4b2a76b9719d911017c592`                    |
-| `search`     | The words and the recipe behind a digest                    | `hashes search <digest> alpha beta --rounds 2`                        |
-| `algorithms` | The list, `-f` keeps one family, `-c` one category          | `hashes algorithms -f sha`                                            |
-| `info`       | One algorithm with its options, same as `algorithms <name>` | `hashes info pbkdf2`                                                  |
-| `mcp`        | The MCP server on stdio                                     | `hashes mcp`                                                          |
+| Command      | What you get                             | Example                                                               |
+| ------------ | ---------------------------------------- | --------------------------------------------------------------------- |
+| `hash`       | Digest of text or stdin                  | `hashes hash blake3 - < file.bin`                                     |
+| `hmac`       | Digest under a key                       | `hashes hmac sha256 "message" "secret"`                               |
+| `verify`     | Match or mismatch, exit 1 on mismatch    | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592`            |
+| `extend`     | Length extension of a known digest       | `hashes extend md5 <digest> --message m --suffix x --secret-length 3` |
+| `identify`   | Candidates by prefix or digest length    | `hashes identify 5d41402abc4b2a76b9719d911017c592`                    |
+| `search`     | A recipe from your candidate words       | `hashes search 5d41402abc4b2a76b9719d911017c592 hello world`          |
+| `algorithms` | Registry, filtered by family or category | `hashes algorithms -f sha`                                            |
+| `info`       | One algorithm and its options            | `hashes info pbkdf2`                                                  |
+| `mcp`        | MCP server on stdio                      | `hashes mcp`                                                          |
 
-`hash` is the default, so `hashes md5 hello` works. Got more than one input? `hashes sha256 a b c` prints a `sha256sum` line each. `hmac` and `verify` take the key or the expected digest last, and `identify` takes a pile too. Flags per command: `hashes <command> --help`. They come straight from the tool schemas, in kebab case (`--key-length`, scrypt's `--n`), and `--json` swaps the text for data in `verify`, `extend`, `identify`, `search` and `algorithms`.
+`hash` is optional: `hashes md5 hello` works. Several inputs get a line each. `hmac` and `verify` take the key or expected digest last. Use `hashes <command> --help` for flags, or the [CLI guide](https://hashes.agntn.dev/guide/cli) for encodings, JSON and exit codes.
+
+## ✨ What you can do
+
+- 🧮 **Forty-six algorithms.** Modern digests, old formats, checksums and KDFs. Pick one from the table.
+- 🔑 **HMAC where supported.** Twenty-three of them take a key. The others refuse it.
+- 🧂 **Reproduce a KDF.** Random salts and costs come back with the result. Keep them, not just the digest.
+- 📥 **Hash bytes, not their spelling.** Stdin takes files. `--input-encoding hex` decodes hex before hashing.
+- 🔁 **Repeat a hash.** Choose raw bytes or hex between rounds. Yes, those give different answers.
+- 🔎 **Investigate a digest.** Identify candidates, search word combinations or try length extension. Identification is a guess, not proof.
+- ⚡ **Use plain TypeScript.** The library has no hashing dependencies or `node:*` imports. Byte functions have their own package entries too.
+- 🤖 **Give agents the calculator.** CLI, library, MCP, AI SDK, Pi and OMP use the same hashing code.
 
 ## 🧠 Library
 
 ```ts
-import { create, resolveAlgorithm, digestMatches } from "@agntn/hashes";
+import { create, digestMatches } from "@agntn/hashes";
 
-create("sha256").hash("abc").digest; // "ba7816bf8f01cfea..."
-create("sha256").hash("message", { key: "secret" }).operation; // "hmac"
-create("sha256").hash("abc", { rounds: 2 }).digest; // "4f8b42c22dd3729b...", hash256 by another name
-create("sha256").hash(["hello", "world"]).length; // 2, a list gets one result per input
-
-const blake3 = resolveAlgorithm("BLAKE3");
-blake3.hash(new Uint8Array([1, 2, 3]), { encoding: "base64" });
-
-const result = create("md5").hash("hello");
-digestMatches(result, "5D41402ABC4B2A76B9719D911017C592"); // true
+const sha256 = create("sha256");
+const result = sha256.hash("abc");
+console.log(result.digest);
+console.log(sha256.hash("message", { key: "secret" }).operation);
+console.log(sha256.hash(["hello", "world"]).length);
+console.log(digestMatches(create("md5").hash("hello"), "5D41402ABC4B2A76B9719D911017C592"));
 ```
 
-That's most of it. `create()` wants the exact name. `resolveAlgorithm()` forgives case and punctuation and takes the label too, so `SHA3_256` finds `sha3-256` and `SHA-256` finds `sha256`. Every result has the digest, its length and the options it depends on. Something wrong? It's a `HashError`, and the message names the option. The types in [`src/core/types.ts`](./src/core/types.ts) are the rest.
+```text
+ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+hmac
+2
+true
+```
 
-Only need bytes in and bytes out? `sha256`, `hash160`, `keccak256` and friends take a `Uint8Array` and return one. No registry comes along. `hmac`, `pbkdf2`, `hkdf` and `evpBytesToKey` run over `Sha512Hasher` and the other hashers. Plain Node doesn't tree-shake, so each group also has its own entry, and `import { sha1 } from "@agntn/hashes/sha1"` starts without the registry. The list is in [the hashing guide](https://hashes.agntn.dev/guide/hashing).
+Strings are UTF-8. Already have bytes? Pass a `Uint8Array`. `create()` takes the exact registry name, while `resolveAlgorithm()` accepts labels, case and punctuation. Unsupported encodings throw a `HashError`. A hex string is still text here. Decode it first.
+
+[Hashing and byte imports](https://hashes.agntn.dev/guide/hashing) · [Verify](https://hashes.agntn.dev/guide/verify) · [KDFs and salts](https://hashes.agntn.dev/guide/kdf)
 
 ## 🗂️ Algorithms
 
@@ -128,9 +112,7 @@ Only need bytes in and bytes out? `sha256`, `hash160`, `keccak256` and friends t
 | non-cryptographic | crc32, crc64, crc24, crc16-xmodem, adler32, xxhash, fnv1a                                                                                                                                                                 | no                                                                       |
 | password          | scrypt, pbkdf2, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt                                                                                                                                                        | no, they take a salt                                                     |
 
-That's the category, what an algorithm is fit for. Each one also has a family, where it comes from: SHA, Keccak, BLAKE, RIPEMD, Whirlpool, MD, HAVAL, Tiger, CRC, Adler, xxHash, FNV, scrypt, PBKDF, HKDF, OpenSSL, Argon2, bcrypt. So SHA-0 and SHA3-256 share a family and nothing else, and `hashes algorithms -f sha` shows both.
-
-MD2, MD4, MD5, NTLM, SHA-1, SHA-0 and HAVAL are broken for security. Tiger isn't. It just never caught on outside file sharing. They're here for checksums, old systems and old papers. `hashes info <name>` has the security note for each.
+Categories describe use, families describe lineage. `hashes algorithms -f sha` includes SHA-0 and SHA-3. That isn't a security recommendation. MD2, MD4, MD5, NTLM, SHA-1, SHA-0 and HAVAL are broken for security. Check `hashes info <name>` for individual security notes and [algorithm pages](https://hashes.agntn.dev/algorithms) for details.
 
 ## 🤖 Agents
 
@@ -138,6 +120,8 @@ MD2, MD4, MD5, NTLM, SHA-1, SHA-0 and HAVAL are broken for security. Tiger isn't
 pi install npm:@agntn/hashes
 omp install @agntn/hashes
 ```
+
+For an MCP client:
 
 ```json
 {
@@ -147,64 +131,43 @@ omp install @agntn/hashes
 }
 ```
 
-No Node at all? The docs site serves the same tools over HTTP, plus `list-pages` and `get-page` for reading the guide:
+Or skip the local install:
 
 ```bash
 claude mcp add --transport http hashes https://hashes.agntn.dev/mcp
 ```
 
-Everything you send there passes through a Cloudflare worker. Fine for test vectors, not for your real password.
+Remote inputs pass through a Cloudflare worker. Use public test vectors, never real passwords. Local MCP, Pi, OMP and `@agntn/hashes/ai` expose seven tools. Batch hashing takes up to 64 inputs per call. No need to make the model ask 64 times.
 
-The tools: `hashes_compute`, `hashes_hmac_compute`, `hashes_verify`, `hashes_digest_extend`, `hashes_digest_identify`, `hashes_digest_search` and `hashes_algorithms`. The same ones in MCP, Pi, OMP and the AI SDK (`@agntn/hashes/ai`). A misspelled argument is an error, not silently ignored. Bytes go in as hex or base64 with `inputEncoding` and `keyEncoding`, same as the CLI flags. A model that isn't sure calls `hashes_algorithms` first. Got a pile of words? `input` takes a list, up to 64 of them, and the answer comes back like `sha256sum` output. Ten digests, one call. `hashes_verify` with a list tells which candidate matched, and `hashes_digest_search` hunts a list of digests in one pass.
+[Tools, arguments and host setup](https://hashes.agntn.dev/guide/agents)
 
 ## 🚫 What this does not do
 
-Password storage for your app. scrypt, Argon2 and PBKDF2 are here so you can reproduce and check a digest, not to run your login. Signing and wallet keys live in [@agntn/keys](https://github.com/agntn/keys), ciphers in [@agntn/ciphers](https://github.com/agntn/ciphers). Hex and base64 are here for digests only, base58, bech32 and the rest are [@agntn/encodings](https://github.com/agntn/encodings).
+This is not password storage for your app. The KDFs reproduce test vectors and puzzle recipes, not your login system.
 
-## 🧩 Adding an algorithm
+Need signatures or wallets? [@agntn/keys](https://github.com/agntn/keys). Encryption? [@agntn/ciphers](https://github.com/agntn/ciphers). Other binary encodings? [@agntn/encodings](https://github.com/agntn/encodings).
 
-Missing one? A fixed-length digest is one small class. On Node you can still borrow it from `node:crypto`:
+## 🧩 Add your own algorithm
 
-```ts
-import { createHash } from "node:crypto";
-import { FixedHash, register, create } from "@agntn/hashes";
-
-class Sha3_384 extends FixedHash {
-  static readonly key = "sha3-384";
-  protected readonly about = {
-    label: "SHA3-384",
-    description: "SHA-3 family 384-bit hash",
-    family: "SHA",
-    category: "cryptographic",
-    digestLength: 48,
-  } as const;
-
-  protected digest(bytes: Uint8Array): Uint8Array {
-    return createHash("sha3-384").update(bytes).digest();
-  }
-}
-
-register(Sha3_384);
-create("sha3-384").hash("abc").digest; // "ec01498288516fc92645..."
-```
-
-Want HMAC as well? Extend `BlockHash` and hand it a `Hasher`. A KDF extends `Kdf` and writes one `derive()`. Anything else extends `Hash`, and you write `info()` and `hash()` yourself. New built-ins live in `src/algorithms/`. Their test vectors come from OpenSSL, a spec or a reference implementation, never from this package.
+Missing a digest? Extend `FixedHash` and `register()` your class. HMAC uses `BlockHash`, key derivation uses `Kdf`. The [custom algorithm guide](https://hashes.agntn.dev/guide/custom) has working examples, including one backed by `node:crypto`.
 
 ## 🛠️ Development
 
 ```bash
 pnpm install
-pnpm --dir docs install   # the /mcp test borrows Zod and the toolkit from here
-pnpm dev          # obuild --stub, dist runs straight from src
-pnpm lint         # build, then vp lint and vp fmt --check
-pnpm typecheck    # tsc over the library, the extensions and the tests
-pnpm test         # vp test run
-pnpm build        # obuild
+pnpm --dir docs install
+pnpm dev
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
+
+`dev` stubs `dist` to run from source. `lint` builds, then checks lint and formatting. Tests need a real build and the docs dependencies for MCP checks. Adding a built-in? Start with [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## 💛 Thanks
 
-Built with help from two programs that give open source maintainers free access, [Claude for Open Source](https://claude.com/contact-sales/claude-for-oss) and [Codex for Open Source](https://developers.openai.com/community/codex-for-oss). Thanks for that <3
+[Claude for Open Source](https://claude.com/contact-sales/claude-for-oss) and [Codex for Open Source](https://developers.openai.com/community/codex-for-oss) give maintainers free access. That helps this package happen. Thanks for that <3
 
 ## 📄 License
 
