@@ -1,8 +1,7 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "..",
-    "paths": { "@agntn/tools/toolkit": ["../node_modules/@agntn/tools/dist/toolkit.d.mts"] }
+    "rootDir": ".."
   },
   "include": ["**/*.ts"],
   "exclude": ["../node_modules", "../dist"]
