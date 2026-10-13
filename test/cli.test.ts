@@ -693,6 +693,7 @@ function served(from: "bundle" | "source") {
   return { code: 0, from, name: "hashes" };
 }
 
+// The `pnpm dev` stub in `dist` fails the bundle checks here on purpose; they want a real build.
 describe.skipIf(!existsSync(join(root, "dist/cli.mjs")))("hashes mcp from the built bin", () => {
   it("serves the live source inside a checkout", () => {
     expect(serve(root)).toMatchObject(served("source"));

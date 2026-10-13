@@ -24,7 +24,12 @@ export const CRC24_VARIANTS = ["openpgp"] as const;
 /** A CRC-24 variant. */
 export type Crc24Variant = (typeof CRC24_VARIANTS)[number];
 
-/** Allocated empty and filled on first use, since a module constant keeps the hot loops fast. */
+/**
+ * Allocated empty and filled on first use, since a module constant keeps the hot loops fast: a
+ * table from a getter cost CRC-32 a fifth of its speed, and so did one loop taking its tables as an
+ * argument, which is why each variant keeps its own copy of the loop. Checksums go out byte by
+ * byte, since a `DataView` made CRC-32 on 35 bytes about fourteen times slower.
+ */
 const CRC32_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC16_XMODEM_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC32_BZIP2_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);

@@ -173,7 +173,12 @@ export function writeBitLength(
   view.setUint32(end - 4, littleEndian ? high : low, littleEndian);
 }
 
-/** Off-heap blocks a hasher's first blocks go through, one per block length so a copy fills it. */
+/**
+ * Off-heap blocks a hasher's first blocks go through, one per block length so a copy fills it. A
+ * view moves a typed array of 64 bytes or less off the V8 heap, about 900 ns, so only a third block
+ * gets a hasher its own. A shared pool was as fast but let any hasher's `.buffer` read the others'
+ * blocks, HMAC key pads included.
+ */
 const scratch: Partial<Record<number, { bytes: Uint8Array; view: DataView }>> = {};
 
 /**

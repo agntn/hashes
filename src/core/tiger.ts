@@ -30,7 +30,10 @@ const [X0, X1, X2, X3, X4, X5, X6, X7] = [X, X + 2, X + 4, X + 6, X + 8, X + 10,
 /** Registers a, b, c, then the block's eight key words, low half first. Hashing is synchronous. */
 const W = /* @__PURE__ */ new Int32Array(22);
 
-/** The four S-boxes as 1024 words, low half first. Empty until the first hasher builds them. */
+/**
+ * The four S-boxes as 1024 words, low half first. Built before the first block, not in a
+ * constructor, so `extendableAlgorithms()` making a hasher costs nothing.
+ */
 const T = /* @__PURE__ */ new Int32Array(2048);
 /** Whether `T` holds the S-boxes yet. */
 let built = false;
@@ -261,7 +264,10 @@ function build(): void {
   built = true;
 }
 
-/** Tiger, the original: 192 bits, three passes, 0x01 padding and little-endian words. */
+/**
+ * Tiger, the original: 192 bits, three passes, 0x01 padding and little-endian words. A
+ * `ResumableHasher`, since a padding marker on `MerkleDamgard` added 19 bytes to every byte function.
+ */
 export class TigerHasher extends ResumableHasher {
   readonly outputLength = 24;
   protected readonly littleEndian = true;

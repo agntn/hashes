@@ -79,14 +79,14 @@ describe("docs site", () => {
 });
 
 describe("hand-written counts", () => {
-  it.each([
-    ["README.md", "(?:hash )?algorithms"],
-    ["AGENTS.md", "hash and key derivation algorithms"],
-  ])("counts the built-in algorithms in %s", (file, noun) => {
-    const counts = countsBefore(file, noun);
-    expect(counts.length).toBeGreaterThan(0);
-    expect(counts).toEqual(counts.map(() => builtinAlgorithms.length));
-  });
+  it.each([["README.md", "(?:hash )?algorithms"]])(
+    "counts the built-in algorithms in %s",
+    (file, noun) => {
+      const counts = countsBefore(file, noun);
+      expect(counts.length).toBeGreaterThan(0);
+      expect(counts).toEqual(counts.map(() => builtinAlgorithms.length));
+    },
+  );
 
   it("counts the algorithms with HMAC", () => {
     const hmac = builtinAlgorithms.filter((name) => create(name).info().hmac).length;

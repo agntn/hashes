@@ -66,6 +66,8 @@ export async function loadPiExtension(extensionPath: string): Promise<PiTestHost
 
   return {
     tools,
+    // Pi 1.0 hands `execute` this context. CI only sees Pi 1.x: the 0.87.1 floor of the peer range
+    // was checked by hand on 2026-10-07, green with this line back on `createContext`.
     context: runner.createToolContext("call-1", undefined),
     tool(name) {
       const tool = tools.get(name);

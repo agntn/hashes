@@ -1,6 +1,7 @@
 import { crc16Xmodem } from "../core/crc.ts";
 import { FixedHash } from "../core/fixed-hash.ts";
 
+/** Its own key, unlike every other variant: it predates variants as options of their family. */
 export class Crc16Xmodem extends FixedHash {
   static readonly key = "crc16-xmodem";
   protected readonly about = {
