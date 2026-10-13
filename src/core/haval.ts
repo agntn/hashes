@@ -95,7 +95,10 @@ const ORDERS: readonly Uint8Array[] = [
 /** For each word kept: masks over words 7 to 4, then how far to turn the field right. */
 type Fold = readonly [number, number, number, number, number];
 
-/** The folds of the reference implementation, by fingerprint length. */
+/**
+ * The folds of the reference implementation, by fingerprint length. The masks are literals, since
+ * esbuild kept a table built with `<<` in every byte function bundle.
+ */
 const FOLDS: Readonly<Record<Exclude<HavalBits, 256>, readonly Fold[]>> = {
   128: [
     [0x00_00_00_ff, 0xff_00_00_00, 0x00_ff_00_00, 0x00_00_ff_00, 8],

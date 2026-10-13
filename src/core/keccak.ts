@@ -474,7 +474,8 @@ export class Sha3_512Hasher extends KeccakHasher {
 }
 
 /**
- * Keccak-256 with the original padding, as Ethereum hashes with it.
+ * Keccak-256 with the original padding, as Ethereum hashes with it. Calls `KeccakHasher` itself,
+ * like `sha3_256` and `sha3_512`: going through a subclass added 44 bytes to each esbuild bundle.
  *
  * @param data - Bytes to hash.
  * @returns {Uint8Array} 32 bytes.

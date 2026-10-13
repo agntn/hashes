@@ -6,6 +6,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { callTool, toolListings } from "../src/mcp.ts";
 
+/* Borrows Zod and the toolkit from `docs/node_modules`, so `pnpm --dir docs install` comes first. */
+
 /* The toolkit's entry drags in Nitro, so the handler gets its page tools and options here. */
 vi.mock(
   "../docs/node_modules/@nuxtjs/mcp-toolkit/dist/runtime/server/mcp/definitions/index.js",

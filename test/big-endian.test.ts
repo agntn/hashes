@@ -1,6 +1,11 @@
 import { argon2Sync, createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+/*
+ * Fakes a big-endian host. The real one was checked by hand on 2026-10-09: every algorithm gave the
+ * same digests under `qemu-s390x` with Node 26.10.
+ */
+
 /** A `Uint32Array` that stores `[1]` with its low byte last, the way s390x does. */
 class BigEndianProbe extends Uint32Array {
   constructor(source: number | readonly number[]) {

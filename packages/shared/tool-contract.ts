@@ -32,6 +32,7 @@ export const PARAMETER_LIMITS: Readonly<Record<string, number>> = {
   iterations: 10_000_000,
   keyLength: 1_024,
   ivLength: 1_024,
+  /** About 5 s of SHA3-512 in hex. */
   rounds: 1_000_000,
   memory: 262_144,
   cost: 16,

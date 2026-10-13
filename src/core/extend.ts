@@ -1,7 +1,8 @@
 /**
  * Length extension. A Merkle-Damgard digest is the hash's whole state after the padding, so
  * `H(secret || message)` and the secret's length are enough to go on hashing past it and get the
- * digest of `secret || message || padding || suffix` without the secret.
+ * digest of `secret || message || padding || suffix` without the secret. The padding is built here,
+ * not in the base class, whose methods land in every byte function bundle.
  */
 import { BlockHash } from "./block-hash.ts";
 import { InvalidOptionError } from "./errors.ts";

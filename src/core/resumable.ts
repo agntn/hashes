@@ -62,6 +62,7 @@ export abstract class ResumableHasher extends Hasher {
 
   /**
    * Writes the fields the padding carries before the bit length. Tiger and Whirlpool have none.
+   * A hook rather than a byte array of fields: allocating one per hasher cost HAVAL about 5%.
    *
    * @param _out - The block or padding being written.
    * @param _at - Where the bit length starts.

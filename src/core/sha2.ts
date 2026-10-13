@@ -84,7 +84,10 @@ const IV224 = /* @__PURE__ */ new Int32Array([
   0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4,
 ]);
 
-/** SHA-224: SHA-256 from its own initial value, cut to 28 bytes. */
+/**
+ * SHA-224: SHA-256 from its own initial value, cut to 28 bytes. A subclass, not a length of
+ * `Sha256Hasher`: a length guard would pull `errors.ts` into a bundle of `sha256` alone, 581 bytes.
+ */
 export class Sha224Hasher extends Sha256Hasher {
   override readonly outputLength = 28;
 
