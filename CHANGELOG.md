@@ -1,6 +1,49 @@
 # Changelog
 
 
+## v0.7.1
+
+[compare changes](https://github.com/agntn/hashes/compare/v0.7.0...v0.7.1)
+
+### 🚀 Enhancements
+
+- Add MD2 ([#193](https://github.com/agntn/hashes/pull/193))
+- Add HAVAL ([#194](https://github.com/agntn/hashes/pull/194))
+- Add Tiger ([#198](https://github.com/agntn/hashes/pull/198))
+- Add Whirlpool ([#199](https://github.com/agntn/hashes/pull/199))
+- Name a length mismatch in verify ([#201](https://github.com/agntn/hashes/pull/201))
+- Extend HAVAL-256 digests ([#203](https://github.com/agntn/hashes/pull/203))
+- Derive keys over Whirlpool ([#206](https://github.com/agntn/hashes/pull/206))
+- Suggest keys for unknown names ([#213](https://github.com/agntn/hashes/pull/213))
+- Name the format verify refuses ([#214](https://github.com/agntn/hashes/pull/214))
+
+### 🩹 Fixes
+
+- List what HMAC and extend take ([#204](https://github.com/agntn/hashes/pull/204))
+- Price KDF iterations by digest ([#209](https://github.com/agntn/hashes/pull/209))
+
+### 📖 Documentation
+
+- Move AGENTS.md into the code and CONTRIBUTING.md ([#217](https://github.com/agntn/hashes/pull/217))
+- Simplify the README ([#218](https://github.com/agntn/hashes/pull/218))
+
+### 🏡 Chore
+
+- Drop the toolkit paths ([#216](https://github.com/agntn/hashes/pull/216))
+- Remove `CLAUDE.md` ([7988558](https://github.com/agntn/hashes/commit/7988558))
+
+### ✅ Tests
+
+- Drop tautological assertions ([#202](https://github.com/agntn/hashes/pull/202))
+- Ask PBKDF2 for just past its cap ([#211](https://github.com/agntn/hashes/pull/211))
+- Split the CLI refusal cases ([#212](https://github.com/agntn/hashes/pull/212))
+
+### ❤️ Contributors
+
+- Aeitwoen ([@aeitwoen](https://github.com/aeitwoen))
+- Ori ([@oritwoen](https://github.com/oritwoen))
+- Oritwoen ([@oritwoen](https://github.com/oritwoen))
+
 ## v0.7.0
 
 [compare changes](https://github.com/agntn/hashes/compare/v0.6.7...v0.7.0)
