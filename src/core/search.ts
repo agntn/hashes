@@ -7,7 +7,7 @@ import {
   SEARCH_CASES,
   SEARCH_CHAINS,
   SEARCH_JOINERS,
-} from "../../packages/shared/tool-contract.ts";
+} from "../../extensions/shared/tool-contract.ts";
 import { parameterText, toBytes } from "./digest.ts";
 import { HashError, InvalidOptionError, quoted } from "./errors.ts";
 import { algorithms, create } from "./registry.ts";

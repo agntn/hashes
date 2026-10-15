@@ -70,10 +70,10 @@ import {
   SEARCH_CHAINS,
   TEXT_ENCODINGS,
   ZERO_PARAMETERS,
-} from "../packages/shared/tool-contract.ts";
-import type { toolSchemas } from "../packages/shared/tool-schemas.ts";
+} from "../extensions/shared/tool-contract.ts";
+import type { toolSchemas } from "../extensions/shared/tool-schemas.ts";
 
-export * from "../packages/shared/tool-contract.ts";
+export * from "../extensions/shared/tool-contract.ts";
 export type { DigestCandidate, DigestIdentity } from "./core/identify.ts";
 export type {
   DigestRecipe,

@@ -6,9 +6,9 @@ import { Text } from "@oh-my-pi/pi-coding-agent";
 import { sanitizeLine } from "@agntn/tools";
 import { registerOmpTools, type OmpRenderers, type OmpResultView } from "@agntn/tools/omp";
 
-import type * as HashTools from "../../../dist/tools.d.mts";
+import type * as HashTools from "../../dist/tools.d.mts";
 
-const sourceModulePath = fileURLToPath(new URL("../../../src/tools.ts", import.meta.url));
+const sourceModulePath = fileURLToPath(new URL("../../src/tools.ts", import.meta.url));
 
 /**
  * Both specifiers stay literal: compiled OMP resolves bare imports only where it sees them.
@@ -17,9 +17,7 @@ const sourceModulePath = fileURLToPath(new URL("../../../src/tools.ts", import.m
  */
 function loadTools(): Promise<typeof HashTools> {
   return (
-    existsSync(sourceModulePath)
-      ? import("../../../src/tools.ts")
-      : import("../../../dist/tools.mjs")
+    existsSync(sourceModulePath) ? import("../../src/tools.ts") : import("../../dist/tools.mjs")
   ) as Promise<typeof HashTools>;
 }
 

@@ -5,7 +5,7 @@ import {
   toolAnnotations,
 } from "@agntn/tools/mcp";
 import type { CallToolResult, Server, Tool } from "@modelcontextprotocol/server";
-import { MAX_SCRYPT_MEMORY } from "../packages/shared/tool-contract.ts";
+import { MAX_SCRYPT_MEMORY } from "../extensions/shared/tool-contract.ts";
 import { serverInfo } from "./server-info.ts";
 import { hashesTools } from "./tools.ts";
 

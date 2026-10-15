@@ -51,7 +51,7 @@ import {
   hashDigestSearchSchema,
   hashHmacSchema,
   hashVerifySchema,
-} from "../packages/shared/tool-schemas.ts";
+} from "../extensions/shared/tool-schemas.ts";
 
 const openConnections: Array<{ close(): Promise<void> }> = [];
 

@@ -23,7 +23,7 @@ import type {
   hashDigestSearchSchema,
   hashHmacSchema,
   hashVerifySchema,
-} from "../packages/shared/tool-schemas.ts";
+} from "../extensions/shared/tool-schemas.ts";
 import {
   algorithmsTool,
   computeTool,
