@@ -13,7 +13,7 @@ import {
   type TString,
   type ToolResult,
 } from "@agntn/tools";
-import { INPUT_ENCODINGS, TEXT_ENCODINGS } from "../packages/shared/tool-contract.ts";
+import { INPUT_ENCODINGS, TEXT_ENCODINGS } from "../extensions/shared/tool-contract.ts";
 import { ENCODING_OPTION, decodeInput, parameterText, type InputEncoding } from "./core/digest.ts";
 import { quoted, shown } from "./core/errors.ts";
 import { HMAC_ONE_ROUND } from "./core/fixed-hash.ts";

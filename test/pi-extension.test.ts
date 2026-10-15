@@ -7,9 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { MAX_ALGORITHM_LENGTH, TOOL_ARGUMENTS } from "../src/tool-operations.ts";
 import { loadPiExtension } from "./fixtures/pi-host.ts";
 
-const extensionPath = fileURLToPath(
-  new URL("../packages/pi/extensions/hashes.ts", import.meta.url),
-);
+const extensionPath = fileURLToPath(new URL("../extensions/pi/hashes.ts", import.meta.url));
 
 describe("pi hashes extension", () => {
   it("registers the four hash tools and nothing else", async () => {

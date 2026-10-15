@@ -16,7 +16,7 @@ vi.mock("@oh-my-pi/pi-coding-agent/tui", () => {
   throw new Error("The OMP host does not inject the TUI barrel");
 });
 
-import hashesExtension, { preview } from "../packages/omp/extensions/hashes.ts";
+import hashesExtension, { preview } from "../extensions/omp/hashes.ts";
 import {
   hashAlgorithmsSchema,
   hashDigestExtendSchema,
@@ -25,7 +25,7 @@ import {
   hashComputeSchema,
   hashHmacSchema,
   hashVerifySchema,
-} from "../packages/shared/tool-schemas.ts";
+} from "../extensions/shared/tool-schemas.ts";
 import { Value } from "typebox/value";
 import { ToolInputError } from "@agntn/tools";
 import { TOOL_ARGUMENTS } from "../src/tool-operations.ts";

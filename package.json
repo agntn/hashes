@@ -19,8 +19,8 @@
   },
   "files": [
     "dist",
-    "packages/omp/extensions",
-    "packages/pi/extensions"
+    "extensions/omp",
+    "extensions/pi"
   ],
   "type": "module",
   "sideEffects": false,
@@ -158,12 +158,12 @@
   "packageManager": "pnpm@11.26.0",
   "omp": {
     "extensions": [
-      "./packages/omp/extensions/hashes.ts"
+      "./extensions/omp/hashes.ts"
     ]
   },
   "pi": {
     "extensions": [
-      "./packages/pi/extensions/hashes.ts"
+      "./extensions/pi/hashes.ts"
     ]
   }
 }

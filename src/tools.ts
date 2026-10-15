@@ -6,7 +6,7 @@ import {
   HASH_CATEGORIES,
   TOOL_DESCRIPTIONS,
   TOOL_TITLES,
-} from "../packages/shared/tool-contract.ts";
+} from "../extensions/shared/tool-contract.ts";
 import {
   hashAlgorithmsSchema,
   hashComputeSchema,
@@ -15,7 +15,7 @@ import {
   hashDigestSearchSchema,
   hashHmacSchema,
   hashVerifySchema,
-} from "../packages/shared/tool-schemas.ts";
+} from "../extensions/shared/tool-schemas.ts";
 
 let operations: Promise<typeof import("./tool-operations.ts")> | undefined;
 

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 vi.mock("typebox", () => import("@oh-my-pi/omptype/typebox"));
 vi.mock("@oh-my-pi/pi-coding-agent", () => ({ Text: class {} }));
 
-import hashesExtension from "../packages/omp/extensions/hashes.ts";
+import hashesExtension from "../extensions/omp/hashes.ts";
 import { ompToolContext, registerOmpExtension } from "./fixtures/omp-host.ts";
 
 describe("omp hashes extension under the host TypeBox shim", () => {

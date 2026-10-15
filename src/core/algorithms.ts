@@ -1,4 +1,4 @@
-import { HASH_CATEGORIES } from "../../packages/shared/tool-contract.ts";
+import { HASH_CATEGORIES } from "../../extensions/shared/tool-contract.ts";
 
 /** Built-in algorithm names, in listing order. Not in this list, not in the registry. */
 export const builtinAlgorithms = [
