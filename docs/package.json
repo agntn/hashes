@@ -17,14 +17,14 @@
     "better-sqlite3": "12.11.1",
     "docus": "5.13.0",
     "nuxt": "4.5.2",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@iconify-json/lucide": "1.2.139",
     "@iconify-json/simple-icons": "1.2.98",
     "@iconify-json/token": "1.2.42",
     "@iconify-json/vscode-icons": "1.2.84",
-    "vue-tsc": "3.3.12",
+    "vue-tsc": "3.3.13",
     "wrangler": "4.128.0"
   },
   "packageManager": "pnpm@11.3.0"
