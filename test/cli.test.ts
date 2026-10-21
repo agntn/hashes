@@ -555,10 +555,15 @@ describe("hashes CLI", () => {
     expect(run(["sha256", "abc", "--rounds", "2", "--chain", "hex"]).stdout).toBe(
       `${twice.digest("hex")}\n`,
     );
+    /** RFC 6234 section 8.4, SHA-256 test 5: the five bits 01101. */
+    const fiveBits = run(["sha256", "68", "--input-encoding", "hex", "--bit-length", "5"]);
+    expect(fiveBits.stdout).toBe(
+      "d6d3e02a31a84a8caa9718ed6c2057be09db45e7823eb5079ce7a573a3760f95\n",
+    );
     expect(run(["sha256", "abc", "--salt", "deadbeef"])).toMatchObject({
       code: 1,
       stdout: "",
-      stderr: "Invalid option salt=deadbeef: sha256 takes rounds, chain\n",
+      stderr: "Invalid option salt=deadbeef: sha256 takes bitLength, rounds, chain\n",
     });
   });
 

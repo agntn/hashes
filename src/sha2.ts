@@ -6,6 +6,7 @@ export {
   hash256,
   sha224,
   sha256,
+  sha256Bits,
   sha384,
   sha512,
 } from "./core/sha2.ts";
