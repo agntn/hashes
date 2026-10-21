@@ -2,7 +2,11 @@
 
 ## Setup
 
-Run `pnpm install`, then `pnpm --dir docs install`: `test/docs-mcp.test.ts` borrows Zod and the toolkit from `docs/node_modules`. The `hashes mcp` bundle tests in `test/cli.test.ts` want a real `pnpm build`, not the `pnpm dev` stub.
+Run `pnpm install` and that's it. `docs/` is a workspace member, so `docs/node_modules`, where `test/docs-mcp.test.ts` borrows Zod and the toolkit, fills in the same go. The `hashes mcp` bundle tests in `test/cli.test.ts` want a real `pnpm build`, not the `pnpm dev` stub.
+
+Versions live in the catalogs of `pnpm-workspace.yaml`: `deps`, `dev`, and `nuxt` for the TypeScript 5 that vue-tsc still needs. One entry per package serves the library and the site alike.
+
+Adding one? `pnpm add <name> --save-catalog-name=deps --save-exact`, or `-D` and `dev` for a tool, with `--filter docs` when it's for the site. A bump is then one line, and both sides move together.
 
 ## Adding an algorithm
 

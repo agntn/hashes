@@ -1,16 +1,14 @@
 import { resolve } from "node:path";
 import { hashesTheme } from "./shiki-theme";
 
-/** Bundled from the checkout's sources: a deploy needs neither dist/ nor the root node_modules. */
+/** Bundled from the checkout's sources: no dist/ needed, imports resolve from the root. */
 const librarySource = resolve(import.meta.dirname, "../src");
 
-/** Runtime deps under src/mcp.ts, installed here so they resolve from docs/node_modules. */
+/** Runtime deps of src/mcp.ts, listed in docs/ too so Vite settles on one copy. */
 const libraryDependencies = ["@agntn/tools", "@modelcontextprotocol/server"];
 
 export default defineNuxtConfig({
   extends: ["docus"],
-  /** The repo root is its own pnpm workspace; Nuxt must not treat it as this site's. */
-  workspaceDir: import.meta.dirname,
   alias: {
     "@agntn/hashes": resolve(librarySource, "index.ts"),
     /** The text the agent tools answer with; it imports nothing beyond the library. */
@@ -23,10 +21,6 @@ export default defineNuxtConfig({
     resolve: {
       /** Bare imports in ../src resolve upwards from the importer and skip docs/node_modules. */
       dedupe: libraryDependencies,
-    },
-    server: {
-      /** Dev serves the library from outside the workspace, which Vite refuses without this. */
-      fs: { allow: [librarySource] },
     },
   },
   devtools: { enabled: false },
@@ -170,13 +164,6 @@ export default defineNuxtConfig({
   },
   nitro: {
     preset: "cloudflare_module",
-    /** One MCP SDK copy, or `agents` fails the toolkit's server on its `instanceof` check. */
-    alias: {
-      "@modelcontextprotocol/sdk": resolve(
-        import.meta.dirname,
-        "node_modules/@modelcontextprotocol/sdk/dist/esm",
-      ),
-    },
     compatibilityDate: "2026-09-03",
     /** Nitro compiles the server bundle for ES2019 unless told otherwise; the library uses BigInt. */
     esbuild: { options: { target: "es2024" } },
