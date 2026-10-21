@@ -369,7 +369,7 @@ function keyArgument(value: unknown, encoding: unknown): HashInput {
 function saltArgument(value: unknown): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || !saltPattern.test(value)) {
-    throw new InvalidOptionError("salt", value, "must be 1 to 256 bytes in hex");
+    throw new InvalidOptionError("salt", value, "must be at most 256 bytes in hex");
   }
   return value;
 }

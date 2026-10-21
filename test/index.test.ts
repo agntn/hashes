@@ -2205,12 +2205,40 @@ describe("key derivation", () => {
     );
   });
 
-  it("refuses an empty salt as bytes, as it does as text", () => {
+  it("takes an empty salt as bytes and as text, the way RFC 7914 opens its vectors", () => {
     for (const empty of [new Uint8Array(0), ""]) {
-      expect(() =>
-        create("pbkdf2").hash("pw", { salt: empty, iterations: 1 } as Pbkdf2Options),
-      ).toThrow(/Invalid option salt=/);
+      const result = create("scrypt").hash("", {
+        salt: empty,
+        N: 16,
+        r: 1,
+        p: 1,
+        keyLength: 64,
+      } as ScryptOptions);
+      expect(result.digest).toBe(
+        "77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906",
+      );
+      expect(result.options["salt"]).toBe("");
+      expect(
+        create("pbkdf2").hash("pw", { salt: empty, iterations: 1 } as Pbkdf2Options).digest,
+      ).toBe(pbkdf2Sync("pw", "", 1, 64, "sha512").toString("hex"));
     }
+    expect(
+      create("hkdf").hash(Uint8Array.fromHex("0b".repeat(22)), {
+        salt: "",
+        keyLength: 42,
+      } as HkdfOptions).digest,
+    ).toBe("8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8");
+  });
+
+  it("leaves the empty salt to the algorithms that set a minimum", () => {
+    const salt = { salt: "" };
+    expect(() => create("argon2id").hash("pw", salt as Argon2Options)).toThrow(
+      "must be at least 8 bytes",
+    );
+    expect(() => create("bcrypt").hash("pw", salt as BcryptOptions)).toThrow("must be 16 bytes");
+    expect(() => create("evp-bytestokey").hash("pw", salt as EvpBytesToKeyOptions)).toThrow(
+      "must be 8 bytes",
+    );
   });
 
   it("matches the RFC 7914 vector with p above 1", () => {
