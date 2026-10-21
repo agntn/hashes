@@ -11,7 +11,7 @@ export const MAX_KEY_LENGTH = 10_000;
 export const MAX_ALGORITHM_LENGTH = 32;
 export const MAX_FAMILY_LENGTH = 32;
 export const MAX_EXPECTED_LENGTH = 1_024;
-export const SALT_PATTERN = "^(?:[0-9A-Fa-f]{2}){1,256}$";
+export const SALT_PATTERN = "^(?:[0-9A-Fa-f]{2}){0,256}$";
 /** Most parameters a call may pass, and the pattern of their names. */
 export const MAX_PARAMETERS = 8;
 export const PARAMETER_NAME_PATTERN = "^[A-Za-z][A-Za-z0-9]{0,31}$";
@@ -159,7 +159,7 @@ function parameterDescriptions() {
     keyEncoding:
       "How to read key (default utf8). hex and base64 give a binary key, such as a BIP32 chain code. hex takes no 0x prefix",
     encoding: "Digest encoding (default hex)",
-    salt: "KDFs only (scrypt, pbkdf2, argon2id, argon2i, argon2d, bcrypt, hkdf, evp-bytestokey): salt in hex. Omitted, scrypt, pbkdf2 and argon2 draw a random 32-byte salt, bcrypt a 16-byte one, and the answer names it, hashes_verify needs it. hkdf reads a missing salt as zeros, evp-bytestokey as none. argon2 takes at least 8 bytes, bcrypt exactly 16, evp-bytestokey exactly 8",
+    salt: 'KDFs only (scrypt, pbkdf2, argon2id, argon2i, argon2d, bcrypt, hkdf, evp-bytestokey): salt in hex. Omitted, scrypt, pbkdf2 and argon2 draw a random 32-byte salt, bcrypt a 16-byte one, and the answer names it, hashes_verify needs it. hkdf reads a missing salt as zeros, evp-bytestokey as none. argon2 takes at least 8 bytes, bcrypt exactly 16, evp-bytestokey exactly 8. "" is an empty salt, not a missing one',
     expected:
       "Expected digest. Hex ignores case and takes no 0x prefix, base64 and base64url keep case",
     expectedEncoding: "Encoding of the expected digest (default hex)",

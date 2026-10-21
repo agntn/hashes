@@ -1,4 +1,4 @@
-import { InvalidOptionError, normalizeError } from "./errors.ts";
+import { InvalidOptionError, normalizeError, quoted } from "./errors.ts";
 import type {
   HashChain,
   HashInput,
@@ -104,7 +104,7 @@ export function assertOneRound(options: Readonly<HashOptions> | undefined, reaso
 
 /**
  * Lists what a digest depends on besides its encoding, such as a KDF's salt and cost, in the
- * `name value, name value` form the CLI and the tools print.
+ * `name value, name value` form the CLI and the tools print. An empty value prints as `""`.
  *
  * @param options - The options a result reports.
  * @returns {string} The parameters, or an empty string when there are none.
@@ -112,7 +112,7 @@ export function assertOneRound(options: Readonly<HashOptions> | undefined, reaso
 export function parameterText(options: Readonly<Record<string, unknown>>): string {
   return Object.entries(options)
     .filter(([name]) => name !== "encoding" && name !== "hmac")
-    .map(([name, value]) => `${name} ${String(value)}`)
+    .map(([name, value]) => `${name} ${value === "" ? quoted(value) : String(value)}`)
     .join(", ");
 }
 
@@ -201,8 +201,9 @@ export interface SaltOptions {
 }
 
 /**
- * Reads the salt option, or draws 32 random bytes without one. A salt that is not valid in its
- * encoding is refused, never shortened to the digits that happen to parse.
+ * Reads the salt option, or draws 32 random bytes without one. An empty salt counts, and a minimum
+ * length is each algorithm's own check. A salt that is not valid in its encoding is refused, never
+ * shortened to the digits that happen to parse.
  *
  * @param options - The KDF options.
  * @returns {Uint8Array} The salt's bytes.
@@ -211,9 +212,8 @@ export function resolveSalt(options?: Readonly<SaltOptions>): Uint8Array {
   const salt = options?.salt;
   if (salt === undefined) return crypto.getRandomValues(new Uint8Array(32));
   const encoding = options?.saltEncoding ?? "hex";
-  // Empty bytes are refused like an empty string: the reported salt "" could not be passed back.
   const bytes = typeof salt === "string" ? decodeText(salt, encoding) : salt;
-  if (bytes === undefined || bytes.length === 0) {
+  if (bytes === undefined) {
     throw new InvalidOptionError("salt", salt, `must be whole bytes in ${encoding}`);
   }
   return bytes;

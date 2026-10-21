@@ -246,6 +246,29 @@ describe("hashes MCP server", () => {
     expect(answer.text).toContain("N 16384, r 8, p 1, keyLength 64");
   });
 
+  it("takes an empty salt and names it, so RFC 7914's first vector verifies", async () => {
+    const parameters = { N: 16, r: 1, p: 1, keyLength: 64 };
+    const vector =
+      "77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906";
+    const answer = await call("hashes_compute", {
+      algorithm: "scrypt",
+      input: "",
+      salt: "",
+      parameters,
+    });
+    expect(answer.text).toBe(
+      `${vector}\nscrypt, hex, 64 bytes, N 16, r 1, p 1, keyLength 64, salt ""`,
+    );
+    const verdict = await call("hashes_verify", {
+      algorithm: "scrypt",
+      input: "",
+      salt: "",
+      expected: vector,
+      parameters,
+    });
+    expect(verdict.text).toMatch(/^MATCH/);
+  });
+
   it("names the Argon2 salt and cost it ran with, so verify can repeat it", async () => {
     const secret = "5ec2e75ec2e75ec2e75ec2e75ec2e75e";
     const parameters = { memory: 256, iterations: 2, parallelism: 2, secret };
@@ -1900,7 +1923,7 @@ describe("executors without a schema in front", () => {
       hashCompute({ algorithm: "sha256", input: "x", encoding: "binary" as never }),
     ).toThrow(/use one of hex, base64, base64url/);
     expect(() => hashCompute({ algorithm: "scrypt", input: "x", salt: "abc" })).toThrow(
-      /1 to 256 bytes/,
+      /at most 256 bytes/,
     );
     expect(() => hashAlgorithms({ category: "toString" } as never)).toThrow(
       /use one of cryptographic/,
