@@ -1,6 +1,6 @@
 import { BlockHash } from "../core/block-hash.ts";
 import type { Hasher } from "../core/hasher.ts";
-import { Sha512Hasher } from "../core/sha2.ts";
+import { Sha384Hasher } from "../core/sha2.ts";
 
 export class Sha384 extends BlockHash {
   static readonly key = "sha384";
@@ -20,6 +20,6 @@ export class Sha384 extends BlockHash {
    * @returns {Hasher} A fresh one.
    */
   hasher(): Hasher {
-    return new Sha512Hasher(48);
+    return new Sha384Hasher();
   }
 }
