@@ -15,7 +15,7 @@ const { title, description, headline } = defineProps<{
 
 const { name: siteName } = useSiteConfig();
 
-/** An algorithm page shows its facts. The description would arrive with its commas stripped. */
+/** An algorithm page shows its facts from `info()`, not its description. */
 const entry = ALGORITHMS.find((row) => row.info.label === title || row.slug === title?.toLowerCase());
 
 const subtitle = entry

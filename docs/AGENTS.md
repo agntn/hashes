@@ -19,7 +19,7 @@ docs/
 ├── app/workers/search.ts          # hashes_digest_search off the main thread, for the playground
 ├── app/utils/                     # algorithms table (icons, blurbs, chains over the library's info()), tools (the agent tools' text), tokens, roster, formatting
 ├── app/pages/playground.vue       # playground, own route outside the docs layout, its own useSeo and OG image
-├── server/routes/sitemap.xml.ts   # Docus sitemap plus the Vue pages it cannot see
+├── server/api/__sitemap__/pages.ts # the Vue pages the Docus sitemap source cannot see
 ├── server/mcp/index.ts            # the Docus MCP handler at /mcp: the page tools, then every hash tool through `toToolkitTools`, introduced like `hashes mcp` by `src/server-info.ts`
 ├── public/                        # fonts, favicon.svg and the icons and manifest cut from it
 ├── content/index.md               # landing
@@ -76,14 +76,14 @@ The worker hashes whatever an MCP client sends it and keeps none of it. The page
 ## SEO
 
 - `seo.schema` in `app/app.config.ts` emits the landing JSON-LD: `WebSite`, the agntn `Organization` as publisher, and a free `SoftwareApplication` with `sameAs` on GitHub and npm.
-- `server/routes/sitemap.xml.ts` wraps the Docus sitemap and appends the Vue pages listed in `PAGES`; a new page under `app/pages/` goes there too.
+- `server/api/__sitemap__/pages.ts` hands `@nuxtjs/sitemap` the Vue pages in `PAGES` through `sitemap.sources`, since the Docus source lists `content/` only; a new page under `app/pages/` goes there too.
 - `public/favicon.svg` is the source, the PNGs and the `.ico` are cut from it with ImageMagick. Both MCP servers show `favicon.svg` and `icon-512.png` as their icons, so `test/mcp.test.ts` fails when either goes missing.
 
 ## OG images
 
 - `app/components/OgImage/Docs.takumi.vue` and `Landing.takumi.vue` override the Docus templates and are rendered by Takumi at build time. Takumi has no CSS variables, so the theme colours are repeated there as literals. An algorithm page's card is built from its `info()`, not from the description.
 - `app/assets/fonts.css` declares the Figtree and Fira Code TTFs in `public/fonts`, which is where nuxt-og-image reads them.
-- Descriptions go without commas and without a trailing period: Docus puts them in the OG file name, where a comma is a separator and `..png` is skipped without a word. A `: ` in a frontmatter description is a YAML mapping and the page vanishes from the prerender.
+- A `: ` in a frontmatter description is a YAML mapping and the page vanishes from the prerender. Commas and a closing period are fine, the OG files are named by a hash.
 
 ## Constraints
 

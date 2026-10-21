@@ -35,6 +35,14 @@ export default defineNuxtConfig({
     url: "https://hashes.agntn.dev",
     name: "@agntn/hashes",
   },
+  /** The playground has no markdown twin, so agents get the page itself, not a `/raw` 404. */
+  agentDiscovery: {
+    excludePrefixes: { extend: ["/playground"] },
+  },
+  /** Docus lists `content/` only and leaves app routes out, so the Vue pages come from here. */
+  sitemap: {
+    sources: ["/api/__sitemap__/pages"],
+  },
   llms: {
     domain: "https://hashes.agntn.dev",
     title: "@agntn/hashes",
@@ -63,6 +71,17 @@ export default defineNuxtConfig({
             description: "The library running in the page: hashes_compute, hashes_hmac_compute, hashes_verify and hashes_algorithms.",
           },
         ],
+      },
+      /** Agent discovery lists no pages once a section links one, so these ask, in tab order. */
+      {
+        title: "Guide",
+        contentCollection: "docs",
+        contentFilters: [{ field: "path", operator: "LIKE", value: "/guide%" }],
+      },
+      {
+        title: "Algorithms",
+        contentCollection: "docs",
+        contentFilters: [{ field: "path", operator: "LIKE", value: "/algorithms%" }],
       },
     ],
   },
