@@ -161,14 +161,15 @@ export default defineNuxtConfig({
     compatibilityDate: "2026-09-03",
     /** Nitro compiles the server bundle for ES2019 unless told otherwise; the library uses BigInt. */
     esbuild: { options: { target: "es2024" } },
-    prerender: {
-      crawlLinks: true,
-      routes: ["/", "/playground", "/sitemap.xml", "/robots.txt", "/llms.txt", "/llms-full.txt"],
-    },
     cloudflare: {
       deployConfig: true,
       nodeCompat: true,
     },
+  },
+  /** Nuxt's own prerender option. The same keys under `nitro.prerender` are deprecated. */
+  prerender: {
+    crawlLinks: true,
+    routes: ["/", "/playground", "/sitemap.xml", "/robots.txt", "/llms.txt", "/llms-full.txt"],
   },
   compatibilityDate: "2026-09-03",
   /** Fonts live in public/fonts and app/assets/fonts.css, where nuxt-og-image reads them from. */

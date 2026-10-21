@@ -4,7 +4,7 @@ import { inferSiteURL } from "docus/utils/meta";
 /** Pages outside `content/` that the Docus sitemap cannot see. Keep in step with `app/pages/`. */
 const PAGES = ["/playground"];
 
-/** The Docus sitemap lists content collections only, so the Vue pages are appended here. */
+/** Appends the Vue pages Docus can't see. h3's handler, since Docus reads the event as h3's. */
 export default defineEventHandler(async (event) => {
   const xml = String(await docusSitemap(event));
   const siteUrl = inferSiteURL() ?? "";

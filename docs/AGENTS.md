@@ -34,8 +34,10 @@ pnpm install          # from docs/, the repo root needs no install or build firs
 pnpm dev              # http://localhost:3000
 pnpm build            # Cloudflare Workers output in .output/, content routes prerendered
 pnpm deploy           # build, then wrangler deploy to hashes.agntn.dev
-pnpm exec nuxt prepare --extends docus && pnpm exec vue-tsc --noEmit -p .nuxt/tsconfig.app.json   # type check, .vue files included
+pnpm exec nuxt prepare && pnpm exec vue-tsc --noEmit -p .nuxt/tsconfig.app.json   # type check, .vue files included
 ```
+
+No `--extends docus` on these, whatever the Docus docs say: `nuxt.config.ts` already extends it, and on Nuxt 4.6 the flag stacks the layer's arrays twice, so `robots.txt` came out with two `User-agent: *` groups.
 
 Deployment: Workers Builds with root directory `docs`. It installs `docs/` and nothing else, and that's enough, because the library comes from `../src` (next paragraph). Nitro preset `cloudflare_module`. Nuxt Content wants a D1 binding named `DB`. `wrangler.jsonc` carries it plus the `NUXT_SITE_URL` var. The database `agntn-hashes` lives in the EU jurisdiction, which is set at creation; the binding names it by id alone. Pull request previews get their own database, `agntn-hashes-preview`, also EU, through the `previews` block, so a preview build never writes to production. Workers Builds runs `wrangler preview` for a branch, and since Wrangler 4.147 it won't start without that block. A preview takes nothing from the top level, so a new binding goes into both or the preview runs without it. No KV binding. Nothing is fetched, so nothing is cached.
 
