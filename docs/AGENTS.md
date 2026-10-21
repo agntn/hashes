@@ -45,7 +45,7 @@ Deployment: Workers Builds with root directory `docs`. Its `pnpm install` there 
 
 The library needs `Uint8Array` with native hex and base64 (`toHex`, `fromHex`, `fromBase64`), in the browser as on Node 26. A browser without them can't run the playground. TypeScript 5.9 from the `nuxt` catalog has no types for them yet, so the type check under Commands reports them in `../src`. Those lines are the library's, checked by the root `tsc`; count only errors under `app/`. The root runs TypeScript 7, which vue-tsc can't load, hence the second catalog.
 
-`docs/` is a plain member of the root workspace, without hoisting, so it lists every package it imports, types included. `@nuxt/content` and `@nuxt/ui` sit in `devDependencies` only for `import type`; without them vue-tsc loses the Docus collection types and every page turns `never`.
+`docs/` is a plain member of the root workspace, without hoisting, so it lists every package it imports, types included. `@nuxt/content`, `@nuxt/ui` and `shiki` sit in `devDependencies` only for `import type`; without the first two vue-tsc loses the Docus collection types and every page turns `never`.
 
 Versions come from the `deps`, `dev` and `nuxt` catalogs in the root `pnpm-workspace.yaml`, and the overrides there (`vite` as `vite-plus-core`) apply here too.
 

@@ -29,6 +29,7 @@
     "@iconify-json/vscode-icons": "catalog:dev",
     "@nuxt/content": "catalog:dev",
     "@nuxt/ui": "catalog:dev",
+    "shiki": "catalog:dev",
     "typescript": "catalog:nuxt",
     "vue-tsc": "catalog:dev",
     "wrangler": "catalog:dev"
