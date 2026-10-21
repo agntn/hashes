@@ -155,15 +155,15 @@ Missing a digest? Extend `FixedHash` and `register()` your class. HMAC uses `Blo
 
 ```bash
 pnpm install
-pnpm --dir docs install
 pnpm dev
+pnpm docs
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
 ```
 
-`dev` stubs `dist` to run from source. `lint` builds, then checks lint and formatting. Tests need a real build and the docs dependencies for MCP checks. Adding a built-in? Start with [CONTRIBUTING.md](./CONTRIBUTING.md).
+One install and you're set. `docs/` lives in the same workspace, so the site and its MCP test deps come along for free. `dev` stubs `dist` to run from source, `docs` starts the site. `lint` builds, then checks lint and formatting. Tests need a real build. Adding a built-in? Start with [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## 💛 Thanks
 
