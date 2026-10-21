@@ -111,8 +111,7 @@
     "typecheck": "tsc --noEmit && pnpm build && tsc -p tsconfig.extensions.json && tsc -p test/tsconfig.json",
     "test": "vp test run",
     "test:watch": "vp test watch",
-    "prepack": "pnpm run build",
-    "release": "pnpm build && pnpm test && changelogen --release --push"
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "@agntn/tools": "0.2.4",
@@ -127,7 +126,6 @@
     "@oh-my-pi/pi-coding-agent": "18.4.12",
     "@types/node": "26.6.4",
     "ai": "7.0.127",
-    "changelogen": "0.6.2",
     "esbuild": "0.28.2",
     "obuild": "0.4.43",
     "oxlint-tsgolint": "7.0.2003",
