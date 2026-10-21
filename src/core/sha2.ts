@@ -233,6 +233,13 @@ export class Sha512Hasher extends MerkleDamgard {
   }
 }
 
+/** SHA-384: SHA-512 from its own initial value, cut to 48 bytes. */
+export class Sha384Hasher extends Sha512Hasher {
+  constructor() {
+    super(48);
+  }
+}
+
 /** SHA-512/224 initial value. */
 const IV512_224 = /* @__PURE__ */ new Int32Array([
   0x8c3d37c8, 0x19544da2, 0x73e19966, 0x89dcd4d6, 0x1dfab7ae, 0x32ff9c82, 0x679dd514, 0x582f9fcf,
@@ -285,6 +292,26 @@ function add(s: Int32Array, i: number, high: number, low: number): void {
  */
 export function sha256(data: Uint8Array): Uint8Array {
   return new Sha256Hasher().update(data).digest();
+}
+
+/**
+ * SHA-224 of the input.
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 28 bytes.
+ */
+export function sha224(data: Uint8Array): Uint8Array {
+  return new Sha224Hasher().update(data).digest();
+}
+
+/**
+ * SHA-384 of the input.
+ *
+ * @param data - Bytes to hash.
+ * @returns {Uint8Array} 48 bytes.
+ */
+export function sha384(data: Uint8Array): Uint8Array {
+  return new Sha384Hasher().update(data).digest();
 }
 
 /**

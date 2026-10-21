@@ -27,6 +27,7 @@ import {
   Sha1Hasher,
   Sha224Hasher,
   Sha256Hasher,
+  Sha384Hasher,
   Sha3_256Hasher,
   Sha3_512Hasher,
   Sha512Hasher,
@@ -71,9 +72,11 @@ import {
   ripemd160,
   scrypt,
   sha1,
+  sha224,
   sha256,
   sha3_256,
   sha3_512,
+  sha384,
   sha512,
   version,
   xxhash,
@@ -1166,7 +1169,9 @@ describe("byte functions", () => {
       const inner = createHash("sha256").update(bytes).digest();
       expect(md5(bytes).toHex()).toBe(createHash("md5").update(bytes).digest("hex"));
       expect(sha1(bytes).toHex()).toBe(createHash("sha1").update(bytes).digest("hex"));
+      expect(sha224(bytes).toHex()).toBe(createHash("sha224").update(bytes).digest("hex"));
       expect(sha256(bytes).toHex()).toBe(inner.toString("hex"));
+      expect(sha384(bytes).toHex()).toBe(createHash("sha384").update(bytes).digest("hex"));
       expect(sha512(bytes).toHex()).toBe(createHash("sha512").update(bytes).digest("hex"));
       expect(ripemd160(bytes).toHex()).toBe(createHash("ripemd160").update(bytes).digest("hex"));
       expect(hash160(bytes).toHex()).toBe(createHash("ripemd160").update(inner).digest("hex"));
@@ -1187,6 +1192,7 @@ describe("byte functions", () => {
       [() => new Md5Hasher(), "md5", () => new Ripemd160Hasher(), "ripemd160"],
       [() => new Sha1Hasher(), "sha1", () => new Sha256Hasher(), "sha256"],
       [() => new Sha224Hasher(), "sha224", () => new Sha256Hasher(), "sha256"],
+      [() => new Sha384Hasher(), "sha384", () => new Sha512Hasher(), "sha512"],
       [() => new Sha3_256Hasher(), "sha3-256", () => new Sha3_512Hasher(), "sha3-512"],
     ] as const;
     for (const [left, leftName, right, rightName] of pairs) {
@@ -1253,13 +1259,14 @@ describe("byte functions", () => {
     expect(() => keccakF1600(new Uint8Array(201))).toThrow("not 201");
   });
 
-  it("run HMAC and PBKDF2 over the SHA-224 and SHA-3 hashers as Node does", () => {
+  it("run HMAC and PBKDF2 over the SHA-224, SHA-384 and SHA-3 hashers as Node does", () => {
     const key = new TextEncoder().encode(
       "a key longer than one SHA3-512 block of 72 bytes".repeat(2),
     );
     const salt = new TextEncoder().encode("salt");
     for (const [create, name] of [
       [() => new Sha224Hasher(), "sha224"],
+      [() => new Sha384Hasher(), "sha384"],
       [() => new Sha3_256Hasher(), "sha3-256"],
       [() => new Sha3_512Hasher(), "sha3-512"],
     ] as const) {
@@ -1599,6 +1606,7 @@ describe("byte functions", () => {
     const bytes = new Uint8Array([1, 2, 3]);
     for (const [hasher, name] of [
       [new Sha224Hasher(), "sha224"],
+      [new Sha384Hasher(), "sha384"],
       [new Sha512Hasher(48), "sha384"],
       [new Sha512tHasher(32), "sha512-256"],
       [new Sha512tHasher(28), "sha512-224"],
@@ -1831,7 +1839,17 @@ describe("byte function subpaths", () => {
   const SUBPATHS = {
     sha1: ["Sha1Hasher", "sha1"],
     md5: ["Md5Hasher", "md5"],
-    sha2: ["Sha224Hasher", "Sha256Hasher", "Sha512Hasher", "hash256", "sha256", "sha512"],
+    sha2: [
+      "Sha224Hasher",
+      "Sha256Hasher",
+      "Sha384Hasher",
+      "Sha512Hasher",
+      "hash256",
+      "sha224",
+      "sha256",
+      "sha384",
+      "sha512",
+    ],
     ripemd160: ["Ripemd160Hasher", "hash160", "ripemd160"],
     keccak: [
       "Keccak256Hasher",
