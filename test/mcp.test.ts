@@ -755,7 +755,28 @@ describe("hashes MCP server", () => {
     const answer = await call("hashes_compute", { algorithm: "sha256", input: "x", salt: "00" });
 
     expect(answer.isError).toBe(true);
-    expect(answer.text).toContain("Invalid option salt=00: sha256 takes rounds, chain");
+    expect(answer.text).toContain("Invalid option salt=00: sha256 takes bitLength, rounds, chain");
+  });
+
+  it("hashes SHA-256 bits past the last whole byte, and keeps them out of HMAC", async () => {
+    /** RFC 6234 section 8.4, SHA-256 test 5: the five bits 01101. */
+    const args = { algorithm: "sha256", input: "68", inputEncoding: "hex" };
+    const five = await call("hashes_compute", { ...args, parameters: { bitLength: 5 } });
+    const loose = await call("hashes_compute", { ...args, parameters: { bitLength: 4 } });
+    const hmac = await call("hashes_hmac_compute", {
+      ...args,
+      key: "k",
+      parameters: { bitLength: 5 },
+    });
+
+    expect(five.text.split("\n")[0]).toBe(
+      "d6d3e02a31a84a8caa9718ed6c2057be09db45e7823eb5079ce7a573a3760f95",
+    );
+    expect(five.text).toContain("bitLength 5");
+    expect(loose).toMatchObject({ isError: true });
+    expect(loose.text).toContain("leaves bits set past the message in its last byte 68");
+    expect(hmac).toMatchObject({ isError: true });
+    expect(hmac.text).toContain("HMAC and length extension take whole bytes");
   });
 
   it("lists by family or category and describes one algorithm with its options", async () => {
@@ -906,7 +927,9 @@ describe("hashes MCP server", () => {
       parameters: { N: 1_048_576, r: 8 },
     });
 
-    expect(seedOnSha.text).toContain("Invalid option seed=1: sha256 takes rounds, chain");
+    expect(seedOnSha.text).toContain(
+      "Invalid option seed=1: sha256 takes bitLength, rounds, chain",
+    );
     expect(iterations.text).toContain("must be 1 to 10000000 in a tool call");
     expect(memory.text).toContain(
       "needs 1073741824 bytes of blocks, over 268435456 in a tool call",

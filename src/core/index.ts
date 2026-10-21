@@ -18,6 +18,7 @@ export type { Crc32Options } from "../algorithms/crc32.ts";
 export type { Crc64Options } from "../algorithms/crc64.ts";
 export type { Crc24Options } from "../algorithms/crc24.ts";
 export type { HavalOptions } from "../algorithms/haval.ts";
+export type { Sha256Options } from "../algorithms/sha256.ts";
 export {
   type AlgorithmSuggestion,
   DependencyError,
@@ -72,6 +73,7 @@ export {
   hash256,
   sha224,
   sha256,
+  sha256Bits,
   sha384,
   sha512,
 } from "./sha2.ts";

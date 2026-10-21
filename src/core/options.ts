@@ -1,6 +1,5 @@
 import { assertOneRound } from "./digest.ts";
 import { InvalidOptionError } from "./errors.ts";
-import { ROUND_OPTIONS } from "./fixed-hash.ts";
 import type { Hash } from "./hash.ts";
 import type { HashOption } from "./types.ts";
 
@@ -20,16 +19,17 @@ export function parameterOptions(algorithm: Hash): HashOption[] {
   return algorithm.info().options.filter((option) => !RESERVED.has(option.name));
 }
 
+/** Options only a plain digest takes: `ROUND_OPTIONS` and SHA-256's `bitLength`, never HMAC. */
+const DIGEST_ONLY = new Set(["rounds", "chain", "bitLength"]);
+
 /**
- * What an HMAC or a length extension can use: every parameter but `rounds` and `chain`.
+ * What an HMAC or a length extension can use: every parameter but `rounds`, `chain`, `bitLength`.
  *
  * @param algorithm - The algorithm.
  * @returns {HashOption[]} HAVAL's passes and bits, say, or nothing at all for SHA-256.
  */
 export function oneRoundOptions(algorithm: Hash): HashOption[] {
-  return parameterOptions(algorithm).filter(
-    (option) => !ROUND_OPTIONS.some((round) => round.name === option.name),
-  );
+  return parameterOptions(algorithm).filter((option) => !DIGEST_ONLY.has(option.name));
 }
 
 /**

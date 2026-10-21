@@ -74,6 +74,7 @@ import {
   sha1,
   sha224,
   sha256,
+  sha256Bits,
   sha3_256,
   sha3_512,
   sha384,
@@ -82,6 +83,7 @@ import {
   xxhash,
   type HashOptions,
   type HavalOptions,
+  type Sha256Options,
   type Derivation,
   type Argon2Options,
   type BcryptOptions,
@@ -93,6 +95,7 @@ import {
 } from "../src/index.ts";
 import * as root from "../src/index.ts";
 import { CHECKSUM_REFERENCES, ONES_REFERENCES, checksumInput } from "./fixtures/checksums.ts";
+import { SHA256_BIT_VECTORS } from "./fixtures/sha256-bits.ts";
 import buildConfig from "../build.config.ts";
 import pkg from "../package.json" with { type: "json" };
 
@@ -1835,6 +1838,75 @@ describe("byte functions", () => {
   });
 });
 
+describe("SHA-256 bit lengths", () => {
+  it.each(SHA256_BIT_VECTORS)("hashes %i bits like NIST CAVP and RFC 6234", (bits, hex, digest) => {
+    const bytes = Uint8Array.fromHex(hex);
+    const options: Sha256Options = { bitLength: bits };
+
+    expect(sha256Bits(bytes, bits).toHex()).toBe(digest);
+    expect(create("sha256").hash(bytes, options as HashOptions)).toMatchObject({
+      digest,
+      options: { bitLength: bits },
+    });
+  });
+
+  it("keeps the digest of whole bytes, the empty input included", () => {
+    for (const length of [0, 1, 55, 56, 64, 65]) {
+      const bytes = Uint8Array.from({ length }, (_, i) => i * 7);
+
+      expect(sha256Bits(bytes, length * 8)).toEqual(sha256(bytes));
+    }
+  });
+
+  it("tells the seven bits 1111111 from the bytes 7f, ff and the text", () => {
+    const seven = sha256Bits(Uint8Array.of(0xfe), 7).toHex();
+
+    expect(
+      [sha256(Uint8Array.of(0x7f)), sha256(Uint8Array.of(0xff))].map((d) => d.toHex()),
+    ).not.toContain(seven);
+    expect(create("sha256").hash("1111111").digest).not.toBe(seven);
+  });
+
+  it("refuses a bit length that doesn't describe the input", () => {
+    const byte = Uint8Array.of(0xfe);
+
+    expect(() => sha256Bits(Uint8Array.of(0xff), 7)).toThrow(
+      "Invalid option bitLength=7: leaves bits set past the message in its last byte ff",
+    );
+    expect(() => sha256Bits(byte, 9)).toThrow("needs 2 bytes of input, not 1");
+    expect(() => sha256Bits(byte, 0)).toThrow("needs 0 bytes of input, not 1");
+    for (const bad of [-1, 7.5, Number.NaN, 2 ** 53]) {
+      expect(() => sha256Bits(byte, bad)).toThrow("must be a whole number of bits from 0");
+    }
+    const text = { bitLength: "8" } as unknown as HashOptions;
+    expect(() => create("sha256").hash("x", text)).toThrow("must be a whole number of bits from 0");
+  });
+
+  it("refuses a bit length for HMAC, a second round and length extension", () => {
+    const options: Sha256Options = { bitLength: 7 };
+    const hmac: Sha256Options = { ...options, key: "k" };
+    const twice: Sha256Options = { ...options, rounds: 2 };
+
+    expect(() => create("sha256").hash(Uint8Array.of(0xfe), hmac as HashOptions)).toThrow(
+      "Invalid option bitLength=7: HMAC and length extension take whole bytes",
+    );
+    expect(() => create("sha256").hash(Uint8Array.of(0xfe), twice as HashOptions)).toThrow(
+      "Invalid option rounds=2: a bit length measures the input, which only one round hashes",
+    );
+    expect(() =>
+      extendDigest({
+        algorithm: "sha256",
+        digest: sha256Bits(Uint8Array.of(0xfe), 7),
+        message: Uint8Array.of(0xfe),
+        secretLength: 0,
+        suffix: Uint8Array.of(1),
+        parameters: { bitLength: 7 },
+      }),
+    ).toThrow("HMAC and length extension take whole bytes");
+    expect(oneRoundOptions(create("sha256"))).toEqual([]);
+  });
+});
+
 describe("byte function subpaths", () => {
   const SUBPATHS = {
     sha1: ["Sha1Hasher", "sha1"],
@@ -1847,6 +1919,7 @@ describe("byte function subpaths", () => {
       "hash256",
       "sha224",
       "sha256",
+      "sha256Bits",
       "sha384",
       "sha512",
     ],

@@ -5,7 +5,7 @@
  * interleaved run than a branchless int32 carry after each addition, the way BLAKE2b adds two.
  */
 import { InvalidOptionError } from "./errors.ts";
-import { MerkleDamgard } from "./hasher.ts";
+import { MerkleDamgard, assertBytes, viewOf, wordsToBytes } from "./hasher.ts";
 
 /** SHA-256 round constants. */
 const K256 = /* @__PURE__ */ new Int32Array([
@@ -292,6 +292,66 @@ function add(s: Int32Array, i: number, high: number, low: number): void {
  */
 export function sha256(data: Uint8Array): Uint8Array {
   return new Sha256Hasher().update(data).digest();
+}
+
+/** SHA-256 ending inside a byte, padded here: in `MerkleDamgard` it cost every MD bundle 45 B. */
+class Sha256BitHasher extends Sha256Hasher {
+  /**
+   * Hashes a message ending in a partial byte, kept for the tail even when it ends a block.
+   *
+   * @param data - The message, its last byte partial and zero below the message.
+   * @param bitLength - Bits in the message, never a multiple of 8.
+   * @returns {Uint8Array} 32 bytes.
+   */
+  digestBits(data: Uint8Array, bitLength: number): Uint8Array {
+    const whole = data.length - 1 - ((data.length - 1) % 64);
+    const view = viewOf(data);
+    for (let offset = 0; offset < whole; offset += 64) this.compress(view, offset);
+    const rest = data.length - whole;
+    const tail = new Uint8Array(rest + 8 > 64 ? 128 : 64);
+    tail.set(data.subarray(whole));
+    tail[rest - 1]! |= 0x80 >> (bitLength % 8);
+    const tailView = viewOf(tail);
+    tailView.setUint32(tail.length - 8, Math.floor(bitLength / 0x1_0000_0000));
+    tailView.setUint32(tail.length - 4, bitLength % 0x1_0000_0000);
+    for (let offset = 0; offset < tail.length; offset += 64) this.compress(tailView, offset);
+    const out = new Uint8Array(32);
+    wordsToBytes(this.state, out, 32, false);
+    return out;
+  }
+}
+
+/**
+ * SHA-256 of a message whose last byte is partial: the seven bits `1111111` are `fe` and 7.
+ *
+ * @param data - The message, packed from the top bit of its first byte.
+ * @param bitLength - Bits of `data` that belong to the message, the rest of the last byte zero.
+ * @returns {Uint8Array} 32 bytes.
+ */
+export function sha256Bits(data: Uint8Array, bitLength: number): Uint8Array {
+  assertBytes(data, "data");
+  if (!Number.isSafeInteger(bitLength) || bitLength < 0) {
+    throw new InvalidOptionError("bitLength", bitLength, "must be a whole number of bits from 0");
+  }
+  const bytes = Math.ceil(bitLength / 8);
+  if (bytes !== data.length) {
+    throw new InvalidOptionError(
+      "bitLength",
+      bitLength,
+      `needs ${bytes} bytes of input, not ${data.length}`,
+    );
+  }
+  const bits = bitLength % 8;
+  if (bits === 0) return sha256(data);
+  const last = data[bytes - 1]!;
+  if ((last & (0xff >> bits)) !== 0) {
+    throw new InvalidOptionError(
+      "bitLength",
+      bitLength,
+      `leaves bits set past the message in its last byte ${last.toString(16).padStart(2, "0")}: pack the message from the top bit and zero the rest`,
+    );
+  }
+  return new Sha256BitHasher().digestBits(data, bitLength);
 }
 
 /**
