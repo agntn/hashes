@@ -107,6 +107,27 @@ describe("tool contract", () => {
       expect(schema).toHaveProperty("additionalProperties", false);
     }
   });
+
+  it("tells an HMAC input its length limit and nothing about KDF costs", () => {
+    const inputDescription = (name: string): unknown =>
+      toolListings.find((tool) => tool.name === name)?.inputSchema.properties?.input;
+    const hmacInput = inputDescription("hashes_hmac_compute");
+    expect(hmacInput).toHaveProperty(
+      "description",
+      expect.stringContaining(`up to ${MAX_BATCH_INPUTS} inputs`),
+    );
+    expect(hmacInput).toHaveProperty(
+      "description",
+      expect.stringContaining(`${MAX_INPUT_LENGTH} characters in all`),
+    );
+    expect(hmacInput).toHaveProperty("description", expect.not.stringMatching(/KDF/u));
+    for (const name of ["hashes_compute", "hashes_verify"]) {
+      expect(inputDescription(name)).toHaveProperty(
+        "description",
+        expect.stringContaining("a KDF cost times the count"),
+      );
+    }
+  });
 });
 
 describe("hashes MCP server", () => {

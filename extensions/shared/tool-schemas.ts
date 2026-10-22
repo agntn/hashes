@@ -51,10 +51,19 @@ const algorithm = Type.String({
   description: d.algorithm,
 });
 const oneInput = Type.String({ maxLength: MAX_INPUT_LENGTH });
-const input = Type.Union(
-  [oneInput, Type.Array(oneInput, { minItems: 1, maxItems: MAX_BATCH_INPUTS })],
-  { description: d.input },
-);
+/**
+ * The `input` argument: one text or a list of them.
+ *
+ * @param description - What the tool does with it.
+ * @returns {TUnion} The schema.
+ */
+function inputArgument(description: string) {
+  return Type.Union([oneInput, Type.Array(oneInput, { minItems: 1, maxItems: MAX_BATCH_INPUTS })], {
+    description,
+  });
+}
+
+const input = inputArgument(d.input);
 const inputEncoding = Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.inputEncoding }));
 const encoding = Type.Optional(Type.Enum(TEXT_ENCODINGS, { description: d.encoding }));
 const salt = Type.Optional(Type.String({ pattern: SALT_PATTERN, description: d.salt }));
@@ -91,7 +100,7 @@ export const hashHmacSchema = closed({
     maxLength: MAX_ALGORITHM_LENGTH,
     description: d.hmacAlgorithm,
   }),
-  input,
+  input: inputArgument(d.hmacInput),
   inputEncoding,
   key: Type.String({ maxLength: MAX_KEY_LENGTH, description: d.key }),
   keyEncoding: Type.Optional(Type.Enum(INPUT_ENCODINGS, { description: d.keyEncoding })),
