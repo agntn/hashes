@@ -1,7 +1,7 @@
 import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
 import { existsSync } from "node:fs";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vite-plus/test";
 import { callTool, createMcpServer, toolListings } from "../src/mcp.ts";
 import { Pbkdf2, Sha256 } from "../src/algorithms/index.ts";
 import { serverInfo } from "../src/server-info.ts";
@@ -32,7 +32,6 @@ import {
   MAX_INPUT_LENGTH,
   TOOL_ARGUMENTS,
   MAX_SEARCH_BYTES,
-  MAX_SEARCH_HASHES,
   hashAlgorithms,
   hashCompute,
   hashDigestIdentify,
@@ -1289,9 +1288,21 @@ describe("hashes MCP server", () => {
     });
   });
 
-  it("stops at its hash limit and says how to narrow the search", () => {
+  it("stops at its hash limit and says how to narrow the search", async () => {
+    /** A million CRC-32s ran past the 5 s timeout on CI, and a fifth of them stop just as well. */
+    const limit = 200_000;
+    vi.resetModules();
+    vi.doMock("../extensions/shared/tool-contract.ts", async (original) => ({
+      ...(await original<object>()),
+      MAX_SEARCH_HASHES: limit,
+    }));
+    onTestFinished(() => {
+      vi.doUnmock("../extensions/shared/tool-contract.ts");
+      vi.resetModules();
+    });
+    const { hashDigestSearch: search } = await import("../src/tool-operations.ts");
     const heard: number[] = [];
-    const answer = hashDigestSearch(
+    const answer = search(
       {
         digest: "00000000",
         words: ["a", "b", "c", "d", "e", "f", "g", "h", "i"],
@@ -1300,15 +1311,15 @@ describe("hashes MCP server", () => {
       (tried) => heard.push(tried),
     );
 
-    expect(answer.details).toMatchObject({ tried: MAX_SEARCH_HASHES, stopped: true });
-    expect(heard).toEqual(Array.from({ length: 11 }, (_, index) => index * 100_000));
+    expect(answer.details).toMatchObject({ tried: limit, stopped: true });
+    expect(heard).toEqual([0, 100_000, 200_000]);
     const [verdict, covered, next] = answer.content[0]!.text.split("\n");
     expect(verdict).toBe(
-      `STOPPED at the limit after ${MAX_SEARCH_HASHES} of ${answer.details.total} hashes, no match so far`,
+      `STOPPED at the limit after ${limit} of ${answer.details.total} hashes, no match so far`,
     );
     expect(covered).toMatch(/^Covered 1 to 9 of the words/);
     expect(next).toBe(
-      `The tool stops at ${MAX_SEARCH_HASHES} hashes or ${MAX_SEARCH_BYTES} bytes hashed. Narrow words, minWords, maxWords, joiners, cases, algorithms or rounds, or run hashes search from the CLI, which takes --limit.`,
+      `The tool stops at ${limit} hashes or ${MAX_SEARCH_BYTES} bytes hashed. Narrow words, minWords, maxWords, joiners, cases, algorithms or rounds, or run hashes search from the CLI, which takes --limit.`,
     );
   });
 
