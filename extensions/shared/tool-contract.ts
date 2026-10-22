@@ -153,6 +153,7 @@ function parameterDescriptions() {
     algorithm: `Algorithm name or label, case and punctuation ignored: ${BUILTIN_ALGORITHMS}`,
     hmacAlgorithm: `Algorithm with an HMAC mode: ${HMAC_ALGORITHMS}`,
     input: `Input to hash, read as inputEncoding says, or a list of up to ${MAX_BATCH_INPUTS} inputs hashed with the same options. A list shares the limits of one input: ${MAX_INPUT_LENGTH} characters in all, and a KDF cost times the count stays within the cost one call may take`,
+    hmacInput: `Input to authenticate, read as inputEncoding says, or a list of up to ${MAX_BATCH_INPUTS} inputs under the same key. A list shares the limit of one input: ${MAX_INPUT_LENGTH} characters in all`,
     inputEncoding:
       "How to read input (default utf8). hex and base64 hash the bytes they spell, such as a public key or a raw transaction. hex takes no 0x prefix",
     key: "HMAC key, read as keyEncoding says",
