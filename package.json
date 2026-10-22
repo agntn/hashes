@@ -137,8 +137,8 @@
     "vite-plus": "catalog:"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=0.87.1 <2",
-    "@oh-my-pi/pi-coding-agent": ">=18.4.2 <19",
+    "@earendil-works/pi-coding-agent": ">=0.84.2 <2",
+    "@oh-my-pi/pi-coding-agent": ">=18.0.0 <19",
     "ai": ">=7.0.0"
   },
   "peerDependenciesMeta": {
