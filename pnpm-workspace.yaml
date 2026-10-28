@@ -15,18 +15,18 @@ allowBuilds:
   workerd: true
 
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
-  vite-plus: 1.0.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vite-plus: 1.4.0
 
 # One version per name for the library and docs/, whose /mcp route runs the library's MCP code.
 catalogs:
   deps:
     "@agntn/tools": 0.2.4
     "@modelcontextprotocol/sdk": 1.32.2
-    "@modelcontextprotocol/server": 2.2.0
-    "@nuxtjs/mcp-toolkit": 0.23.0
+    "@modelcontextprotocol/server": 2.4.0
+    "@nuxtjs/mcp-toolkit": 0.24.2
     "@vueuse/core": 15.0.0
-    agents: 0.28.1
+    agents: 0.30.1
     better-sqlite3: 12.11.1
     docus: 5.15.0
     nuxt: 4.6.2
@@ -39,7 +39,7 @@ catalogs:
     "@iconify-json/simple-icons": 1.2.100
     "@iconify-json/token": 1.2.42
     "@iconify-json/vscode-icons": 1.2.92
-    "@modelcontextprotocol/client": 2.2.0
+    "@modelcontextprotocol/client": 2.4.0
     "@nuxt/content": 3.16.2
     "@nuxt/ui": 4.12.0
     "@oh-my-pi/omptype": 18.4.12
@@ -50,10 +50,10 @@ catalogs:
     obuild: 0.4.45
     oxlint-tsgolint: 7.0.2005
     shiki: 4.5.0
-    typebox: 1.3.37
+    typebox: 1.4.3
     typescript: 7.0.2
     vue-tsc: 3.3.13
-    wrangler: 4.128.0
+    wrangler: 4.152.0
   # vue-tsc and Nuxt's type generation still need the TypeScript 5 API, which 7 no longer ships.
   nuxt:
     typescript: 5.9.3
