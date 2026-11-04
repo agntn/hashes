@@ -38,7 +38,7 @@ export interface EvpBytesToKeyOptions extends HashOptions, SaltOptions {
  */
 function parameters(options?: Readonly<EvpBytesToKeyOptions>) {
   const { digest = "md5", iterations = 1, keyLength = 32, ivLength = 16 } = options ?? {};
-  if (!Object.hasOwn(HASHERS, digest)) {
+  if (typeof digest !== "string" || !Object.hasOwn(HASHERS, digest)) {
     throw new InvalidOptionError("digest", digest, `use one of ${Object.keys(HASHERS).join(", ")}`);
   }
   assertPositiveIntegers({ iterations, keyLength });

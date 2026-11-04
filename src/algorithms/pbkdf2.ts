@@ -43,7 +43,7 @@ export function kdfDigests(): string {
  * @returns {BlockHash} The hash.
  */
 export function kdfHash(digest: string): BlockHash {
-  if (!Object.hasOwn(HASHES, digest)) {
+  if (typeof digest !== "string" || !Object.hasOwn(HASHES, digest)) {
     throw new InvalidOptionError("digest", digest, `use one of ${kdfDigests()}`);
   }
   return new HASHES[digest]!();
