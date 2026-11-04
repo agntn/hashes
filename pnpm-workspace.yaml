@@ -100,3 +100,6 @@ minimumReleaseAgeExclude:
   - vite-plus@1.0.0
   - obuild@0.4.43
   - "@agntn/*"
+
+# Keeps pnpm 12's env document out of the lockfile. GitHub reads that one as zero dependencies.
+pmOnFail: ignore

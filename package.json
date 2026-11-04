@@ -155,7 +155,7 @@
   "engines": {
     "node": ">=26"
   },
-  "packageManager": "pnpm@11.26.0",
+  "packageManager": "pnpm@12.16.1",
   "omp": {
     "extensions": [
       "./extensions/omp/hashes.ts"
