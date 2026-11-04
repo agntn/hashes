@@ -51,7 +51,9 @@ export async function callTool(
  * @returns {ToolDefinition[]} The tools in `hashesTools` order; a costlier KDF never allocates.
  */
 export function memoryCappedTools(maxMemory: number): ToolDefinition[] {
-  return hashesTools.map((tool) => ({
+  /** Widened: over the union, tsc can't see each wrapper hands its own tool's input back. */
+  const tools: readonly ToolDefinition[] = hashesTools;
+  return tools.map((tool) => ({
     ...tool,
     execute: async (input, context) =>
       (await overMemory(tool.name, input, maxMemory)) ?? (await tool.execute(input, context)),
