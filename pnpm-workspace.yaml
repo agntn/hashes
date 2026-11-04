@@ -24,12 +24,12 @@ catalogs:
     "@agntn/tools": 0.2.4
     "@modelcontextprotocol/sdk": 1.32.2
     "@modelcontextprotocol/server": 2.4.0
-    "@nuxtjs/mcp-toolkit": 0.24.2
+    "@nuxtjs/mcp-toolkit": 0.24.3
     "@vueuse/core": 15.0.0
     agents: 0.30.1
     better-sqlite3: 12.11.1
     docus: 5.15.0
-    nuxt: 4.6.2
+    nuxt: 4.6.3
     ufo: 1.6.4
     zod: 4.6.7
   dev:
@@ -44,15 +44,15 @@ catalogs:
     "@nuxt/ui": 4.12.0
     "@oh-my-pi/omptype": 18.4.12
     "@oh-my-pi/pi-coding-agent": 18.4.12
-    "@types/node": 26.6.5
-    ai: 7.0.153
+    "@types/node": 26.6.6
+    ai: 7.0.159
     esbuild: 0.28.2
     obuild: 0.4.45
     oxlint-tsgolint: 7.0.2005
     shiki: 4.5.0
     typebox: 1.4.3
     typescript: 7.0.2
-    vue-tsc: 3.3.13
+    vue-tsc: 3.3.14
     wrangler: 4.152.0
   # vue-tsc and Nuxt's type generation still need the TypeScript 5 API, which 7 no longer ships.
   nuxt:
