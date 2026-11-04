@@ -138,8 +138,8 @@ export const algorithmsTool = defineTool({
   execute: async (params) => (await loadOperations()).hashAlgorithms(params),
 });
 
-/** The hash tools, in the order every surface lists them. */
-export const hashesTools: readonly ToolDefinition[] = [
+/** The hash tools in listing order, each keeping its literal name for `toAiTools`. */
+export const hashesTools = [
   computeTool,
   hmacComputeTool,
   verifyTool,
@@ -147,4 +147,4 @@ export const hashesTools: readonly ToolDefinition[] = [
   digestIdentifyTool,
   digestSearchTool,
   algorithmsTool,
-];
+] as const satisfies readonly ToolDefinition[];
