@@ -156,7 +156,7 @@ Missing a digest? Extend `FixedHash` and `register()` your class. HMAC uses `Blo
 ```bash
 pnpm install
 pnpm dev
-pnpm docs
+pnpm run docs
 pnpm lint
 pnpm typecheck
 pnpm test
