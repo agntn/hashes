@@ -91,8 +91,8 @@ describe("one byte function bundled with esbuild", () => {
     ["keccakF1600", 1, 6_000],
     ["ripemd160", 5, 5_000],
     ["blake2b", 3, 8_000],
-    // CRC-32 carries its bzip2 variant and the error a wrong variant throws.
-    ["crc32", 0, 2_000],
+    /* CRC-32 carries its bzip2 variant and the error a wrong variant throws, whatever the value. */
+    ["crc32", 0, 2_100],
     ["scrypt", 2, 8_500],
     ["argon2id", 3, 12_000],
     ["bcrypt", 0, 4_000],

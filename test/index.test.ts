@@ -3458,6 +3458,30 @@ describe("errors", () => {
     expect(normalizeError("oops")).toBeInstanceOf(HashError);
     expect(normalizeError(new Error("bad input"), "fnv1a").message).toBe("[fnv1a] bad input");
   });
+
+  /* `String()` throws on an object with no prototype, so the error explaining it has to cope. */
+  it("names a value that has no text form", () => {
+    const bare = Object.create(null) as never;
+    const unknown = /^Unknown algorithm: a value with no text form\. /;
+    expect(() => create(bare)).toThrow(unknown);
+    for (const [algorithm, option] of [
+      ["sha256", "rounds"],
+      ["crc32", "variant"],
+      ["xxhash", "seed"],
+      ["pbkdf2", "digest"],
+      ["hkdf", "digest"],
+      ["evp-bytestokey", "digest"],
+    ] as const) {
+      const options = { salt: "00", [option]: bare } as HashOptions;
+      expect(() => create(algorithm).hash("abc", options)).toThrow(
+        `Invalid option ${option}=a value with no text form: `,
+      );
+    }
+    expect(() => xxhash(new Uint8Array(1), 64, bare)).toThrow(
+      "Invalid option seed=a value with no text form: ",
+    );
+    expect(normalizeError(bare, "fnv1a").message).toBe("[fnv1a] a value with no text form");
+  });
 });
 
 describe("bcrypt", () => {

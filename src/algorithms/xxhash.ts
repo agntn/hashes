@@ -24,7 +24,7 @@ function seedValue(seed: number | bigint | string | undefined): bigint {
     (typeof seed === "number" && Number.isSafeInteger(seed)) || exact ? BigInt(seed) : seed;
   if (value === undefined) return 0n;
   if (typeof value !== "bigint") {
-    throw new InvalidOptionError("seed", String(seed), "must be a non-negative integer");
+    throw new InvalidOptionError("seed", seed, "must be a non-negative integer");
   }
   return value;
 }

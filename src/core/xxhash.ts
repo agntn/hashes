@@ -324,7 +324,7 @@ export type XxhashBits = (typeof XXHASH_BITS)[number];
 function seedOf(seed: unknown, bits: XxhashBits): bigint {
   const value = typeof seed === "number" && Number.isSafeInteger(seed) ? BigInt(seed) : seed;
   if (typeof value !== "bigint" || value < 0n || value > (bits === 32 ? 0xffffffffn : MASK64)) {
-    throw new InvalidOptionError("seed", String(seed), `must be an integer from 0 to 2^${bits}-1`);
+    throw new InvalidOptionError("seed", seed, `must be an integer from 0 to 2^${bits}-1`);
   }
   return value;
 }

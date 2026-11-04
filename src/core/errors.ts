@@ -12,8 +12,22 @@ const UNESCAPED_BY_JSON = /[\u007F-\u009F\u2028\u2029\p{Cf}]/gu;
  * @returns {string} The value as it appears in the message.
  */
 export function shown(value: unknown): string {
-  const text = String(value);
+  const text = textOf(value);
   return LINE_BREAKING.test(text) ? quoted(text) : text;
+}
+
+/**
+ * `String(value)` that can't throw, for an object with no prototype or a `toString` that does.
+ *
+ * @param value - Anything a caller without types can pass.
+ * @returns {string} The value as text.
+ */
+function textOf(value: unknown): string {
+  try {
+    return String(value);
+  } catch {
+    return "a value with no text form";
+  }
 }
 
 /**
@@ -148,6 +162,6 @@ export class DependencyError extends HashError {
  */
 export function normalizeError(error: unknown, algorithm?: string): HashError {
   if (error instanceof HashError) return error;
-  const message = error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : textOf(error);
   return new HashError(algorithm ? `[${algorithm}] ${message}` : message);
 }
