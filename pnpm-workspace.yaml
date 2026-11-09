@@ -48,7 +48,7 @@ catalogs:
     ai: 7.0.159
     esbuild: 0.28.2
     obuild: 0.4.45
-    oxlint-tsgolint: 7.0.2005
+    oxlint-tsgolint: 7.0.2006
     shiki: 4.5.0
     typebox: 1.4.3
     typescript: 7.0.2
