@@ -380,6 +380,8 @@ describe("hashes CLI", () => {
         "haval: HAVAL (bits 160), computable, bits 160",
         "haval: HAVAL (passes 4, bits 160), computable, passes 4, bits 160",
         "haval: HAVAL (passes 5, bits 160), computable, passes 5, bits 160",
+        "shake128: SHAKE128 (outputLength 20), computable, outputLength 20",
+        "shake256: SHAKE256 (outputLength 20), computable, outputLength 20",
         "Any length: scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, with keyLength 20",
         "",
       ].join("\n"),

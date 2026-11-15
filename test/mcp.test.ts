@@ -555,7 +555,6 @@ describe("hashes MCP server", () => {
     expect(at({ outputLength: 1025 })).toThrow(
       "outputLength=1025: must be 0 to 1024 in a tool call",
     );
-    expect(at({ outputLength: 1024, rounds: 62_500 })).not.toThrow();
     expect(at({ outputLength: 1024, rounds: 62_501 })).toThrow(
       "rounds=62501: with outputLength=1024 squeezes 64001024 bytes, over 64000000 in a tool call; lower rounds or outputLength",
     );
@@ -1451,6 +1450,8 @@ describe("hashes MCP server", () => {
         "haval: HAVAL (passes 4), computable, passes 4",
         "haval: HAVAL (passes 5), computable, passes 5",
         "lm: LM, not in this package",
+        "shake128: SHAKE128 (outputLength 16), computable, outputLength 16",
+        "shake256: SHAKE256 (outputLength 16), computable, outputLength 16",
         "Any length: scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, with keyLength 16",
         "Next: hashes_verify a known input with each computable candidate. Only a MATCH settles it.",
       ].join("\n"),

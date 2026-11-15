@@ -2,7 +2,7 @@ import type { HashOption, HashOptions } from "./types.ts";
 
 /** Options SHAKE128 and SHAKE256 take besides the encoding. */
 export interface ShakeOptions extends HashOptions {
-  /** Bytes to squeeze. Default: 32 for SHAKE128, 64 for SHAKE256, as OpenSSL picks them. */
+  /** Bytes to squeeze. Default: 32 for SHAKE128, 64 for SHAKE256, each sponge's full security level. */
   outputLength?: number;
 }
 

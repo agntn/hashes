@@ -474,7 +474,25 @@ function lengthCandidates(length: number, prefixed: boolean): DigestCandidate[] 
   const other: DigestCandidate[] = OTHER_DIGESTS.filter(
     ([size, name]) => size === length && !has(name),
   ).map(([, name, label]) => ({ name, label, fit: "length" }));
-  return [...fixed, ...other, ...kdfs];
+  return [...fixed, ...other, ...squeezedCandidates(length), ...kdfs];
+}
+
+/**
+ * Lists each SHAKE squeezed to `length`, unless that's its default or short enough to be a checksum.
+ *
+ * @param length - Bytes the string spells.
+ * @returns {DigestCandidate[]} One per registered algorithm with an `outputLength` option.
+ */
+function squeezedCandidates(length: number): DigestCandidate[] {
+  if (length < MIN_KDF_LENGTH) return [];
+  return algorithms().flatMap((name) => {
+    const info = create(name).info();
+    const declared = info.options.find((option) => option.name === "outputLength");
+    if (declared === undefined || declared.default === length) return [];
+    const parameters = { outputLength: length };
+    const label = `${info.label} (${parameterText(parameters)})`;
+    return [{ name, label, fit: "length", algorithm: name, parameters }];
+  });
 }
 
 /**

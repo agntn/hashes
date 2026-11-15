@@ -3029,6 +3029,8 @@ describe("identifyDigest", () => {
       ["haval", "length", "haval"],
       ["haval", "length", "haval"],
       ["lm", "length", undefined],
+      ["shake128", "length", "shake128"],
+      ["shake256", "length", "shake256"],
       ...["scrypt", "pbkdf2", "hkdf", "evp-bytestokey", "argon2id", "argon2i", "argon2d"].map(
         (name) => [name, "keyLength", name],
       ),
@@ -3055,6 +3057,8 @@ describe("identifyDigest", () => {
       ["haval", "haval"],
       ["haval", "haval"],
       ["tiger2", undefined],
+      ["shake128", "shake128"],
+      ["shake256", "shake256"],
     ]);
   });
 
@@ -3074,6 +3078,7 @@ describe("identifyDigest", () => {
       ["whirlpool-t", undefined],
       ["whirlpool-0", undefined],
       ["streebog512", undefined],
+      ["shake128", "shake128"],
     ]);
   });
 
@@ -3110,6 +3115,25 @@ describe("identifyDigest", () => {
     );
   });
 
+  it("squeezes a SHAKE to any length from 16 bytes, so Ed448's 114 has a computable candidate", () => {
+    const ed448 = createHash("shake256", { outputLength: 114 }).update("abc").digest("hex");
+    const found = identifyDigest(ed448).candidates.filter((each) => each.fit === "length");
+
+    expect(found.map((candidate) => [candidate.name, candidate.parameters])).toEqual([
+      ["shake128", { outputLength: 114 }],
+      ["shake256", { outputLength: 114 }],
+    ]);
+    const matches = found.filter(
+      (candidate) =>
+        create(candidate.algorithm!).hash("abc", candidate.parameters as HashOptions).digest ===
+        ed448,
+    );
+    expect(matches.map((candidate) => candidate.name)).toEqual(["shake256"]);
+    expect(
+      identifyDigest("00".repeat(15)).candidates.some((each) => each.name.startsWith("shake")),
+    ).toBe(false);
+  });
+
   it("counts a registered algorithm as computable in place of the one it replaces", () => {
     class Sha3_384 extends FixedHash {
       static readonly key = "sha3-384";
@@ -3133,6 +3157,8 @@ describe("identifyDigest", () => {
     expect(names.map((candidate) => [candidate.name, candidate.algorithm])).toEqual([
       ["sha384", "sha384"],
       ["sha3-384", "sha3-384"],
+      ["shake128", "shake128"],
+      ["shake256", "shake256"],
     ]);
   });
 
