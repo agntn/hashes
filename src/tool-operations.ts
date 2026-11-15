@@ -62,6 +62,7 @@ import {
   MAX_SECRET_LENGTHS,
   MAX_ITERATION_WORK,
   MAX_SCRYPT_MEMORY,
+  MAX_SQUEEZE_WORK,
   MAX_WORD_LENGTH,
   PARAMETER_LIMITS,
   PARAMETER_NAME_PATTERN,
@@ -475,6 +476,7 @@ function algorithmOptions(
   assertScryptMemory(algorithm, options);
   assertArgon2Work(algorithm, options);
   assertIterationWork(algorithm, options);
+  assertSqueezeWork(algorithm, options);
   return options;
 }
 
@@ -635,6 +637,44 @@ function assertIterationWork(
   );
 }
 
+/**
+ * Prices a SHAKE call by the bytes it squeezes over all its rounds.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The checked options.
+ * @returns {BatchWork | undefined} The bytes and their limit, or nothing for a fixed digest.
+ */
+function squeezeWork(
+  algorithm: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+): BatchWork | undefined {
+  const all = costs(algorithm, options);
+  const length = all.get("outputLength");
+  if (length === undefined) return undefined;
+  const rounds = all.get("rounds") ?? 1;
+  return { name: "rounds", value: rounds, work: rounds * length, limit: MAX_SQUEEZE_WORK };
+}
+
+/**
+ * Keeps a SHAKE call within `MAX_SQUEEZE_WORK`, since a long output makes every round dearer.
+ *
+ * @param algorithm - The resolved algorithm.
+ * @param options - The checked options.
+ */
+function assertSqueezeWork(
+  algorithm: Hash,
+  options: Readonly<Record<string, ParameterValue>>,
+): void {
+  const squeeze = squeezeWork(algorithm, options);
+  if (squeeze === undefined || squeeze.work <= squeeze.limit) return;
+  const length = squeeze.work / squeeze.value;
+  throw new InvalidOptionError(
+    "rounds",
+    squeeze.value,
+    `with outputLength=${length} squeezes ${squeeze.work} bytes, over ${squeeze.limit} in a tool call; lower rounds or outputLength`,
+  );
+}
+
 /** What one input of a list costs, against the most one call may spend. */
 interface BatchWork {
   readonly name: string;
@@ -682,6 +722,8 @@ function batchWork(
     const { iterations, work } = priced;
     return { name: "iterations", value: iterations, work, limit: MAX_ITERATION_WORK };
   }
+  const squeeze = squeezeWork(algorithm, options);
+  if (squeeze !== undefined) return squeeze;
   const name = ["iterations", "rounds"].find((each) => all.has(each));
   if (name === undefined) return undefined;
   return { name, value: at(name), work: at(name), limit: limitOf(name) };

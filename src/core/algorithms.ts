@@ -13,6 +13,8 @@ export const builtinAlgorithms = [
   // Cryptographic (SHA-3 and Keccak)
   "sha3-256",
   "sha3-512",
+  "shake128",
+  "shake256",
   "keccak256",
   // Cryptographic (BLAKE)
   "blake2b",

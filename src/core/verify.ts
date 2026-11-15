@@ -80,7 +80,8 @@ export function digestMatches(result: HashResult, expected: string): boolean {
 }
 
 /**
- * Lists the single option changes, HAVAL's `bits` or a KDF's `keyLength`, that give `length`.
+ * Lists the single option changes, HAVAL's `bits`, a KDF's `keyLength` or a SHAKE's `outputLength`,
+ * that give `length`.
  * Each runs once on empty input, a KDF at its `floorCosts` if it has them, and counts if taken.
  *
  * @param hash - The algorithm.
@@ -99,7 +100,7 @@ export function lengthFixes(
   const candidates =
     hash instanceof Kdf
       ? keyLengthCandidates(info, options, actual, length)
-      : choiceCandidates(info, options);
+      : choiceCandidates(info, options, length);
   const base = Object.fromEntries(
     Object.entries(options).filter(([name]) => name !== "rounds" && name !== "chain"),
   );
@@ -110,20 +111,25 @@ export function lengthFixes(
 }
 
 /**
- * Every value of an option with `choices` other than the one in use, one option apiece.
+ * Every value of an option with `choices` other than the one in use, one option apiece, and a
+ * SHAKE's `outputLength` set to the length wanted.
  *
  * @param info - The algorithm's metadata.
  * @param options - The options it ran with.
+ * @param length - Bytes wanted.
  * @returns {Array<Record<string, number | string>>} The candidates.
  */
 function choiceCandidates(
   info: AlgorithmInfo,
   options: Readonly<Record<string, unknown>>,
+  length: number,
 ): Array<Record<string, number | string>> {
   return info.options.flatMap((option) =>
-    (option.choices ?? [])
-      .filter((choice) => choice !== (options[option.name] ?? option.default))
-      .map((choice) => ({ [option.name]: choice })),
+    option.name === "outputLength"
+      ? [{ outputLength: length }]
+      : (option.choices ?? [])
+          .filter((choice) => choice !== (options[option.name] ?? option.default))
+          .map((choice) => ({ [option.name]: choice })),
   );
 }
 

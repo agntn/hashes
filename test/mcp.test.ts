@@ -522,6 +522,53 @@ describe("hashes MCP server", () => {
     ]);
   });
 
+  it("squeezes SHAKE to the length asked and names the outputLength a shorter digest needs", () => {
+    const ed448 = createHash("shake256", { outputLength: 114 }).update("abc").digest("hex");
+    const short = createHash("shake128", { outputLength: 20 }).update("abc").digest("hex");
+    const computed = hashCompute({
+      algorithm: "shake256",
+      input: "abc",
+      parameters: { outputLength: 114 },
+    });
+    const verified = hashVerify({ algorithm: "shake128", input: "abc", expected: short });
+
+    expect(computed.content[0]?.text).toBe(`${ed448}\nshake256, hex, 114 bytes, outputLength 114`);
+    expect(verified.content[0]?.text.split("\n").at(-1)).toBe(
+      "The lengths differ: expected is 20 bytes, shake128 gave 32. Next: hashes_verify with outputLength 20, which gives 20, or hashes_digest_identify for the other algorithms that do.",
+    );
+    expect(
+      hashVerify({
+        algorithm: "shake128",
+        input: "abc",
+        expected: short,
+        parameters: { outputLength: 20 },
+      }).content[0]?.text,
+    ).toMatch(/^MATCH/);
+  });
+
+  it("caps a SHAKE call at 1024 bytes and its rounds at the bytes they squeeze", () => {
+    const at = (parameters: Readonly<Record<string, number>>) => () =>
+      hashCompute({ algorithm: "shake256", input: "abc", parameters });
+
+    expect(at({ outputLength: 1024 })).not.toThrow();
+    expect(at({ outputLength: 0 })).not.toThrow();
+    expect(at({ outputLength: 1025 })).toThrow(
+      "outputLength=1025: must be 0 to 1024 in a tool call",
+    );
+    expect(at({ outputLength: 1024, rounds: 62_500 })).not.toThrow();
+    expect(at({ outputLength: 1024, rounds: 62_501 })).toThrow(
+      "rounds=62501: with outputLength=1024 squeezes 64001024 bytes, over 64000000 in a tool call; lower rounds or outputLength",
+    );
+    expect(at({ rounds: 1_000_001 })).toThrow("rounds=1000001: must be 1 to 1000000");
+    expect(() =>
+      hashCompute({
+        algorithm: "shake128",
+        input: ["a", "b"],
+        parameters: { outputLength: 1024, rounds: 40_000 },
+      }),
+    ).toThrow("with rounds 40000 one call hashes at most 1 input");
+  });
+
   it("gives a KDF the keyLength that makes the expected length, past EVP_BytesToKey's IV", () => {
     const evp = hashCompute({
       algorithm: "evp-bytestokey",
@@ -1186,7 +1233,7 @@ describe("hashes MCP server", () => {
     expect(answer.isError).toBe(false);
     expect(answer.text).toBe(
       [
-        "MATCH after 1415 of 2142 hashes",
+        "MATCH after 1516 of 2295 hashes",
         'sha256 of the words "jacquefresco", "giveitjustonesecond", "heisenbergsuncertaintyprinciple" joined by "", case as-is',
         'input "jacquefrescogiveitjustonesecondheisenbergsuncertaintyprinciple"',
       ].join("\n"),

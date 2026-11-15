@@ -39,6 +39,16 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
   },
   "sha3-256": { icon: "i-lucide-waves", blurb: "NIST's sponge, nothing in common with SHA-2" },
   "sha3-512": { icon: "i-lucide-waves", blurb: "The sponge at 512 bits" },
+  shake128: {
+    icon: "i-lucide-waves",
+    blurb: "The sponge that stops when you say so",
+    usedBy: "ML-KEM, ML-DSA",
+  },
+  shake256: {
+    icon: "i-lucide-waves",
+    blurb: "As many bytes as you ask, 114 for an Ed448 key",
+    usedBy: "Ed448, ML-KEM, ML-DSA",
+  },
   keccak256: {
     icon: "i-token-eth",
     blurb: "SHA-3 before NIST changed one padding byte",
