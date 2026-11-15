@@ -303,7 +303,7 @@ describe("hashes CLI", () => {
 
     expect(both).toEqual({
       code: 0,
-      stderr: "Searching 56 hashes\nMATCH for 2 of 2 digests after 43 of 56 hashes\n",
+      stderr: "Searching 60 hashes\nMATCH for 2 of 2 digests after 46 of 60 hashes\n",
       stdout: [
         `${sha256("beta-alpha")} MATCH`,
         'sha256 of the words "beta", "alpha" joined by "-", case as-is',
@@ -319,7 +319,7 @@ describe("hashes CLI", () => {
       `${sha256("alpha")} MATCH\nsha256 of the word "alpha", case as-is\ninput "alpha"\n${sha256("x")} NO MATCH\n`,
     );
     expect(one.stderr).toMatch(
-      /^Searching 56 hashes\nMATCH for 1 of 2 digests after 56 of 56 hashes\nCovered 1 to 2 of the words "alpha", "beta"; joiners "-"; cases as-is; algorithms sha256, /,
+      /^Searching 60 hashes\nMATCH for 1 of 2 digests after 60 of 60 hashes\nCovered 1 to 2 of the words "alpha", "beta"; joiners "-"; cases as-is; algorithms sha256, /,
     );
   });
 
@@ -380,6 +380,8 @@ describe("hashes CLI", () => {
         "haval: HAVAL (bits 160), computable, bits 160",
         "haval: HAVAL (passes 4, bits 160), computable, passes 4, bits 160",
         "haval: HAVAL (passes 5, bits 160), computable, passes 5, bits 160",
+        "shake128: SHAKE128 (outputLength 20), computable, outputLength 20",
+        "shake256: SHAKE256 (outputLength 20), computable, outputLength 20",
         "Any length: scrypt, pbkdf2, hkdf, evp-bytestokey, argon2id, argon2i, argon2d, with keyLength 20",
         "",
       ].join("\n"),

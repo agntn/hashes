@@ -42,6 +42,8 @@ import { Sha512 } from "./sha512.ts";
 import { Sha512_224 } from "./sha512-224.ts";
 import { Sha512_256 } from "./sha512-256.ts";
 import { Sha512Half } from "./sha512-half.ts";
+import { Shake128 } from "./shake128.ts";
+import { Shake256 } from "./shake256.ts";
 import { Tiger } from "./tiger.ts";
 import { Whirlpool } from "./whirlpool.ts";
 import { Xxhash } from "./xxhash.ts";
@@ -60,6 +62,8 @@ export const builtins: readonly HashConstructor[] = [
   Sha512Half,
   Sha3_256,
   Sha3_512,
+  Shake128,
+  Shake256,
   Keccak256,
   Blake2b,
   Blake2b256,
@@ -139,6 +143,8 @@ export {
   Sha512_224,
   Sha512_256,
   Sha512Half,
+  Shake128,
+  Shake256,
   Tiger,
   Whirlpool,
   Xxhash,

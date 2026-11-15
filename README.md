@@ -5,7 +5,7 @@
 [![license](https://npmx.dev/api/registry/badge/license/@agntn/hashes)](https://npmx.dev/package/@agntn/hashes)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/agntn/hashes)
 
-#️⃣ Forty-six hash algorithms for your terminal, TypeScript and agents. Give it text or bytes, get a digest and the options needed to repeat it.
+#️⃣ Forty-eight hash algorithms for your terminal, TypeScript and agents. Give it text or bytes, get a digest and the options needed to repeat it.
 
 > [!CAUTION]
 > **Not audited.** This code has never had a security audit. Do not use it in production, with real funds or with sensitive data. It is meant for agents, puzzles and local experiments only. It comes as is, without warranty of any kind, and the authors are not liable for any loss, as the MIT license states. Anything that matters wants an audited library.
@@ -70,7 +70,7 @@ Hex ignores case. Base64 doesn't. Same letters, different bytes, and the second 
 
 ## ✨ What you can do
 
-- 🧮 **Forty-six algorithms.** Modern digests, old formats, checksums and KDFs. Pick one from the table.
+- 🧮 **Forty-eight algorithms.** Modern digests, old formats, checksums and KDFs. Pick one from the table.
 - 🔑 **HMAC where supported.** Twenty-three of them take a key. The others refuse it.
 - 🧂 **Reproduce a KDF.** Random salts and costs come back with the result. Keep them, not just the digest.
 - 📥 **Hash bytes, not their spelling.** Stdin takes files. `--input-encoding hex` decodes hex before hashing.
@@ -105,12 +105,12 @@ Strings are UTF-8. Already have bytes? Pass a `Uint8Array`. `create()` takes the
 
 ## 🗂️ Algorithms
 
-| Category          | Algorithms                                                                                                                                                                                                                | HMAC                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| cryptographic     | sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, whirlpool, hkdf | sha2, sha3, keccak256, blake2b, blake2s, ripemd160, ripemd320, whirlpool |
-| legacy            | md5, md4, md2, ntlm, sha1, sha0, ripemd128, ripemd256, haval, tiger                                                                                                                                                       | all but ntlm                                                             |
-| non-cryptographic | crc32, crc64, crc24, crc16-xmodem, adler32, xxhash, fnv1a                                                                                                                                                                 | no                                                                       |
-| password          | scrypt, pbkdf2, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt                                                                                                                                                        | no, they take a salt                                                     |
+| Category          | Algorithms                                                                                                                                                                                                                                    | HMAC                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| cryptographic     | sha256, sha384, sha512, sha224, sha512-224, sha512-256, sha512-half, sha3-256, sha3-512, shake128, shake256, keccak256, blake2b, blake2b-256, blake2b-224, blake2s, blake3, blake256, ripemd160, ripemd320, hash160, hash256, whirlpool, hkdf | sha2, sha3, keccak256, blake2b, blake2s, ripemd160, ripemd320, whirlpool |
+| legacy            | md5, md4, md2, ntlm, sha1, sha0, ripemd128, ripemd256, haval, tiger                                                                                                                                                                           | all but ntlm                                                             |
+| non-cryptographic | crc32, crc64, crc24, crc16-xmodem, adler32, xxhash, fnv1a                                                                                                                                                                                     | no                                                                       |
+| password          | scrypt, pbkdf2, evp-bytestokey, argon2id, argon2i, argon2d, bcrypt                                                                                                                                                                            | no, they take a salt                                                     |
 
 Categories describe use, families describe lineage. `hashes algorithms -f sha` includes SHA-0 and SHA-3. That isn't a security recommendation. MD2, MD4, MD5, NTLM, SHA-1, SHA-0 and HAVAL are broken for security. Check `hashes info <name>` for individual security notes and [algorithm pages](https://hashes.agntn.dev/algorithms) for details.
 

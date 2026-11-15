@@ -165,6 +165,8 @@ describe("registry", () => {
       "sha512-half",
       "sha3-256",
       "sha3-512",
+      "shake128",
+      "shake256",
       "hash256",
       "sha1",
       "sha0",
@@ -444,6 +446,8 @@ describe("digests", () => {
     const without = builtinAlgorithms.filter((name) => !create(name).info().hmac);
     expect(without).toEqual([
       "sha512-half",
+      "shake128",
+      "shake256",
       "blake2b-256",
       "blake2b-224",
       "blake3",
@@ -914,6 +918,50 @@ describe("hashes chains use", () => {
     expect(() => new HavalHasher(3, 100 as HavalBits)).toThrow(
       "Invalid option bits=100: use one of 128, 160, 192, 224, 256",
     );
+  });
+
+  it("shake128 and shake256 squeeze OpenSSL's default length, or the one asked for", () => {
+    for (const [name, defaultLength] of [
+      ["shake128", 32],
+      ["shake256", 64],
+    ] as const) {
+      for (const sample of SAMPLES) {
+        expect(create(name).hash(sample)).toEqual({
+          digest: createHash(name, { outputLength: defaultLength }).update(sample).digest("hex"),
+          algorithm: name,
+          operation: "hash",
+          encoding: "hex",
+          digestLength: defaultLength,
+          options: { encoding: "hex" },
+        });
+        for (const outputLength of [0, 1, 16, 114, 200]) {
+          const result = create(name).hash(sample, { outputLength } as HashOptions);
+          expect(result.digest).toBe(
+            createHash(name, { outputLength }).update(sample).digest("hex"),
+          );
+          expect(result.options).toEqual({ encoding: "hex", outputLength });
+        }
+      }
+      expect(create(name).info().digestLength).toBe(defaultLength);
+    }
+  });
+
+  it("shake128 and shake256 hash each round at the asked length and refuse a length that isn't one", () => {
+    const once = createHash("shake256", { outputLength: 20 }).update("abc").digest();
+    const twice = createHash("shake256", { outputLength: 20 }).update(once).digest("hex");
+    expect(
+      create("shake256").hash("abc", { outputLength: 20, rounds: 2 } as HashOptions),
+    ).toMatchObject({
+      digest: twice,
+      options: { encoding: "hex", outputLength: 20, rounds: 2, chain: "bytes" },
+    });
+    expect(() => create("shake128").hash("abc", { outputLength: -1 } as HashOptions)).toThrow(
+      "Invalid option outputLength=-1: must be a whole number from 0",
+    );
+    expect(() => create("shake256").hash("abc", { outputLength: null } as never)).toThrow(
+      "Invalid option outputLength=null: must be a whole number from 0",
+    );
+    expect(() => create("shake128").hash("abc", { key: "k" })).toThrow(HashError);
   });
 
   it("tiger matches the authors' NESSIE vectors", () => {
@@ -2981,6 +3029,8 @@ describe("identifyDigest", () => {
       ["haval", "length", "haval"],
       ["haval", "length", "haval"],
       ["lm", "length", undefined],
+      ["shake128", "length", "shake128"],
+      ["shake256", "length", "shake256"],
       ...["scrypt", "pbkdf2", "hkdf", "evp-bytestokey", "argon2id", "argon2i", "argon2d"].map(
         (name) => [name, "keyLength", name],
       ),
@@ -3007,6 +3057,8 @@ describe("identifyDigest", () => {
       ["haval", "haval"],
       ["haval", "haval"],
       ["tiger2", undefined],
+      ["shake128", "shake128"],
+      ["shake256", "shake256"],
     ]);
   });
 
@@ -3020,11 +3072,13 @@ describe("identifyDigest", () => {
     ).toEqual([
       ["sha512", "sha512"],
       ["sha3-512", "sha3-512"],
+      ["shake256", "shake256"],
       ["blake2b", "blake2b"],
       ["whirlpool", "whirlpool"],
       ["whirlpool-t", undefined],
       ["whirlpool-0", undefined],
       ["streebog512", undefined],
+      ["shake128", "shake128"],
     ]);
   });
 
@@ -3061,6 +3115,25 @@ describe("identifyDigest", () => {
     );
   });
 
+  it("squeezes a SHAKE to any length from 16 bytes, so Ed448's 114 has a computable candidate", () => {
+    const ed448 = createHash("shake256", { outputLength: 114 }).update("abc").digest("hex");
+    const found = identifyDigest(ed448).candidates.filter((each) => each.fit === "length");
+
+    expect(found.map((candidate) => [candidate.name, candidate.parameters])).toEqual([
+      ["shake128", { outputLength: 114 }],
+      ["shake256", { outputLength: 114 }],
+    ]);
+    const matches = found.filter(
+      (candidate) =>
+        create(candidate.algorithm!).hash("abc", candidate.parameters as HashOptions).digest ===
+        ed448,
+    );
+    expect(matches.map((candidate) => candidate.name)).toEqual(["shake256"]);
+    expect(
+      identifyDigest("00".repeat(15)).candidates.some((each) => each.name.startsWith("shake")),
+    ).toBe(false);
+  });
+
   it("counts a registered algorithm as computable in place of the one it replaces", () => {
     class Sha3_384 extends FixedHash {
       static readonly key = "sha3-384";
@@ -3084,6 +3157,8 @@ describe("identifyDigest", () => {
     expect(names.map((candidate) => [candidate.name, candidate.algorithm])).toEqual([
       ["sha384", "sha384"],
       ["sha3-384", "sha3-384"],
+      ["shake128", "shake128"],
+      ["shake256", "shake256"],
     ]);
   });
 
@@ -3179,8 +3254,8 @@ describe("searchDigest", () => {
   it("counts every algorithm, round and chain in the total", () => {
     const found = searchDigest(Buffer.alloc(32), { words: ["a", "b", "c"], rounds: 3 });
 
-    expect(found.scope.algorithms).toHaveLength(14);
-    expect(found.total).toBe(102 * 14 * (1 + 3 * 2));
+    expect(found.scope.algorithms).toHaveLength(15);
+    expect(found.total).toBe(102 * 15 * (1 + 3 * 2));
     expect(found.tried).toBe(found.total);
   });
 
