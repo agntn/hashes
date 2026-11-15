@@ -77,6 +77,8 @@ import {
   sha256Bits,
   sha3_256,
   sha3_512,
+  shake128,
+  shake256,
   sha384,
   sha512,
   version,
@@ -1255,6 +1257,29 @@ describe("byte functions", () => {
     }
   });
 
+  it("squeeze SHAKE128 and SHAKE256 to Node's output at any length", () => {
+    /* 114 bytes for Ed448, and lengths that run past both rates into more blocks. */
+    for (const length of [0, 1, 32, 64, 114, 135, 136, 137, 167, 168, 169, 272, 336, 1000]) {
+      for (const bytes of inputs) {
+        expect(shake128(bytes, length).toHex()).toBe(
+          createHash("shake128", { outputLength: length }).update(bytes).digest("hex"),
+        );
+        expect(shake256(bytes, length).toHex()).toBe(
+          createHash("shake256", { outputLength: length }).update(bytes).digest("hex"),
+        );
+      }
+    }
+  });
+
+  it("refuse a SHAKE length that isn't a whole number of bytes", () => {
+    for (const length of [-1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => shake256(new Uint8Array(1), length)).toThrow(
+        new InvalidOptionError("outputLength", length, "must be a whole number from 0"),
+      );
+    }
+    expect(() => shake128(new Uint8Array(1), -1)).toThrow(InvalidOptionError);
+  });
+
   it("refuse a keccakF1600 state that isn't 200 bytes", () => {
     expect(() => keccakF1600(new Uint8Array(199))).toThrow(
       new HashError("state must be 200 bytes, not 199"),
@@ -1504,6 +1529,9 @@ describe("byte functions", () => {
     );
     expect(() => keccakF1600(loose(Array.from({ length: 200 }, () => 0)))).toThrow(
       new HashError("state must be a Uint8Array, not object"),
+    );
+    expect(() => shake256(loose("abc"), 32)).toThrow(
+      new HashError("data must be a Uint8Array, not string"),
     );
     expect(() => blake256(loose(null))).toThrow(
       new HashError("message must be a Uint8Array, not null"),
@@ -1932,6 +1960,8 @@ describe("byte function subpaths", () => {
       "keccakF1600",
       "sha3_256",
       "sha3_512",
+      "shake128",
+      "shake256",
     ],
     blake2b: ["Blake2bHasher", "blake2b"],
     blake256: ["blake256"],

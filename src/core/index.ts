@@ -61,6 +61,8 @@ export {
   keccakF1600,
   sha3_256,
   sha3_512,
+  shake128,
+  shake256,
 } from "./keccak.ts";
 export { Md5Hasher, md5 } from "./md5.ts";
 export { Ripemd160Hasher, hash160, ripemd160 } from "./ripemd160.ts";
