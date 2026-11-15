@@ -722,8 +722,6 @@ function batchWork(
     const { iterations, work } = priced;
     return { name: "iterations", value: iterations, work, limit: MAX_ITERATION_WORK };
   }
-  const squeeze = squeezeWork(algorithm, options);
-  if (squeeze !== undefined) return squeeze;
   const name = ["iterations", "rounds"].find((each) => all.has(each));
   if (name === undefined) return undefined;
   return { name, value: at(name), work: at(name), limit: limitOf(name) };
@@ -742,8 +740,11 @@ function assertBatchCost(
   count: number,
 ): void {
   if (count === 1) return;
-  const batch = batchWork(algorithm, options);
-  if (batch === undefined || batch.work * count <= batch.limit) return;
+  /* A SHAKE call pays in rounds and in bytes squeezed; a short output must not waive the rounds. */
+  const batch = [batchWork(algorithm, options), squeezeWork(algorithm, options)].find(
+    (work) => work !== undefined && work.work * count > work.limit,
+  );
+  if (batch === undefined) return;
   const fits = Math.max(1, Math.floor(batch.limit / batch.work));
   throw new InvalidOptionError(
     "input",

@@ -567,6 +567,13 @@ describe("hashes MCP server", () => {
         parameters: { outputLength: 1024, rounds: 40_000 },
       }),
     ).toThrow("with rounds 40000 one call hashes at most 1 input");
+    expect(() =>
+      hashCompute({
+        algorithm: "shake128",
+        input: Array.from({ length: 64 }, () => "a"),
+        parameters: { outputLength: 0, rounds: 1_000_000 },
+      }),
+    ).toThrow("with rounds 1000000 one call hashes at most 1 input");
   });
 
   it("gives a KDF the keyLength that makes the expected length, past EVP_BytesToKey's IV", () => {
