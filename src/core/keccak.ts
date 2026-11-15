@@ -3,7 +3,7 @@
  * kept from before FIPS 202 changed the padding. The 25 lanes are 64-bit, held as a low then a
  * high 32-bit half, so the state is fifty int32 values.
  */
-import { HashError } from "./errors.ts";
+import { HashError, InvalidOptionError } from "./errors.ts";
 import { Hasher, assertBytes, viewOf, wordsToBytes } from "./hasher.ts";
 
 /** Domain byte FIPS 202 puts after a SHA-3 message. */
@@ -11,6 +11,9 @@ export const SHA3_PADDING = 0x06;
 
 /** Domain byte of the original Keccak submission, which Ethereum kept. */
 export const KECCAK_PADDING = 0x01;
+
+/** Domain byte FIPS 202 puts after a SHAKE message. */
+export const SHAKE_PADDING = 0x1f;
 
 /** Round constants, low then high half. */
 const RC = /* @__PURE__ */ new Int32Array([
@@ -388,7 +391,7 @@ export function keccakF1600(state: Uint8Array): Uint8Array {
   return state;
 }
 
-/** A Keccak-f[1600] sponge with a fixed output no longer than one rate block. */
+/** A Keccak-f[1600] sponge with a fixed output, squeezed one rate block per permutation. */
 export class KeccakHasher extends Hasher {
   readonly blockLength: number;
   readonly outputLength: number;
@@ -399,13 +402,14 @@ export class KeccakHasher extends Hasher {
   private position = 0;
 
   /**
-   * @param outputLength - Digest bytes; the rate is 200 minus twice that.
-   * @param suffix - `SHA3_PADDING` or `KECCAK_PADDING`.
+   * @param outputLength - Digest bytes.
+   * @param suffix - `SHA3_PADDING`, `KECCAK_PADDING` or `SHAKE_PADDING`.
+   * @param rate - Bytes per block, 200 minus twice the digest unless a SHAKE sets its own.
    */
-  constructor(outputLength: number, suffix: number) {
+  constructor(outputLength: number, suffix: number, rate = 200 - 2 * outputLength) {
     super();
     this.outputLength = outputLength;
-    this.blockLength = 200 - 2 * outputLength;
+    this.blockLength = rate;
     this.suffix = suffix;
   }
 
@@ -442,7 +446,12 @@ export class KeccakHasher extends Hasher {
     state[position >> 2] = state[position >> 2]! ^ (this.suffix << ((position & 3) << 3));
     state[last >> 2] = state[last >> 2]! ^ (0x80 << ((last & 3) << 3));
     permute(state);
-    wordsToBytes(state, out, this.outputLength, true);
+    wordsToBytes(state, out, Math.min(this.blockLength, this.outputLength), true);
+    for (let offset = this.blockLength; offset < this.outputLength; offset++) {
+      if (offset % this.blockLength === 0) permute(state);
+      const i = offset % this.blockLength;
+      out[offset] = state[i >> 2]! >>> ((i & 3) << 3);
+    }
   }
 
   load(source: this): this {
@@ -474,6 +483,23 @@ export class Sha3_512Hasher extends KeccakHasher {
 }
 
 /**
+ * Absorbs the whole message, pads it and squeezes as many bytes as asked, one rate block per
+ * permutation.
+ *
+ * @param data - Bytes to hash.
+ * @param rate - Bytes per block: 168 for SHAKE128, 136 for SHAKE256.
+ * @param outputLength - Bytes to squeeze.
+ * @returns {Uint8Array} `outputLength` bytes.
+ */
+function shake(data: Uint8Array, rate: number, outputLength: number): Uint8Array {
+  assertBytes(data, "data");
+  if (!Number.isSafeInteger(outputLength) || outputLength < 0) {
+    throw new InvalidOptionError("outputLength", outputLength, "must be a whole number from 0");
+  }
+  return new KeccakHasher(outputLength, SHAKE_PADDING, rate).update(data).digest();
+}
+
+/**
  * Keccak-256 with the original padding, as Ethereum hashes with it. Calls `KeccakHasher` itself,
  * like `sha3_256` and `sha3_512`: going through a subclass added 44 bytes to each esbuild bundle.
  *
@@ -502,4 +528,26 @@ export function sha3_256(data: Uint8Array): Uint8Array {
  */
 export function sha3_512(data: Uint8Array): Uint8Array {
   return new KeccakHasher(64, SHA3_PADDING).update(data).digest();
+}
+
+/**
+ * SHAKE128 (FIPS 202), squeezed to any length.
+ *
+ * @param data - Bytes to hash.
+ * @param outputLength - Bytes to squeeze.
+ * @returns {Uint8Array} `outputLength` bytes.
+ */
+export function shake128(data: Uint8Array, outputLength: number): Uint8Array {
+  return shake(data, 168, outputLength);
+}
+
+/**
+ * SHAKE256 (FIPS 202), squeezed to any length, such as the 114 bytes Ed448 asks for.
+ *
+ * @param data - Bytes to hash.
+ * @param outputLength - Bytes to squeeze.
+ * @returns {Uint8Array} `outputLength` bytes.
+ */
+export function shake256(data: Uint8Array, outputLength: number): Uint8Array {
+  return shake(data, 136, outputLength);
 }

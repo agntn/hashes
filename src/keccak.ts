@@ -6,4 +6,6 @@ export {
   keccakF1600,
   sha3_256,
   sha3_512,
+  shake128,
+  shake256,
 } from "./core/keccak.ts";

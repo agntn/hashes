@@ -89,6 +89,7 @@ describe("one byte function bundled with esbuild", () => {
     ["sha384", 3, 7_000],
     ["keccak256", 1, 6_000],
     ["keccakF1600", 1, 6_000],
+    ["shake256", 1, 6_000],
     ["ripemd160", 5, 5_000],
     ["blake2b", 3, 8_000],
     /* CRC-32 carries its bzip2 variant and the error a wrong variant throws, whatever the value. */
