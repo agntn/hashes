@@ -47,6 +47,7 @@ export {
   crc24,
   crc32,
   crc32Bzip2,
+  crc32Iscsi,
   crc32IsoHdlc,
   crc64,
   type Crc24Variant,

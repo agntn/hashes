@@ -318,7 +318,6 @@ function digestFormats(): DigestFormat[] {
 
 /** Common digests this package lacks, by byte length, so a guess can name them too. */
 const OTHER_DIGESTS: readonly (readonly [number, string, string])[] = [
-  [4, "crc32c", "CRC-32C"],
   [8, "mysql323", "MySQL 3.23 PASSWORD()"],
   [16, "lm", "LM"],
   [24, "tiger2", "Tiger2"],

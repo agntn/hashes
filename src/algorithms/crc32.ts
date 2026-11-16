@@ -4,7 +4,7 @@ import type { HashOptions } from "../core/types.ts";
 
 /** Options CRC-32 takes besides the encoding. */
 export interface Crc32Options extends HashOptions {
-  /** Which CRC-32: `iso-hdlc` (zlib, gzip, ZIP, PNG) or `bzip2`. Default: `iso-hdlc`. */
+  /** Which CRC-32: `iso-hdlc` (zlib, PNG), `bzip2` or `iscsi` (CRC-32C). Default: `iso-hdlc`. */
   variant?: Crc32Variant;
 }
 
@@ -13,7 +13,7 @@ export class Crc32 extends FixedHash<Crc32Options> {
   protected readonly about = {
     label: "CRC-32",
     description:
-      "CRC-32 cyclic redundancy check, used in ZIP, PNG, gzip and network protocols, and unreflected in bzip2",
+      "CRC-32 cyclic redundancy check, used in ZIP, PNG, gzip and network protocols, unreflected in bzip2, and CRC-32C (Castagnoli) in iSCSI, SCTP, ext4 and Btrfs",
     family: "CRC",
     category: "non-cryptographic",
     digestLength: 4,
@@ -26,7 +26,8 @@ export class Crc32 extends FixedHash<Crc32Options> {
       required: false,
       default: "iso-hdlc",
       choices: CRC32_VARIANTS,
-      description: "Which CRC-32: iso-hdlc as zlib, gzip, ZIP and PNG compute it, or bzip2",
+      description:
+        "Which CRC-32: iso-hdlc as zlib, gzip, ZIP and PNG compute it, bzip2, or iscsi for CRC-32C (Castagnoli)",
     },
   ] as const;
 
