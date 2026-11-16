@@ -782,17 +782,23 @@ function resultLine(result: Readonly<ManifestResult>): string {
 }
 
 /**
- * Reads the manifest file, or stdin for `-`, naming the file when it can't.
+ * Reads the manifest file, or stdin for `-`, as strict UTF-8.
  *
  * @param path - The path as given.
  * @returns {string} The manifest text.
  */
 function readManifest(path: string): string {
+  let bytes: Uint8Array;
   try {
-    return readFileSync(path === "-" ? 0 : path, "utf8");
+    bytes = readFileSync(path === "-" ? 0 : path);
   } catch (error) {
     const code = error instanceof Error && "code" in error ? String(error.code) : String(error);
     throw new HashError(`Can't read the manifest ${quoted(path)}: ${code}`);
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    throw new HashError(`The manifest ${quoted(path)} is not UTF-8, so its paths can't be trusted`);
   }
 }
 

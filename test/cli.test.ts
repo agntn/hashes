@@ -261,6 +261,20 @@ describe("hashes CLI", () => {
       expect(run(["check", "-", dir, "-a", "sha256"], `${sha256("c")}  sub/c\n`)).toMatchObject({
         code: 0,
       });
+      const bad = join(dir, "BAD");
+      writeFileSync(
+        bad,
+        Buffer.concat([
+          Buffer.from("SHA256 ("),
+          Buffer.from([0xff]),
+          Buffer.from(`) = ${sha256("c")}\n`),
+        ]),
+      );
+      expect(run(["check", bad, dir])).toMatchObject({
+        code: 1,
+        stdout: "",
+        stderr: `The manifest ${JSON.stringify(bad)} is not UTF-8, so its paths can't be trusted\n`,
+      });
       expect(run(["check", join(dir, "nope")])).toMatchObject({
         code: 1,
         stderr: `Can't read the manifest ${JSON.stringify(join(dir, "nope"))}: ENOENT\n`,
