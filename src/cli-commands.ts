@@ -26,6 +26,7 @@ import {
   type SearchDigestOptions,
 } from "./core/search.ts";
 import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
+import { plainLine } from "./core/manifest.ts";
 import {
   checkManifest,
   createManifest,
@@ -667,7 +668,7 @@ export const searchCommand = defineTool({
 });
 
 /**
- * Hashes files by path: one digest alone, or a `sha256sum` line each.
+ * Hashes files by path: one digest alone, or a line each that `sha256sum -c` reads.
  *
  * @param hash - The algorithm.
  * @param params - The paths and how to read them.
@@ -697,10 +698,34 @@ async function printFiles(
       await settledAsync(async () => digestDetails(await hashFile(path, fileOptions), text)),
     );
   }
-  const { about, lines } = digestLines(items, params.input);
+  assertOneSetting(items);
+  const { about } = digestLines(items, params.input);
   process.stderr.write(`${counted(items.length, "file")}, ${about ?? "none hashed"}\n`);
+  const lines = items.flatMap((item, index) => {
+    const path = params.input[index] ?? "";
+    if (!isBatchError(item)) return [plainLine({ path, digest: item.digest })];
+    process.stderr.write(`ERROR  ${quoted(path)}  ${item.error}\n`);
+    return [];
+  });
   if (items.some(isBatchError)) process.exitCode = 1;
-  return { content: [{ type: "text", text: lines.join("\n") }], details: { items } };
+  return {
+    content: lines.length > 0 ? [{ type: "text", text: lines.join("\n") }] : [],
+    details: { items },
+  };
+}
+
+/**
+ * Refuses files whose digests need different options, such as a salt drawn per file.
+ *
+ * @param items - Every digest, or the refusal of its file.
+ */
+function assertOneSetting(items: readonly (DigestDetails | BatchError)[]): void {
+  const settings = new Set(
+    items.flatMap((item) => (isBatchError(item) ? [] : [JSON.stringify(item.options)])),
+  );
+  if (settings.size > 1) {
+    throw new InvalidOptionError("salt", "drawn", "differs per file; pass one so every line fits");
+  }
 }
 
 /**

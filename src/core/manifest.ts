@@ -71,6 +71,17 @@ export function manifestLine(entry: Readonly<ManifestEntry>): string {
 }
 
 /**
+ * Writes one line the way plain `sha256sum` does: digest, two spaces, path.
+ *
+ * @param entry - The file and its digest.
+ * @returns {string} The line.
+ */
+export function plainLine(entry: Readonly<Pick<ManifestEntry, "path" | "digest">>): string {
+  const line = `${entry.digest}  ${escapePath(entry.path)}`;
+  return ESCAPED.test(entry.path) ? `\\${line}` : line;
+}
+
+/**
  * Reads tag lines, or plain `sha256sum` lines when `algorithm` names them.
  *
  * @param text - The manifest.

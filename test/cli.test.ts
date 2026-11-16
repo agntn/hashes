@@ -216,8 +216,36 @@ describe("hashes CLI", () => {
       expect(run(["sha256", file]).stdout).toBe(`${sha256(file)}\n`);
       expect(run(["md5", "-f", file, join(dir, "nope")])).toMatchObject({
         code: 1,
-        stderr: "2 files, md5, hex, 16 bytes\n",
-        stdout: `${createHash("md5").update("hello\n").digest("hex")}  ${JSON.stringify(file)}\nERROR  ${JSON.stringify(join(dir, "nope"))}  Can't read ${JSON.stringify(join(dir, "nope"))}: ENOENT\n`,
+        stderr: `2 files, md5, hex, 16 bytes\nERROR  ${JSON.stringify(join(dir, "nope"))}  Can't read ${JSON.stringify(join(dir, "nope"))}: ENOENT\n`,
+        stdout: `${createHash("md5").update("hello\n").digest("hex")}  ${file}\n`,
+      });
+      const long = join(dir, `${"x".repeat(80)} b\\c\nd`);
+      writeFileSync(long, "long");
+      const lines = run(["sha256", "-f", file, long]).stdout;
+      expect(lines).toBe(
+        `${sha256("hello\n")}  ${file}\n\\${sha256("long")}  ${long.replaceAll("\\", "\\\\").replace("\n", "\\n")}\n`,
+      );
+      expect(spawnSync("sha256sum", ["--check", "--status"], { input: lines }).status).toBe(0);
+      const cli = fileURLToPath(new URL("../src/cli.ts", import.meta.url));
+      const relative = spawnSync(process.execPath, [cli, "sha256", "-f", "fixture.txt"], {
+        cwd: dir,
+        encoding: "utf8",
+        env,
+      });
+      expect(relative.stdout).toBe(`${sha256("hello\n")}\n`);
+      const listed = spawnSync(
+        process.execPath,
+        [cli, "sha256", "-f", "fixture.txt", long.slice(dir.length + 1)],
+        {
+          cwd: dir,
+          encoding: "utf8",
+          env,
+        },
+      ).stdout;
+      expect(run(["check", "-", dir, "-a", "sha256"], listed).code).toBe(0);
+      expect(run(["pbkdf2", "-f", file, long, "--iterations", "1"])).toMatchObject({
+        code: 1,
+        stderr: "Invalid option salt=drawn: differs per file; pass one so every line fits\n",
       });
       expect(run(["sha256", "-f", file, "--input-encoding", "hex"])).toMatchObject({
         code: 1,
