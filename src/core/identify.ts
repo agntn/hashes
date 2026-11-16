@@ -483,15 +483,30 @@ function lengthCandidates(length: number, prefixed: boolean): DigestCandidate[] 
  * @returns {DigestCandidate[]} One per registered algorithm with an `outputLength` option.
  */
 function squeezedCandidates(length: number): DigestCandidate[] {
-  if (length < MIN_KDF_LENGTH) return [];
   return algorithms().flatMap((name) => {
     const info = create(name).info();
-    const declared = info.options.find((option) => option.name === "outputLength");
-    if (declared === undefined || declared.default === length) return [];
-    const parameters = { outputLength: length };
+    const parameters = squeezeChoice(info, length);
+    if (parameters === undefined) return [];
     const label = `${info.label} (${parameterText(parameters)})`;
     return [{ name, label, fit: "length", algorithm: name, parameters }];
   });
+}
+
+/**
+ * Squeezes a SHAKE to `length`, for identify and search alike.
+ *
+ * @param info - Its metadata.
+ * @param length - Bytes the digest must have.
+ * @returns {{ outputLength: number } | undefined} Nothing at the default or under 16 bytes.
+ */
+export function squeezeChoice(
+  info: AlgorithmInfo,
+  length: number,
+): { outputLength: number } | undefined {
+  if (length < MIN_KDF_LENGTH) return undefined;
+  const declared = info.options.find((option) => option.name === "outputLength");
+  if (declared === undefined || declared.default === length) return undefined;
+  return { outputLength: length };
 }
 
 /**

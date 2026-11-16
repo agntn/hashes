@@ -303,7 +303,7 @@ describe("hashes CLI", () => {
 
     expect(both).toEqual({
       code: 0,
-      stderr: "Searching 60 hashes\nMATCH for 2 of 2 digests after 46 of 60 hashes\n",
+      stderr: "Searching 64 hashes\nMATCH for 2 of 2 digests after 49 of 64 hashes\n",
       stdout: [
         `${sha256("beta-alpha")} MATCH`,
         'sha256 of the words "beta", "alpha" joined by "-", case as-is',
@@ -319,7 +319,7 @@ describe("hashes CLI", () => {
       `${sha256("alpha")} MATCH\nsha256 of the word "alpha", case as-is\ninput "alpha"\n${sha256("x")} NO MATCH\n`,
     );
     expect(one.stderr).toMatch(
-      /^Searching 60 hashes\nMATCH for 1 of 2 digests after 60 of 60 hashes\nCovered 1 to 2 of the words "alpha", "beta"; joiners "-"; cases as-is; algorithms sha256, /,
+      /^Searching 64 hashes\nMATCH for 1 of 2 digests after 64 of 64 hashes\nCovered 1 to 2 of the words "alpha", "beta"; joiners "-"; cases as-is; algorithms sha256, /,
     );
   });
 
