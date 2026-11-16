@@ -189,7 +189,7 @@ function assertDigestLength(
  */
 function assertRelative(path: string, line: number): void {
   const parts = path.split("/");
-  if (path === "" || path.startsWith("/") || /^[A-Za-z]:[\\/]/u.test(path) || path.includes("\0")) {
+  if (path === "" || path.startsWith("/") || path.includes("\0")) {
     throw lineError(line, "needs a path relative to the root");
   }
   if (parts.some((part) => part === ".." || part === "") || path.endsWith("/")) {

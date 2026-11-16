@@ -293,10 +293,19 @@ describe("manifests", () => {
   });
 
   it("refuses a path that leaves the root, whatever the line claims", () => {
-    for (const path of ["../up", "/etc/passwd", "a/../../b", "a//b", "C:\\x", ""]) {
+    for (const path of ["../up", "/etc/passwd", "a/../../b", "a//b", ""]) {
       expect(() => parseManifest(`SHA256 (${path}) = ${sha256("")}`)).toThrow(/^Manifest line 1/u);
     }
     expect(parseManifest(`SHA256 (./a/./b) = ${sha256("")}`)[0]?.path).toBe("a/b");
+  });
+
+  it("checks a POSIX name that looks like a Windows drive", async () => {
+    files({ "C:\\notes.txt": "n", "D:/x": "x" });
+
+    const manifest = await createManifest({ algorithm: "sha256", root });
+
+    expect(manifest.entries.map((entry) => entry.path)).toEqual(["C:\\notes.txt", "D:/x"]);
+    expect(await checkManifest(manifest.text, { root, strict: true })).toMatchObject({ ok: true });
   });
 
   it("leaves the manifest out of its own inventory, and the excluded directories whole", async () => {
