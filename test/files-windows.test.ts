@@ -21,6 +21,8 @@ const root = join(base, "root");
 mkdirSync(root);
 writeFileSync(join(base, "outside.txt"), "secret");
 writeFileSync(join(root, "inside.txt"), "fine");
+mkdirSync(join(root, "dir"));
+writeFileSync(join(root, "dir", "a"), "a");
 
 afterAll(() => {
   rmSync(base, { recursive: true, force: true });
@@ -28,7 +30,7 @@ afterAll(() => {
 
 const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
 
-describe("a manifest path that leaves the root through a backslash", () => {
+describe("a manifest path with a backslash for a separator", () => {
   it("is never read, and the files after it still are", async () => {
     const check = await checkManifest(
       `SHA256 (..\\outside.txt) = ${sha256("secret")}\nSHA256 (inside.txt) = ${sha256("fine")}`,
@@ -39,5 +41,17 @@ describe("a manifest path that leaves the root through a backslash", () => {
       ["..\\outside.txt", "unreadable", "leaves the root on this system"],
       ["inside.txt", "ok", undefined],
     ]);
+  });
+
+  it("counts a file listed with a backslash as listed, not extra", async () => {
+    const manifest = [
+      `SHA256 (dir\\a) = ${sha256("a")}`,
+      `SHA256 (inside.txt) = ${sha256("fine")}`,
+    ];
+
+    const check = await checkManifest(manifest.join("\n"), { root, strict: true });
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check.results).toHaveLength(2);
   });
 });

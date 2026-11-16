@@ -177,12 +177,14 @@ export async function checkManifest(
   const results: ManifestResult[] = [];
   for (const entry of entries) results.push(await checkEntry(entry, { root, realRoot }));
   if (options.strict === true) {
-    const listed = new Set(entries.map((entry) => entry.path));
+    const listed = new Set(entries.map((entry) => join(root, entry.path)));
     const { files } = await inventory(root, {
       exclude: options.exclude ?? [],
       own: await identity(options.manifest),
     });
-    for (const path of files) if (!listed.has(path)) results.push({ path, status: "extra" });
+    for (const path of files) {
+      if (!listed.has(join(root, path))) results.push({ path, status: "extra" });
+    }
   }
   return { results, ok: results.every((result) => result.status === "ok") };
 }
