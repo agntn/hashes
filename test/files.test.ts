@@ -151,6 +151,23 @@ describe("manifests", () => {
     expect(gnu.status).toBe(0);
   });
 
+  it("keeps a leading BOM and Unicode line breaks in a name, as sha256sum does", async () => {
+    files({ "\uFEFFa": "bom", a: "plain", "b\u2028c": "ls", "d\u2029": "ps", "e\u0085f": "nel" });
+
+    const manifest = await createManifest({ algorithm: "sha256", root });
+    writeFileSync(join(root, "SUMS"), manifest.text);
+    const gnu = spawnSync("sha256sum", ["--check", "--status", "SUMS"], { cwd: root });
+
+    expect(manifest.entries.map((entry) => entry.path).toSorted()).toEqual(
+      ["\uFEFFa", "a", "b\u2028c", "d\u2029", "e\u0085f"].toSorted(),
+    );
+    expect(manifest.entries.find((entry) => entry.path === "\uFEFFa")?.digest).toBe(sha256("bom"));
+    expect(gnu.status).toBe(0);
+    expect(
+      await checkManifest(manifest.text, { root, strict: true, manifest: join(root, "SUMS") }),
+    ).toMatchObject({ ok: true });
+  });
+
   it("reads back what it writes, and what sha256sum writes", async () => {
     files({ "a b": "1", "c\nd": "2", "e\\f": "3" });
     const ours = await createManifest({ algorithm: "md5", root });

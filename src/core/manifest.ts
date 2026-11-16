@@ -34,8 +34,8 @@ const COREUTILS_TAGS: Readonly<Record<string, string>> = {
   "blake2b-256": "BLAKE2b-256",
 };
 
-const TAG_LINE = /^(?<tag>[^\s()]+) \((?<path>.*)\) = (?<digest>[0-9A-Fa-f]+)$/u;
-const GNU_LINE = /^(?<digest>[0-9A-Fa-f]+) [ *](?<path>.+)$/u;
+const TAG_LINE = /^(?<tag>[^\s()]+) \((?<path>.*)\) = (?<digest>[0-9A-Fa-f]+)$/su;
+const GNU_LINE = /^(?<digest>[0-9A-Fa-f]+) [ *](?<path>.+)$/su;
 const ESCAPED = /[\\\n\r]/u;
 
 /**

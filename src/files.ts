@@ -335,7 +335,7 @@ async function listed(directory: string): Promise<Dirent<Buffer>[]> {
  */
 function nameOf(name: Uint8Array, directory: string): string {
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(name);
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(name);
   } catch {
     const where = directory === "" ? "the root" : quoted(directory);
     throw new HashError(
