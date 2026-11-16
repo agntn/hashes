@@ -147,6 +147,17 @@ export function crc32(data: Uint8Array, variant: Crc32Variant = "iso-hdlc"): Uin
   if (variant !== "iso-hdlc") {
     throw new InvalidOptionError("variant", variant, `use one of ${CRC32_VARIANTS.join(", ")}`);
   }
+  return crc32IsoHdlc(data);
+}
+
+/**
+ * Computes the reflected CRC-32 used by zlib, gzip, ZIP and PNG, without selecting a variant.
+ *
+ * @param data - Bytes to check.
+ * @returns {Uint8Array} The checksum, big-endian.
+ */
+export function crc32IsoHdlc(data: Uint8Array): Uint8Array {
+  assertBytes(data, "data");
   fillCrc32Tables();
   const t = CRC32_TABLES;
   const end = data.length - (data.length & 7);
@@ -190,7 +201,8 @@ function put(digest: Uint8Array, offset: number, value: number): Uint8Array {
  * @param data - Bytes to check.
  * @returns {Uint8Array} The checksum, big-endian.
  */
-function crc32Bzip2(data: Uint8Array): Uint8Array {
+export function crc32Bzip2(data: Uint8Array): Uint8Array {
+  assertBytes(data, "data");
   fillCrc32Bzip2Tables();
   const t = CRC32_BZIP2_TABLES;
   const end = data.length - (data.length & 7);
