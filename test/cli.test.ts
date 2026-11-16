@@ -1,6 +1,15 @@
 import { spawn, spawnSync } from "node:child_process";
 import { argon2Sync, createHash, createHmac, hkdfSync, pbkdf2Sync, scryptSync } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -49,6 +58,8 @@ describe("hashes CLI", () => {
       "identify",
       "search",
       "algorithms, info",
+      "manifest",
+      "check",
       "mcp",
     ]);
     expect(usage.stdout).toContain("USAGE hashes hash [OPTIONS] <ALGORITHM> <INPUT...>");
@@ -190,6 +201,73 @@ describe("hashes CLI", () => {
       stderr:
         "Invalid option encoding=binary: writes one digest alone; hash several inputs in hex or base64\n",
     });
+  });
+
+  it("hashes a file's bytes with --file, and keeps a path without it as text", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hashes-cli-file-"));
+    try {
+      const file = join(dir, "fixture.txt");
+      writeFileSync(file, "hello\n");
+
+      expect(run(["hash", "sha256", "--file", file])).toMatchObject({
+        code: 0,
+        stdout: `${sha256("hello\n")}\n`,
+      });
+      expect(run(["sha256", file]).stdout).toBe(`${sha256(file)}\n`);
+      expect(run(["md5", "-f", file, join(dir, "nope")])).toMatchObject({
+        code: 1,
+        stderr: "2 files, md5, hex, 16 bytes\n",
+        stdout: `${createHash("md5").update("hello\n").digest("hex")}  ${JSON.stringify(file)}\nERROR  ${JSON.stringify(join(dir, "nope"))}  Can't read ${JSON.stringify(join(dir, "nope"))}: ENOENT\n`,
+      });
+      expect(run(["sha256", "-f", file, "--input-encoding", "hex"])).toMatchObject({
+        code: 1,
+        stderr:
+          "Invalid option inputEncoding=hex: reads text; --file hashes the file's bytes as they are\n",
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes a manifest, checks it, then names what changed and exits 1", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hashes-cli-manifest-"));
+    try {
+      mkdirSync(join(dir, "sub"));
+      writeFileSync(join(dir, "a b.txt"), "a");
+      writeFileSync(join(dir, "sub/c"), "c");
+      const sums = join(dir, "SUMS");
+
+      expect(run(["manifest", "sha256", dir, "-o", sums])).toMatchObject({
+        code: 0,
+        stdout: "",
+        stderr: "2 files, sha256\n",
+      });
+      expect(readFileSync(sums, "utf8")).toBe(
+        `SHA256 (a b.txt) = ${sha256("a")}\nSHA256 (sub/c) = ${sha256("c")}\n`,
+      );
+      expect(run(["check", sums, dir, "--strict"])).toMatchObject({
+        code: 0,
+        stderr: "OK: 2 files match\n",
+        stdout: 'OK          "a b.txt"\nOK          "sub/c"\n',
+      });
+
+      writeFileSync(join(dir, "a b.txt"), "changed");
+      writeFileSync(join(dir, "new"), "n");
+      expect(run(["check", sums, dir, "--strict", "-q"])).toMatchObject({
+        code: 1,
+        stderr: "FAILED: 2 of 3 files\n",
+        stdout: 'MISMATCH    "a b.txt"\nEXTRA       "new"\n',
+      });
+      expect(run(["check", "-", dir, "-a", "sha256"], `${sha256("c")}  sub/c\n`)).toMatchObject({
+        code: 0,
+      });
+      expect(run(["check", join(dir, "nope")])).toMatchObject({
+        code: 1,
+        stderr: `Can't read the manifest ${JSON.stringify(join(dir, "nope"))}: ENOENT\n`,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("gives every input of a KDF list its own drawn salt on its line", () => {

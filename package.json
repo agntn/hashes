@@ -39,6 +39,10 @@
       "types": "./dist/mcp.d.mts",
       "import": "./dist/mcp.mjs"
     },
+    "./files": {
+      "types": "./dist/files.d.mts",
+      "import": "./dist/files.mjs"
+    },
     "./sha1": {
       "types": "./dist/sha1.d.mts",
       "import": "./dist/sha1.mjs"

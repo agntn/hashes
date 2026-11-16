@@ -34,6 +34,7 @@ export default defineBuildConfig({
         "./src/ai.ts",
         "./src/mcp.ts",
         "./src/tools.ts",
+        "./src/files.ts",
         ...byteEntries.map((name) => `./src/${name}.ts`),
       ],
       /** No maps: the JS ones point at the wrong lines, the d.ts ones at a src/ we don't ship. */
