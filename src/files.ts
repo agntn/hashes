@@ -1,7 +1,7 @@
 /** Files on disk and their manifests. It imports `node:fs`, so the root never loads it. */
 import { createReadStream, type Dirent } from "node:fs";
 import { lstat, readFile, readdir, realpath, stat } from "node:fs/promises";
-import { join, matchesGlob, resolve } from "node:path";
+import { isAbsolute, join, matchesGlob, relative, resolve, sep } from "node:path";
 import { BlockHash } from "./core/block-hash.ts";
 import { encodeDigest } from "./core/digest.ts";
 import { HashError, InvalidOptionError, quoted } from "./core/errors.ts";
@@ -200,6 +200,9 @@ async function checkEntry(
 ): Promise<ManifestResult> {
   const line = { path: entry.path, algorithm: entry.algorithm, expected: entry.digest };
   const path = join(where.root, entry.path);
+  if (outside(where.root, path)) {
+    return { ...line, status: "unreadable", reason: "leaves the root on this system" };
+  }
   const problem = await unreadable(path, join(where.realRoot, entry.path));
   if (problem === "missing") return { ...line, status: "missing" };
   if (problem !== undefined) return { ...line, status: "unreadable", reason: problem };
@@ -209,8 +212,21 @@ async function checkEntry(
   } catch (error) {
     if (error instanceof FileReadError)
       return { ...line, status: "unreadable", reason: error.code };
+    if (error instanceof HashError) return { ...line, status: "unreadable", reason: error.message };
     throw error;
   }
+}
+
+/**
+ * Tells whether a joined path ended up outside the root, as `..\\x` does on Windows.
+ *
+ * @param root - The root.
+ * @param path - The root joined with a manifest path.
+ * @returns {boolean} Whether it escaped.
+ */
+function outside(root: string, path: string): boolean {
+  const way = relative(root, path);
+  return way === ".." || way.startsWith(`..${sep}`) || isAbsolute(way);
 }
 
 /**

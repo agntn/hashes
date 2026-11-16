@@ -249,6 +249,19 @@ describe("manifests", () => {
     ]);
   });
 
+  it("reports a file the algorithm refuses and checks the rest", async () => {
+    files({ a: "text", b: "more" });
+    const { text } = await createManifest({ algorithm: "ntlm", root });
+    files({ a: new Uint8Array([0xff]) });
+
+    const { results } = await checkManifest(text, { root });
+
+    expect(results.map(({ path, status, reason }) => [path, status, reason])).toEqual([
+      ["a", "unreadable", "ntlm hashes text, and the input is not valid UTF-8"],
+      ["b", "ok", undefined],
+    ]);
+  });
+
   it("never follows a symlink, to a file or through a directory", async () => {
     const outside = mkdtempSync(join(tmpdir(), "hashes-outside-"));
     try {
