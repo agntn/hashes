@@ -4,6 +4,7 @@ import { readdirSync } from "node:fs";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
 import { Md4, Md5, Scrypt, Sha1, builtins } from "../src/algorithms/index.ts";
+import { Crc32 } from "../src/algorithms/crc32.ts";
 import { algorithmInfos } from "../src/core/resolve.ts";
 import { HAVAL_BITS, HAVAL_PASSES, HavalHasher, type HavalBits } from "../src/core/haval.ts";
 import { Md2Hasher } from "../src/core/md2.ts";
@@ -390,6 +391,23 @@ describe("registry", () => {
   ])("names what %s points at instead of every key", (name, hint) => {
     expect(() => resolveAlgorithm(name)).toThrow(UnknownAlgorithmError);
     expect(() => resolveAlgorithm(name)).toThrow(`Unknown algorithm: ${name}. ${hint}`);
+  });
+
+  it("points crc32c only at a variant the registered crc32 declares", () => {
+    class Crc32WithoutIscsi extends Crc32 {
+      override info(): AlgorithmInfo {
+        const info = super.info();
+        const options = info.options.map((option) => ({ ...option, choices: ["iso-hdlc"] }));
+        return { ...info, options };
+      }
+    }
+    register(Crc32WithoutIscsi);
+    try {
+      expect(() => resolveAlgorithm("crc32c")).toThrow(/^Unknown algorithm: crc32c\. Available: /);
+    } finally {
+      register(Crc32);
+    }
+    expect(() => resolveAlgorithm("crc32c")).toThrow("Did you mean crc32 with variant=iscsi?");
   });
 
   it.each(["sha2", "sha5", "sha-257", "tiger2", "whirlpool-t", "sha3-224", "crc32/foo", "/bzip2"])(
