@@ -93,8 +93,8 @@ describe("one byte function bundled with esbuild", () => {
     ["shake256", 1, 6_000],
     ["ripemd160", 5, 5_000],
     ["blake2b", 3, 8_000],
-    /* CRC-32 carries its bzip2 variant and the error a wrong variant throws, whatever the value. */
-    ["crc32", 0, 2_100],
+    /* CRC-32 carries every variant and the error a wrong one throws, whatever the value. */
+    ["crc32", 0, 2_600],
     ["scrypt", 2, 8_500],
     ["argon2id", 3, 12_000],
     ["bcrypt", 0, 4_000],
@@ -111,6 +111,7 @@ describe("one CRC-32 variant bundled with Rolldown", () => {
   it.each([
     ["crc32IsoHdlc", "cbf43926"],
     ["crc32Bzip2", "fc891918"],
+    ["crc32Iscsi", "e3069283"],
   ])("%s keeps only its own variant", async (name, expected) => {
     for (const entry of ["crc", "index"]) {
       const source = `import { ${name} } from ${JSON.stringify(join(packed, `${entry}.mjs`))}; console.log(${name}(new TextEncoder().encode("123456789")).toHex());`;
@@ -136,6 +137,7 @@ describe("one CRC-32 variant bundled with Rolldown", () => {
         expect(code).not.toContain("use one of");
         expect(code).not.toContain("bzip2");
         expect(code).not.toContain("iso-hdlc");
+        expect(code).not.toContain("iscsi");
         expect(
           execFileSync(process.execPath, ["--input-type=module", "-e", code], {
             encoding: "utf8",

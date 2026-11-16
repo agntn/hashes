@@ -34,14 +34,22 @@ export function resolveAlgorithm(preferred?: string): Hash {
   );
 }
 
+/** Catalogue aliases of a variant, compacted: CRC-32C is what most people call CRC-32/ISCSI. */
+const VARIANT_ALIASES: Readonly<Record<string, AlgorithmSuggestion>> = {
+  crc32c: { algorithm: "crc32", parameters: { variant: "iscsi" } },
+  crc32castagnoli: { algorithm: "crc32", parameters: { variant: "iscsi" } },
+};
+
 /**
- * Points an unknown name at a `family/variant` option or the keys it begins, never at a typo's
- * neighbour: `tiger2` is one letter off `tiger` and another digest.
+ * Points an unknown name at a `family/variant` option, a variant's catalogue alias or the keys it
+ * begins, never at a typo's neighbour: `tiger2` is one letter off `tiger` and another digest.
  *
  * @param name - Name as typed.
  * @returns {AlgorithmSuggestion[]} The suggestions, empty when the name points nowhere.
  */
 function suggestedAlgorithms(name: string): AlgorithmSuggestion[] {
+  const alias = compactName(name);
+  if (Object.hasOwn(VARIANT_ALIASES, alias)) return [VARIANT_ALIASES[alias]!];
   const variants = variantSuggestions(name);
   if (variants.length > 0) return variants;
   const wanted = compactName(name);

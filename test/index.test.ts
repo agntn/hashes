@@ -50,6 +50,7 @@ import {
   crc24,
   crc32,
   crc32Bzip2,
+  crc32Iscsi,
   crc32IsoHdlc,
   crc64,
   create,
@@ -381,6 +382,9 @@ describe("registry", () => {
     ["blake2", "Did you mean blake2b, blake2b-256, blake2b-224 or blake2s?"],
     ["argon2", "Did you mean argon2id, argon2i or argon2d?"],
     ["CRC-32/BZIP2", "Did you mean crc32 with variant=bzip2?"],
+    ["CRC-32/ISCSI", "Did you mean crc32 with variant=iscsi?"],
+    ["crc32c", "Did you mean crc32 with variant=iscsi?"],
+    ["CRC-32/Castagnoli", "Did you mean crc32 with variant=iscsi?"],
     ["CRC-64/XZ", "Did you mean crc64 with variant=xz?"],
     ["HAVAL/256", "Did you mean haval with bits=256?"],
   ])("names what %s points at instead of every key", (name, hint) => {
@@ -571,6 +575,9 @@ describe("digests", () => {
     expect(create("crc32").hash("123456789", { variant: "bzip2" } as HashOptions).digest).toBe(
       "fc891918",
     );
+    expect(create("crc32").hash("123456789", { variant: "iscsi" } as HashOptions).digest).toBe(
+      "e3069283",
+    );
     expect(create("crc64").hash("123456789").digest).toBe("995dc9bbdf1939fa");
     expect(create("crc24").hash("123456789").digest).toBe("21cf02");
     expect(create("crc24").hash("123456789", { encoding: "base64" }).digest).toBe("Ic8C");
@@ -581,7 +588,7 @@ describe("digests", () => {
 
   it.each(CHECKSUM_REFERENCES)(
     "matches zlib, crccheck, xxhash, GnuPG and binascii on %i bytes",
-    (length, adler, bzip2, xz, xxh32Digest, xxh32Seeded, xxh64Digest, openpgp, xmodem) => {
+    (length, adler, bzip2, xz, xxh32Digest, xxh32Seeded, xxh64Digest, openpgp, xmodem, iscsi) => {
       const input = checksumInput(length);
       const xxh32 = (seed?: number) => ({ bits: 32, seed }) as XxhashOptions;
       expect(create("adler32").hash(input).digest).toBe(adler);
@@ -593,6 +600,8 @@ describe("digests", () => {
       expect(create("xxhash").hash(input).digest).toBe(xxh64Digest);
       expect(create("crc24").hash(input).digest).toBe(openpgp);
       expect(create("crc16-xmodem").hash(input).digest).toBe(xmodem);
+      expect(create("crc32").hash(input, { variant: "iscsi" } as HashOptions).digest).toBe(iscsi);
+      expect(Buffer.from(crc32Iscsi(input)).toString("hex")).toBe(iscsi);
     },
   );
 
@@ -606,6 +615,7 @@ describe("digests", () => {
         crc64(input),
         crc24(input),
         crc16Xmodem(input),
+        crc32Iscsi(input),
       ];
       expect(checksums.map((digest) => digest.toHex())).toEqual(digests);
     },
@@ -1591,6 +1601,7 @@ describe("byte functions", () => {
     expect(() => crc32(loose(new ArrayBuffer(4)))).toThrow(HashError);
     expect(() => crc32IsoHdlc(loose(new ArrayBuffer(4)))).toThrow(HashError);
     expect(() => crc32Bzip2(loose(new ArrayBuffer(4)))).toThrow(HashError);
+    expect(() => crc32Iscsi(loose(new ArrayBuffer(4)))).toThrow(HashError);
     expect(() => blake2b(new Uint8Array(1), 64, loose("UA_F4Jumble_H"))).toThrow(
       new HashError("personalization must be a Uint8Array, not string"),
     );
@@ -2027,6 +2038,7 @@ describe("byte function subpaths", () => {
       "crc24",
       "crc32",
       "crc32Bzip2",
+      "crc32Iscsi",
       "crc32IsoHdlc",
       "crc64",
     ],
@@ -3116,9 +3128,9 @@ describe("identifyDigest", () => {
       [
         ["crc32", {}],
         ["crc32", { variant: "bzip2" }],
+        ["crc32", { variant: "iscsi" }],
         ["adler32", {}],
         ["xxhash", { bits: 32 }],
-        ["crc32c", {}],
       ],
     );
   });
@@ -3330,6 +3342,7 @@ describe("searchDigest", () => {
     expect(found.scope.algorithms).toEqual([
       "crc32",
       "crc32 variant bzip2",
+      "crc32 variant iscsi",
       "adler32",
       "xxhash bits 32",
     ]);

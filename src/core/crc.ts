@@ -1,13 +1,14 @@
 /**
- * CRC-32 (as zlib computes it, or as bzip2 does), CRC-64/XZ, CRC-24/OPENPGP and CRC-16/XMODEM.
+ * CRC-32 (as zlib computes it, as bzip2 does, or Castagnoli's), CRC-64/XZ, CRC-24/OPENPGP and
+ * CRC-16/XMODEM.
  * Each table fills on the first call that needs it, so a SHA-1 caller loading the shared chunk
  * never pays for it.
  */
 import { InvalidOptionError } from "./errors.ts";
 import { assertBytes } from "./hasher.ts";
 
-/** The CRC-32 variants, by their names in the CRC catalogue: zlib's first, then bzip2's. */
-export const CRC32_VARIANTS = ["iso-hdlc", "bzip2"] as const;
+/** The CRC-32 variants, by their names in the CRC catalogue: zlib's, bzip2's, then CRC-32C. */
+export const CRC32_VARIANTS = ["iso-hdlc", "bzip2", "iscsi"] as const;
 
 /** A CRC-32 variant. */
 export type Crc32Variant = (typeof CRC32_VARIANTS)[number];
@@ -33,32 +34,48 @@ export type Crc24Variant = (typeof CRC24_VARIANTS)[number];
 const CRC32_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC16_XMODEM_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC32_BZIP2_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
+const CRC32_ISCSI_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 const CRC64_XZ_TABLES = /* @__PURE__ */ new Uint32Array(512 * 8);
 const CRC24_OPENPGP_TABLES = /* @__PURE__ */ new Int32Array(256 * 8);
 
 let crc32Filled = false;
 let crc16XmodemFilled = false;
 let crc32Bzip2Filled = false;
+let crc32IscsiFilled = false;
 let crc64XzFilled = false;
 let crc24OpenpgpFilled = false;
 
 /**
- * Fills the CRC-32 tables for slicing by eight: polynomial 0x04c11db7, reflected as 0xedb88320.
- * Table `k` at `256 * k` advances a byte's remainder through `k` more zero bytes.
+ * Fills slicing tables for a reflected CRC-32. Table `k` at `256 * k` advances a byte's remainder
+ * through `k` more zero bytes.
+ *
+ * @param tables - The eight tables to fill, 256 entries each.
+ * @param polynomial - The polynomial, reflected.
  */
-function fillCrc32Tables(): void {
-  if (crc32Filled) return;
-  const tables = CRC32_TABLES;
+function fillReflectedTables(tables: Int32Array, polynomial: number): void {
   for (let index = 0; index < 256; index++) {
     let value = index;
-    for (let bit = 0; bit < 8; bit++) value = value & 1 ? (value >>> 1) ^ 0xedb88320 : value >>> 1;
+    for (let bit = 0; bit < 8; bit++) value = value & 1 ? (value >>> 1) ^ polynomial : value >>> 1;
     tables[index] = value;
   }
   for (let index = 0; index < 256 * 7; index++) {
     const value = tables[index]!;
     tables[index + 256] = (value >>> 8) ^ tables[value & 0xff]!;
   }
+}
+
+/** Fills the CRC-32 tables: polynomial 0x04c11db7, reflected as 0xedb88320. */
+function fillCrc32Tables(): void {
+  if (crc32Filled) return;
+  fillReflectedTables(CRC32_TABLES, 0xedb88320);
   crc32Filled = true;
+}
+
+/** Fills the CRC-32/ISCSI tables: Castagnoli's 0x1edc6f41, reflected as 0x82f63b78. */
+function fillCrc32IscsiTables(): void {
+  if (crc32IscsiFilled) return;
+  fillReflectedTables(CRC32_ISCSI_TABLES, 0x82f63b78);
+  crc32IscsiFilled = true;
 }
 
 /**
@@ -134,8 +151,8 @@ function fillCrc64XzTables(): void {
 }
 
 /**
- * Computes CRC-32: `iso-hdlc`, the reflected one zlib, gzip, ZIP and PNG use, or `bzip2`, the same
- * polynomial unreflected. Both start and finish with all ones.
+ * Computes CRC-32: `iso-hdlc`, the reflected one zlib, gzip, ZIP and PNG use, `bzip2`, the same
+ * polynomial unreflected, or `iscsi`, CRC-32C. All three start and finish with all ones.
  *
  * @param data - Bytes to check.
  * @param variant - Which CRC-32. Default: `iso-hdlc`.
@@ -144,6 +161,7 @@ function fillCrc64XzTables(): void {
 export function crc32(data: Uint8Array, variant: Crc32Variant = "iso-hdlc"): Uint8Array {
   assertBytes(data, "data");
   if (variant === "bzip2") return crc32Bzip2(data);
+  if (variant === "iscsi") return crc32Iscsi(data);
   if (variant !== "iso-hdlc") {
     throw new InvalidOptionError("variant", variant, `use one of ${CRC32_VARIANTS.join(", ")}`);
   }
@@ -160,6 +178,37 @@ export function crc32IsoHdlc(data: Uint8Array): Uint8Array {
   assertBytes(data, "data");
   fillCrc32Tables();
   const t = CRC32_TABLES;
+  const end = data.length - (data.length & 7);
+  let crc = -1;
+  let i = 0;
+  for (; i < end; i += 8) {
+    const low =
+      crc ^ (data[i]! | (data[i + 1]! << 8) | (data[i + 2]! << 16) | (data[i + 3]! << 24));
+    crc =
+      t[1792 + (low & 0xff)]! ^
+      t[1536 + ((low >>> 8) & 0xff)]! ^
+      t[1280 + ((low >>> 16) & 0xff)]! ^
+      t[1024 + (low >>> 24)]! ^
+      t[768 + data[i + 4]!]! ^
+      t[512 + data[i + 5]!]! ^
+      t[256 + data[i + 6]!]! ^
+      t[data[i + 7]!]!;
+  }
+  for (; i < data.length; i++) crc = (crc >>> 8) ^ t[(crc ^ data[i]!) & 0xff]!;
+  return put(new Uint8Array(4), 0, ~crc);
+}
+
+/**
+ * Computes CRC-32C, the Castagnoli CRC behind iSCSI, SCTP, ext4 and Btrfs metadata and Google Cloud
+ * Storage checksums, without selecting a variant.
+ *
+ * @param data - Bytes to check.
+ * @returns {Uint8Array} The checksum, big-endian.
+ */
+export function crc32Iscsi(data: Uint8Array): Uint8Array {
+  assertBytes(data, "data");
+  fillCrc32IscsiTables();
+  const t = CRC32_ISCSI_TABLES;
   const end = data.length - (data.length & 7);
   let crc = -1;
   let i = 0;
