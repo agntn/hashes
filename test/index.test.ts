@@ -2071,7 +2071,9 @@ describe("byte function subpaths", () => {
   const names = Object.keys(SUBPATHS);
 
   it("match the exports map and the build entries", () => {
-    const exported = Object.keys(pkg.exports).filter((path) => !/^\.(?:\/ai|\/mcp)?$/u.test(path));
+    const exported = Object.keys(pkg.exports).filter(
+      (path) => !/^\.(?:\/ai|\/mcp|\/files)?$/u.test(path),
+    );
     const inputs = buildConfig.entries?.flatMap((entry) =>
       typeof entry === "object" && entry.type === "bundle" ? [entry.input].flat() : [],
     );

@@ -56,24 +56,26 @@ Hex ignores case. Base64 doesn't. Same letters, different bytes, and the second 
 
 | Command      | What you get                             | Example                                                               |
 | ------------ | ---------------------------------------- | --------------------------------------------------------------------- |
-| `hash`       | Digest of text or stdin                  | `hashes hash blake3 - < file.bin`                                     |
+| `hash`       | Digest of text, stdin or a file          | `hashes hash blake3 --file file.bin`                                  |
 | `hmac`       | Digest under a key                       | `hashes hmac sha256 "message" "secret"`                               |
 | `verify`     | Match or mismatch, exit 1 on mismatch    | `hashes verify md5 hello 5d41402abc4b2a76b9719d911017c592`            |
 | `extend`     | Length extension of a known digest       | `hashes extend md5 <digest> --message m --suffix x --secret-length 3` |
 | `identify`   | Candidates by prefix or digest length    | `hashes identify 5d41402abc4b2a76b9719d911017c592`                    |
 | `search`     | A recipe from your candidate words       | `hashes search 5d41402abc4b2a76b9719d911017c592 hello world`          |
+| `manifest`   | Checksum manifest of a directory         | `hashes manifest sha256 -o SHA256SUMS`                                |
+| `check`      | Every listed file, exit 1 on a miss      | `hashes check SHA256SUMS --strict`                                    |
 | `algorithms` | Registry, filtered by family or category | `hashes algorithms -f sha`                                            |
 | `info`       | One algorithm and its options            | `hashes info pbkdf2`                                                  |
 | `mcp`        | MCP server on stdio                      | `hashes mcp`                                                          |
 
-`hash` is optional: `hashes md5 hello` works. Several inputs get a line each. `hmac` and `verify` take the key or expected digest last. Use `hashes <command> --help` for flags, or the [CLI guide](https://hashes.agntn.dev/guide/cli) for encodings, JSON and exit codes.
+`hash` is optional: `hashes md5 hello` works. Several inputs get a line each. `hmac` and `verify` take the key or expected digest last. A path without `--file` gets a perfectly good checksum of its name. Use `hashes <command> --help` for flags, or the [CLI guide](https://hashes.agntn.dev/guide/cli) for encodings, JSON and exit codes.
 
 ## ✨ What you can do
 
 - 🧮 **Forty-eight algorithms.** Modern digests, old formats, checksums and KDFs. Pick one from the table.
 - 🔑 **HMAC where supported.** Twenty-three of them take a key. The others refuse it.
 - 🧂 **Reproduce a KDF.** Random salts and costs come back with the result. Keep them, not just the digest.
-- 📥 **Hash bytes, not their spelling.** Stdin takes files. `--input-encoding hex` decodes hex before hashing.
+- 📥 **Hash bytes, not their spelling.** `--file` and stdin take files. `--input-encoding hex` decodes hex before hashing.
 - 🔁 **Repeat a hash.** Choose raw bytes or hex between rounds. Yes, those give different answers.
 - 🔎 **Investigate a digest.** Identify candidates, search word combinations or try length extension. Identification is a guess, not proof.
 - ⚡ **Use plain TypeScript.** The library has no hashing dependencies or `node:*` imports. Byte functions have their own package entries too.

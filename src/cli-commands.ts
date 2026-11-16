@@ -3,7 +3,7 @@
  * runs past the tool's cap. Each takes the place of the tool command with its name.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   defineTool,
   Type,
@@ -15,7 +15,7 @@ import {
 } from "@agntn/tools";
 import { INPUT_ENCODINGS, TEXT_ENCODINGS } from "../extensions/shared/tool-contract.ts";
 import { ENCODING_OPTION, decodeInput, parameterText, type InputEncoding } from "./core/digest.ts";
-import { quoted, shown } from "./core/errors.ts";
+import { HashError, quoted, shown } from "./core/errors.ts";
 import { HMAC_ONE_ROUND } from "./core/fixed-hash.ts";
 import { identifyDigest, identityText, type DigestIdentity } from "./core/identify.ts";
 import {
@@ -26,6 +26,15 @@ import {
   type SearchDigestOptions,
 } from "./core/search.ts";
 import { assertDrawnOptions, assertExpected } from "./core/verify.ts";
+import { plainLine } from "./core/manifest.ts";
+import {
+  checkManifest,
+  createManifest,
+  hashFile,
+  type CreatedManifest,
+  type ManifestCheck,
+  type ManifestResult,
+} from "./files.ts";
 import {
   InvalidOptionError,
   builtinAlgorithms,
@@ -285,6 +294,12 @@ export const hashCommand = defineTool({
     algorithm,
     input: inputs,
     inputEncoding,
+    file: Type.Optional(
+      Type.Boolean({
+        description:
+          "Read each input as a file path and hash its bytes as they are; without it a path is just text",
+      }),
+    ),
     encoding: Type.Optional(
       Type.Enum([...TEXT_ENCODINGS, "binary"], { description: ENCODING_OPTION.description }),
     ),
@@ -294,13 +309,14 @@ export const hashCommand = defineTool({
     command: "hash",
     positional: ["algorithm"],
     rest: "input",
-    short: { encoding: "e" },
+    short: { encoding: "e", file: "f" },
     json: false,
   },
-  execute: (params) => {
+  execute: async (params) => {
     const hash = resolveAlgorithm(params.algorithm);
     const encoding = params.encoding ?? "hex";
     const options = { encoding, ...readParameters(hash, params) } as HashOptions;
+    if (params.file === true) return printFiles(hash, params, options);
     const [only, ...more] = params.input;
     if (only !== undefined && more.length === 0) {
       return printDigest(hash.hash(readInput(only, params.inputEncoding), options));
@@ -651,6 +667,219 @@ export const searchCommand = defineTool({
   },
 });
 
+/**
+ * Hashes files by path: one digest alone, or a line each that `sha256sum -c` reads.
+ *
+ * @param hash - The algorithm.
+ * @param params - The paths and how to read them.
+ * @param options - What to hash with, the digest encoding among them.
+ * @returns {Promise<ToolResult<unknown>>} The digest, or a line per file.
+ */
+async function printFiles(
+  hash: Hash,
+  params: Readonly<{ input: readonly string[]; inputEncoding?: InputEncoding }>,
+  options: HashOptions,
+): Promise<ToolResult<unknown>> {
+  if (params.inputEncoding !== undefined) {
+    throw new InvalidOptionError(
+      "inputEncoding",
+      params.inputEncoding,
+      "reads text; --file hashes the file's bytes as they are",
+    );
+  }
+  const fileOptions = { ...options, algorithm: hash.name() };
+  const [only, ...more] = params.input;
+  if (only !== undefined && more.length === 0)
+    return printDigest(await hashFile(only, fileOptions));
+  const text = listEncoding(options.encoding ?? "hex");
+  const items: Array<DigestDetails | BatchError> = [];
+  for (const path of params.input) {
+    items.push(
+      await settledAsync(async () => digestDetails(await hashFile(path, fileOptions), text)),
+    );
+  }
+  assertOneSetting(items);
+  const { about } = digestLines(items, params.input);
+  process.stderr.write(`${counted(items.length, "file")}, ${about ?? "none hashed"}\n`);
+  const lines = items.flatMap((item, index) => {
+    const path = params.input[index] ?? "";
+    if (!isBatchError(item)) return [plainLine({ path, digest: item.digest })];
+    process.stderr.write(`ERROR  ${quoted(path)}  ${item.error}\n`);
+    return [];
+  });
+  if (items.some(isBatchError)) process.exitCode = 1;
+  return {
+    content: lines.length > 0 ? [{ type: "text", text: lines.join("\n") }] : [],
+    details: { items },
+  };
+}
+
+/**
+ * Refuses files whose digests need different options, such as a salt drawn per file.
+ *
+ * @param items - Every digest, or the refusal of its file.
+ */
+function assertOneSetting(items: readonly (DigestDetails | BatchError)[]): void {
+  const settings = new Set(
+    items.flatMap((item) => (isBatchError(item) ? [] : [JSON.stringify(item.options)])),
+  );
+  if (settings.size > 1) {
+    throw new InvalidOptionError("salt", "drawn", "differs per file; pass one so every line fits");
+  }
+}
+
+/**
+ * The async `settled`.
+ *
+ * @param run - Hashes one file.
+ * @returns {Promise<T | BatchError>} The result, or the reason there is none.
+ */
+async function settledAsync<T>(run: () => Promise<T>): Promise<T | BatchError> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof HashError) return { error: error.message };
+    throw error;
+  }
+}
+
+const exclude = Type.Optional(
+  Type.Array(Type.String({ minLength: 1 }), {
+    description: 'Globs of paths to leave out, a JSON array such as ["node_modules/**", "*.log"]',
+  }),
+);
+
+export const manifestCommand = defineTool({
+  name: "hashes_manifest",
+  title: "Manifest",
+  description:
+    "Write a checksum manifest of every regular file under a directory, sorted by path, in the tag format sha256sum -c reads",
+  effect: "write",
+  idempotent: true,
+  input: closed({
+    algorithm,
+    root: Type.Optional(
+      Type.String({ minLength: 1, description: "Directory to list (default the current one)" }),
+    ),
+    output: Type.Optional(
+      Type.String({
+        minLength: 1,
+        description: "File to write the manifest to, left out of it (default stdout)",
+      }),
+    ),
+    exclude,
+  }),
+  cli: { positional: ["algorithm", "root"], short: { output: "o" }, json: false },
+  execute: async (params): Promise<ToolResult<CreatedManifest>> => {
+    const manifest = await createManifest({
+      algorithm: params.algorithm,
+      root: params.root,
+      exclude: params.exclude,
+      output: params.output ?? "/dev/stdout",
+    });
+    const skipped = manifest.skipped.length;
+    const heading = `${counted(manifest.entries.length, "file")}, ${manifest.entries[0]?.algorithm}`;
+    const left = skipped > 0 ? `, ${skipped} left out (symlinks and special files)` : "";
+    process.stderr.write(`${heading}${left}\n`);
+    if (params.output === undefined) process.stdout.write(manifest.text);
+    else writeFileSync(params.output, manifest.text);
+    return { content: [], details: manifest };
+  },
+});
+
+/** How each status reads in the report, padded to one width. */
+const STATUS_WORDS: Readonly<Record<ManifestResult["status"], string>> = {
+  ok: "OK        ",
+  mismatch: "MISMATCH  ",
+  missing: "MISSING   ",
+  unreadable: "UNREADABLE",
+  extra: "EXTRA     ",
+};
+
+/**
+ * One report line, the path in JSON quotes.
+ *
+ * @param result - The verdict on one file.
+ * @returns {string} The line.
+ */
+function resultLine(result: Readonly<ManifestResult>): string {
+  const reason = result.reason === undefined ? "" : `  ${result.reason}`;
+  return `${STATUS_WORDS[result.status]}  ${quoted(result.path)}${reason}`;
+}
+
+/**
+ * Reads the manifest file, or stdin for `-`, as strict UTF-8.
+ *
+ * @param path - The path as given.
+ * @returns {string} The manifest text.
+ */
+function readManifest(path: string): string {
+  let bytes: Uint8Array;
+  try {
+    bytes = readFileSync(path === "-" ? 0 : path);
+  } catch (error) {
+    const code = error instanceof Error && "code" in error ? String(error.code) : String(error);
+    throw new HashError(`Can't read the manifest ${quoted(path)}: ${code}`);
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    throw new HashError(`The manifest ${quoted(path)} is not UTF-8, so its paths can't be trusted`);
+  }
+}
+
+export const checkCommand = defineTool({
+  name: "hashes_check",
+  title: "Check",
+  description:
+    "Check the files a checksum manifest lists, exit 1 on a mismatched, missing or unreadable one",
+  effect: "read",
+  input: closed({
+    manifest: Type.String({
+      minLength: 1,
+      description: "The manifest: tag lines, or sha256sum lines with --algorithm; - for stdin",
+    }),
+    root: Type.Optional(
+      Type.String({
+        minLength: 1,
+        description: "Directory the paths are relative to (default the current one)",
+      }),
+    ),
+    algorithm: Type.Optional(
+      Type.String({ minLength: 1, description: "Algorithm of untagged sha256sum lines" }),
+    ),
+    strict: Type.Optional(
+      Type.Boolean({ description: "Also fail on files under the root the manifest doesn't list" }),
+    ),
+    exclude,
+    quiet: Type.Optional(Type.Boolean({ description: "Print only the files that fail" })),
+  }),
+  cli: { positional: ["manifest", "root"], short: { algorithm: "a", quiet: "q" } },
+  execute: async (params): Promise<ToolResult<ManifestCheck>> => {
+    const source = params.manifest === "-" ? "/dev/stdin" : params.manifest;
+    const check = await checkManifest(readManifest(params.manifest), {
+      root: params.root,
+      algorithm: params.algorithm,
+      strict: params.strict,
+      exclude: params.exclude,
+      manifest: source,
+    });
+    const failed = check.results.filter((result) => result.status !== "ok");
+    const shown = params.quiet === true ? failed : check.results;
+    process.stderr.write(
+      check.ok
+        ? `OK: ${counted(check.results.length, "file")} match\n`
+        : `FAILED: ${failed.length} of ${counted(check.results.length, "file")}\n`,
+    );
+    if (!check.ok) process.exitCode = 1;
+    const lines = shown.map(resultLine);
+    return {
+      content: lines.length > 0 ? [{ type: "text", text: lines.join("\n") }] : [],
+      details: check,
+    };
+  },
+});
+
 /** Every command of the CLI's own, each in the place of the tool command it shares a name with. */
 export const cliCommands = [
   hashCommand,
@@ -658,4 +887,6 @@ export const cliCommands = [
   verifyCommand,
   identifyCommand,
   searchCommand,
+  manifestCommand,
+  checkCommand,
 ];
