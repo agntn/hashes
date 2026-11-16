@@ -1,7 +1,7 @@
 {
   "name": "@agntn/hashes",
   "version": "0.7.2",
-  "description": "Hash, HMAC and key derivation algorithms for agents",
+  "description": "Hash, HMAC and key derivation algorithms for humans and agents",
   "keywords": [
     "omp-extension",
     "pi-package"
