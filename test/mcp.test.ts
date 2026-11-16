@@ -1239,7 +1239,7 @@ describe("hashes MCP server", () => {
     expect(answer.isError).toBe(false);
     expect(answer.text).toBe(
       [
-        "MATCH after 1516 of 2295 hashes",
+        "MATCH after 1617 of 2448 hashes",
         'sha256 of the words "jacquefresco", "giveitjustonesecond", "heisenbergsuncertaintyprinciple" joined by "", case as-is',
         'input "jacquefrescogiveitjustonesecondheisenbergsuncertaintyprinciple"',
       ].join("\n"),

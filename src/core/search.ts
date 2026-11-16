@@ -12,7 +12,7 @@ import { parameterText, toBytes } from "./digest.ts";
 import { HashError, InvalidOptionError, quoted } from "./errors.ts";
 import { algorithms, create } from "./registry.ts";
 import { resolveAlgorithm } from "./resolve.ts";
-import { lengthChoices } from "./identify.ts";
+import { lengthChoices, squeezeChoice } from "./identify.ts";
 import type { Hash } from "./hash.ts";
 import type { HashOptions } from "./types.ts";
 
@@ -476,7 +476,7 @@ function hashesTextOnly(
 
 /**
  * Lists the readings of one digest that make `length` bytes: its default, and each set of option
- * values that fits, the way `identifyDigest` reads CRC-32/BZIP2, XXH32 and every HAVAL.
+ * values that fits, the way `identifyDigest` reads CRC-32/BZIP2, XXH32, HAVAL and a squeezed SHAKE.
  *
  * @param hash - The algorithm.
  * @param length - The target's length in bytes.
@@ -489,7 +489,10 @@ function readingsOf(hash: Hash, length: number): Reading[] {
     info.digestLength === length
       ? [{ hash, label: name, textOnly: hashesTextOnly(hash, undefined) }]
       : [];
-  for (const parameters of lengthChoices(name, info, length)) {
+  const choices = lengthChoices(name, info, length);
+  const squeezed = squeezeChoice(info, length);
+  if (squeezed) choices.push(squeezed);
+  for (const parameters of choices) {
     const label = `${name} ${parameterText(parameters)}`;
     found.push({ hash, parameters, label, textOnly: hashesTextOnly(hash, parameters) });
   }

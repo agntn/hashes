@@ -3292,8 +3292,8 @@ describe("searchDigest", () => {
   it("counts every algorithm, round and chain in the total", () => {
     const found = searchDigest(Buffer.alloc(32), { words: ["a", "b", "c"], rounds: 3 });
 
-    expect(found.scope.algorithms).toHaveLength(15);
-    expect(found.total).toBe(102 * 15 * (1 + 3 * 2));
+    expect(found.scope.algorithms).toHaveLength(16);
+    expect(found.total).toBe(102 * 16 * (1 + 3 * 2));
     expect(found.tried).toBe(found.total);
   });
 
@@ -3367,6 +3367,24 @@ describe("searchDigest", () => {
     expect(
       searchDigest(bzip2.digest as Uint8Array, { words: ["abc"], algorithms: ["crc32"] }).recipe,
     ).toMatchObject({ algorithm: "crc32", parameters: { variant: "bzip2" } });
+  });
+
+  it("squeezes a SHAKE to the target's length from 16 bytes up, as identify does", () => {
+    const digest = createHash("shake256", { outputLength: 20 }).update("ab").digest();
+    const found = searchDigest(digest, { words: ["a", "b"] });
+
+    expect(found.recipe).toMatchObject({
+      algorithm: "shake256",
+      parameters: { outputLength: 20 },
+      input: "ab",
+    });
+    expect(found.scope.algorithms).toContain("shake128 outputLength 20");
+    expect(searchDigest(Buffer.alloc(64), { words: ["a"] }).scope.algorithms).not.toContain(
+      "shake256 outputLength 64",
+    );
+    expect(searchDigest(Buffer.alloc(4), { words: ["a"] }).scope.algorithms).not.toContain(
+      "shake128 outputLength 4",
+    );
   });
 
   it("refuses two words one of the cases turns into the same text", () => {
