@@ -754,7 +754,8 @@ export const manifestCommand = defineTool({
   title: "Manifest",
   description:
     "Write a checksum manifest of every regular file under a directory, sorted by path, in the tag format sha256sum -c reads",
-  effect: "read",
+  effect: "write",
+  idempotent: true,
   input: closed({
     algorithm,
     root: Type.Optional(

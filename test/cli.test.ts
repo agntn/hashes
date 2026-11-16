@@ -257,6 +257,13 @@ describe("hashes CLI", () => {
     }
   });
 
+  it("marks manifest as a write, since -o replaces a file, and check as a read", async () => {
+    const { checkCommand, manifestCommand } = await import("../src/cli-commands.ts");
+
+    expect([manifestCommand.effect, manifestCommand.idempotent]).toEqual(["write", true]);
+    expect(checkCommand.effect).toBe("read");
+  });
+
   it("writes a manifest, checks it, then names what changed and exits 1", () => {
     const dir = mkdtempSync(join(tmpdir(), "hashes-cli-manifest-"));
     try {
