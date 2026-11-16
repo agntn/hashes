@@ -49,6 +49,8 @@ import {
   crc16Xmodem,
   crc24,
   crc32,
+  crc32Bzip2,
+  crc32IsoHdlc,
   crc64,
   create,
   digestMatches,
@@ -535,6 +537,7 @@ describe("digests", () => {
       expect(create("crc32").hash(input).digest).toBe(
         zlibCrc32(input).toString(16).padStart(8, "0"),
       );
+      expect(Buffer.from(crc32IsoHdlc(input)).readUInt32BE()).toBe(zlibCrc32(input));
     }
   });
 
@@ -583,6 +586,7 @@ describe("digests", () => {
       const xxh32 = (seed?: number) => ({ bits: 32, seed }) as XxhashOptions;
       expect(create("adler32").hash(input).digest).toBe(adler);
       expect(create("crc32").hash(input, { variant: "bzip2" } as HashOptions).digest).toBe(bzip2);
+      expect(Buffer.from(crc32Bzip2(input)).toString("hex")).toBe(bzip2);
       expect(create("crc64").hash(input).digest).toBe(xz);
       expect(create("xxhash").hash(input, xxh32()).digest).toBe(xxh32Digest);
       expect(create("xxhash").hash(input, xxh32(0xdeadbeef)).digest).toBe(xxh32Seeded);
@@ -1585,6 +1589,8 @@ describe("byte functions", () => {
       new HashError("message must be a Uint8Array, not null"),
     );
     expect(() => crc32(loose(new ArrayBuffer(4)))).toThrow(HashError);
+    expect(() => crc32IsoHdlc(loose(new ArrayBuffer(4)))).toThrow(HashError);
+    expect(() => crc32Bzip2(loose(new ArrayBuffer(4)))).toThrow(HashError);
     expect(() => blake2b(new Uint8Array(1), 64, loose("UA_F4Jumble_H"))).toThrow(
       new HashError("personalization must be a Uint8Array, not string"),
     );
@@ -2020,6 +2026,8 @@ describe("byte function subpaths", () => {
       "crc16Xmodem",
       "crc24",
       "crc32",
+      "crc32Bzip2",
+      "crc32IsoHdlc",
       "crc64",
     ],
     adler32: ["adler32"],

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { build } from "esbuild";
+import { rolldown } from "vite/rolldown";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 const root = join(import.meta.dirname, "..");
@@ -103,6 +104,47 @@ describe("one byte function bundled with esbuild", () => {
     // PBKDF2's digest list and the tool contract's argument descriptions.
     expect(["sha3-512", "case-insensitive"].filter((text) => code.includes(text))).toEqual([]);
     expect(code.length).toBeLessThan(limit);
+  });
+});
+
+describe("one CRC-32 variant bundled with Rolldown", () => {
+  it.each([
+    ["crc32IsoHdlc", "cbf43926"],
+    ["crc32Bzip2", "fc891918"],
+  ])("%s keeps only its own variant", async (name, expected) => {
+    for (const entry of ["crc", "index"]) {
+      const source = `import { ${name} } from ${JSON.stringify(join(packed, `${entry}.mjs`))}; console.log(${name}(new TextEncoder().encode("123456789")).toHex());`;
+      const consumer = await rolldown({
+        input: "consumer",
+        platform: "browser",
+        plugins: [
+          {
+            name: "consumer",
+            resolveId(id) {
+              return id === "consumer" ? id : null;
+            },
+            load(id) {
+              return id === "consumer" ? source : null;
+            },
+          },
+        ],
+      });
+      try {
+        const { output } = await consumer.generate({ format: "esm", minify: true });
+        const code = output[0]!.code;
+        expect(code.length).toBeLessThan(1200);
+        expect(code).not.toContain("use one of");
+        expect(code).not.toContain("bzip2");
+        expect(code).not.toContain("iso-hdlc");
+        expect(
+          execFileSync(process.execPath, ["--input-type=module", "-e", code], {
+            encoding: "utf8",
+          }).trim(),
+        ).toBe(expected);
+      } finally {
+        await consumer.close();
+      }
+    }
   });
 });
 
