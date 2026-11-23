@@ -101,7 +101,7 @@ hmac
 true
 ```
 
-Strings are UTF-8. Already have bytes? Pass a `Uint8Array`. `create()` takes the exact registry name, while `resolveAlgorithm()` accepts labels, case and punctuation. Unsupported encodings throw a `HashError`. A hex string is still text here. Decode it first.
+Strings are UTF-8. Already have bytes? Pass a `Uint8Array`. `create()` takes the exact registry name, while `resolveAlgorithm()` accepts labels, case and punctuation. Unsupported encodings throw a `HashError`. A hex string is still text here. Decode it first. Bare functions like `sha256` don't take kindly to text. Give them `new TextEncoder().encode(text)` or let `create(name).hash(text)` handle it.
 
 [Hashing and byte imports](https://hashes.agntn.dev/guide/hashing) · [Verify](https://hashes.agntn.dev/guide/verify) · [KDFs and salts](https://hashes.agntn.dev/guide/kdf)
 

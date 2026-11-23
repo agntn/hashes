@@ -125,6 +125,9 @@ const OPENSSL_NAMES = {
 
 const SAMPLES = ["", "abc", "hello world", "zażółć gęślą jaźń 🦊"];
 
+/** What a byte function adds when it gets text instead of bytes. */
+const TEXT_HINT = ". Use TextEncoder, or create(name).hash(text)";
+
 describe("@agntn/hashes", () => {
   it("exports the package version", () => {
     expect(version).toBe(pkg.version);
@@ -1602,7 +1605,7 @@ describe("byte functions", () => {
   it("refuse anything but bytes instead of hashing it as something else", () => {
     const loose = (value: unknown) => value as Uint8Array;
     expect(() => sha256(loose("abc"))).toThrow(
-      new HashError("data must be a Uint8Array, not string"),
+      new HashError("data must be a Uint8Array, not string" + TEXT_HINT),
     );
     expect(() => keccak256(loose([1, 2, 3]))).toThrow(
       new HashError("data must be a Uint8Array, not object"),
@@ -1611,7 +1614,7 @@ describe("byte functions", () => {
       new HashError("state must be a Uint8Array, not object"),
     );
     expect(() => shake256(loose("abc"), 32)).toThrow(
-      new HashError("data must be a Uint8Array, not string"),
+      new HashError("data must be a Uint8Array, not string" + TEXT_HINT),
     );
     expect(() => blake256(loose(null))).toThrow(
       new HashError("message must be a Uint8Array, not null"),
@@ -1621,7 +1624,7 @@ describe("byte functions", () => {
     expect(() => crc32Bzip2(loose(new ArrayBuffer(4)))).toThrow(HashError);
     expect(() => crc32Iscsi(loose(new ArrayBuffer(4)))).toThrow(HashError);
     expect(() => blake2b(new Uint8Array(1), 64, loose("UA_F4Jumble_H"))).toThrow(
-      new HashError("personalization must be a Uint8Array, not string"),
+      new HashError("personalization must be a Uint8Array, not string" + TEXT_HINT),
     );
     for (const hasher of [
       new Sha256Hasher(),
@@ -1631,23 +1634,23 @@ describe("byte functions", () => {
       new Sha3_256Hasher(),
     ]) {
       expect(() => hasher.update(loose("abc"))).toThrow(
-        new HashError("data must be a Uint8Array, not string"),
+        new HashError("data must be a Uint8Array, not string" + TEXT_HINT),
       );
     }
     expect(() => hmac(() => new Sha256Hasher(), loose("key"), new Uint8Array(0))).toThrow(
-      new HashError("key must be a Uint8Array, not string"),
+      new HashError("key must be a Uint8Array, not string" + TEXT_HINT),
     );
     expect(() => pbkdf2(() => new Sha256Hasher(), new Uint8Array(1), loose("salt"), 1, 32)).toThrow(
-      new HashError("salt must be a Uint8Array, not string"),
+      new HashError("salt must be a Uint8Array, not string" + TEXT_HINT),
     );
     expect(() =>
       hkdf(() => new Sha256Hasher(), new Uint8Array(1), new Uint8Array(0), loose("info"), 32),
-    ).toThrow(new HashError("info must be a Uint8Array, not string"));
+    ).toThrow(new HashError("info must be a Uint8Array, not string" + TEXT_HINT));
     expect(() =>
       evpBytesToKey(() => new Md5Hasher(), loose("password"), new Uint8Array(0), 1, 32),
-    ).toThrow(new HashError("password must be a Uint8Array, not string"));
+    ).toThrow(new HashError("password must be a Uint8Array, not string" + TEXT_HINT));
     expect(() => scrypt(new Uint8Array(1), loose("salt"), 16, 1, 1, 32)).toThrow(
-      new HashError("salt must be a Uint8Array, not string"),
+      new HashError("salt must be a Uint8Array, not string" + TEXT_HINT),
     );
   });
 
@@ -1931,7 +1934,7 @@ describe("byte functions", () => {
     expect(derive({ memory: 15, parallelism: 2 })).toThrow("Invalid option memory=15");
     expect(derive({}, new Uint8Array(7))).toThrow("Invalid option salt=7 bytes");
     expect(derive({ secret: "00" })).toThrow(
-      new HashError("secret must be a Uint8Array, not string"),
+      new HashError("secret must be a Uint8Array, not string" + TEXT_HINT),
     );
     const loose = (value: unknown) => value as Parameters<typeof argon2id>[2];
     expect(() => argon2id(new Uint8Array(1), new Uint8Array(8), loose(null))).toThrow(
