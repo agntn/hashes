@@ -58,7 +58,7 @@ export function viewOf(data: Uint8Array): DataView {
 }
 
 /**
- * Throws unless the value is bytes, and tells a string how to become them. A string or a plain
+ * Throws unless the value is bytes, and tells hashed text how to become them. A string or a plain
  * array would otherwise hash to a digest of something else without a word.
  *
  * @param value - What the caller passed.
@@ -67,7 +67,8 @@ export function viewOf(data: Uint8Array): DataView {
 export function assertBytes(value: unknown, name: string): asserts value is Uint8Array {
   if (!(value instanceof Uint8Array)) {
     const kind = value === null ? "null" : typeof value;
-    const hint = kind === "string" ? ". Use TextEncoder, or create(name).hash(text)" : "";
+    const text = kind === "string" && (name === "data" || name === "message");
+    const hint = text ? ". Use TextEncoder, or create(name).hash(text)" : "";
     throw new HashError(`${name} must be a Uint8Array, not ${kind}${hint}`);
   }
 }
