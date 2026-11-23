@@ -59,7 +59,7 @@ import {
   evpBytesToKey,
   has,
   hash160,
-  hash256,
+  sha256d,
   hashCategories,
   hkdf,
   hkdfExpand,
@@ -174,7 +174,7 @@ describe("registry", () => {
       "sha3-512",
       "shake128",
       "shake256",
-      "hash256",
+      "sha256d",
       "sha1",
       "sha0",
     ]);
@@ -480,7 +480,7 @@ describe("digests", () => {
       "blake3",
       "blake256",
       "hash160",
-      "hash256",
+      "sha256d",
       "ntlm",
       "crc32",
       "crc64",
@@ -730,12 +730,12 @@ describe("hashes chains use", () => {
     expect(create("hash160").hash(key).digest).toBe("751e76e8199196d454941c45d1b3a323f1433bd6");
   });
 
-  it("hash256 gives the genesis block hash, byte-reversed as explorers print it", () => {
+  it("sha256d gives the genesis block hash, byte-reversed as explorers print it", () => {
     const header = Buffer.from(
       "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c",
       "hex",
     );
-    const digest = create("hash256").hash(header, { encoding: "binary" }).digest as Uint8Array;
+    const digest = create("sha256d").hash(header, { encoding: "binary" }).digest as Uint8Array;
     expect(Buffer.from(digest).reverse().toString("hex")).toBe(
       "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
     );
@@ -1263,7 +1263,7 @@ describe("byte functions", () => {
       expect(sha512(bytes).toHex()).toBe(createHash("sha512").update(bytes).digest("hex"));
       expect(ripemd160(bytes).toHex()).toBe(createHash("ripemd160").update(bytes).digest("hex"));
       expect(hash160(bytes).toHex()).toBe(createHash("ripemd160").update(inner).digest("hex"));
-      expect(hash256(bytes).toHex()).toBe(createHash("sha256").update(inner).digest("hex"));
+      expect(sha256d(bytes).toHex()).toBe(createHash("sha256").update(inner).digest("hex"));
       expect(keccak256(bytes).toHex()).toBe(createHash("keccak-256").update(bytes).digest("hex"));
       expect(sha3_256(bytes).toHex()).toBe(createHash("sha3-256").update(bytes).digest("hex"));
       expect(sha3_512(bytes).toHex()).toBe(createHash("sha3-512").update(bytes).digest("hex"));
@@ -2033,7 +2033,7 @@ describe("byte function subpaths", () => {
       "Sha256Hasher",
       "Sha384Hasher",
       "Sha512Hasher",
-      "hash256",
+      "sha256d",
       "sha224",
       "sha256",
       "sha256Bits",

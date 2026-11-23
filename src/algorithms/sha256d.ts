@@ -1,10 +1,10 @@
 import { FixedHash } from "../core/fixed-hash.ts";
-import { hash256 } from "../core/sha2.ts";
+import { sha256d } from "../core/sha2.ts";
 
-export class Hash256 extends FixedHash {
-  static readonly key = "hash256";
+export class Sha256d extends FixedHash {
+  static readonly key = "sha256d";
   protected readonly about = {
-    label: "HASH256 (double SHA-256)",
+    label: "SHA256D (double SHA-256)",
     description:
       "SHA-256 of SHA-256, Bitcoin's transaction and block hash and the Base58Check checksum (its first 4 bytes)",
     family: "SHA",
@@ -21,6 +21,6 @@ export class Hash256 extends FixedHash {
    * @returns {Uint8Array} The 32-byte hash.
    */
   protected digest(bytes: Uint8Array): Uint8Array {
-    return hash256(bytes);
+    return sha256d(bytes);
   }
 }
