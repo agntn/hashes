@@ -80,7 +80,7 @@ describe("one byte function bundled with esbuild", () => {
   // Every one of these came out near 20 kB with all 18 constant tables before the fix. The count
   // catches one table coming back, which is too small to show in the size.
   it.each([
-    ["md5", 3, 4_000],
+    ["md5", 3, 4_100],
     ["sha1", 1, 3_500],
     ["sha256", 2, 4_000],
     /* SHA-256's two tables plus its own initial value, and still no registry. */
@@ -94,9 +94,9 @@ describe("one byte function bundled with esbuild", () => {
     ["ripemd160", 5, 5_000],
     ["blake2b", 3, 8_000],
     /* CRC-32 carries every variant and the error a wrong one throws, whatever the value. */
-    ["crc32", 0, 2_600],
+    ["crc32", 0, 2_700],
     ["scrypt", 2, 8_500],
-    ["argon2id", 3, 12_000],
+    ["argon2id", 3, 12_100],
     ["bcrypt", 0, 4_000],
   ])("%s leaves the other algorithms out", async (name, tables, limit) => {
     const code = await bundle(name);
