@@ -13,6 +13,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { describe, expect, it } from "vite-plus/test";
 import pkg from "../package.json" with { type: "json" };
 import { hashCompute, hashVerify } from "../src/tool-operations.ts";
@@ -827,6 +829,46 @@ function served(from: "bundle" | "source") {
   return { code: 0, from, name: "hashes" };
 }
 
+type Session = Readonly<{
+  env?: Readonly<Record<string, string>>;
+  mode?: "legacy" | Readonly<{ pin: string }>;
+}>;
+
+/**
+ * Connects a client of one protocol era to `mcp` from the built bin.
+ * @param session - Extra environment and the era the client asks for.
+ * @returns {Promise<Client>} The connected client.
+ */
+async function connect(session: Session = {}): Promise<Client> {
+  const client = new Client(
+    { name: "hashes-test", version: "1.0.0" },
+    { versionNegotiation: { mode: session.mode ?? "legacy" } },
+  );
+  await client.connect(
+    new StdioClientTransport({
+      command: process.execPath,
+      args: [join(root, "dist/cli.mjs"), "mcp"],
+      env: { ...env, ...session.env },
+      stderr: "ignore",
+    }),
+  );
+  return client;
+}
+
+const builds = [
+  { from: "source", env: {} },
+  { from: "bundle", env: { HASHES_DIST: "1" } },
+] as const;
+const toolNames = [
+  "hashes_compute",
+  "hashes_hmac_compute",
+  "hashes_verify",
+  "hashes_digest_extend",
+  "hashes_digest_identify",
+  "hashes_digest_search",
+  "hashes_algorithms",
+];
+
 // The `pnpm dev` stub in `dist` fails the bundle checks here on purpose; they want a real build.
 describe.skipIf(!existsSync(join(root, "dist/cli.mjs")))("hashes mcp from the built bin", () => {
   it("serves the live source inside a checkout", () => {
@@ -835,6 +877,28 @@ describe.skipIf(!existsSync(join(root, "dist/cli.mjs")))("hashes mcp from the bu
 
   it("keeps the bundle under HASHES_DIST=1", () => {
     expect(serve(root, { HASHES_DIST: "1" })).toMatchObject(served("bundle"));
+  });
+
+  it.each(builds)("lets a client pinned to 2026 listen, from the $from", async (build) => {
+    const client = await connect({ env: build.env, mode: { pin: "2026-07-28" } });
+    try {
+      expect(client.getNegotiatedProtocolVersion()).toBe("2026-07-28");
+      const subscription = await client.listen({ toolsListChanged: true });
+      expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(toolNames);
+      await subscription.close();
+    } finally {
+      await client.close();
+    }
+  });
+
+  it.each(builds)("still opens a 2025 client with initialize, from the $from", async (build) => {
+    const client = await connect({ env: build.env });
+    try {
+      expect(client.getNegotiatedProtocolVersion()).toMatch(/^2025-/u);
+      expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual(toolNames);
+    } finally {
+      await client.close();
+    }
   });
 
   it("keeps the bundle when the package sits under node_modules", () => {

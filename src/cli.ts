@@ -42,16 +42,17 @@ function servesSource(): boolean {
 }
 
 /**
- * Serves `createMcpServer` over stdio rather than the `mcp` of `runCli`, which can't show the
- * description and icons yet. The source URL is built at runtime, so the bundler leaves `src` out.
+ * Serves `createMcpServer` to 2025 and 2026 clients over stdio, rather than the `mcp` of `runCli`,
+ * which can't show the description and icons yet. The source URL is built at runtime, so the
+ * bundler leaves `src` out.
  *
- * @returns {Promise<void>} Once the server is connected.
+ * @returns {Promise<void>} Once the server listens.
  */
 async function serveMcp(): Promise<void> {
   const module: unknown = servesSource() ? await import(sourceMcp.href) : await import("./mcp.ts");
   if (!isMcpModule(module)) throw new TypeError("The MCP module has no createMcpServer");
-  const { StdioServerTransport } = await import("@modelcontextprotocol/server/stdio");
-  await module.createMcpServer().connect(new StdioServerTransport());
+  const { serveStdio } = await import("@modelcontextprotocol/server/stdio");
+  serveStdio(() => module.createMcpServer());
 }
 
 /**
