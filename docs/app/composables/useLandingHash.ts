@@ -21,7 +21,7 @@ const ORDER: readonly AlgorithmEntry["slug"][] = [
   "blake256",
   "sha1",
   "fnv1a",
-  "hash256",
+  "sha256d",
   "blake2s",
   "crc16-xmodem",
   "sha384",

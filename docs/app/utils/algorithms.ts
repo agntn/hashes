@@ -86,7 +86,7 @@ const PRESENTATION: Record<BuiltinAlgorithm, { icon: string; blurb: string; used
     blurb: "RIPEMD-160 of SHA-256, a public key becomes an address",
     usedBy: "Bitcoin, Litecoin, Dogecoin, Dash, Zcash, XRP Ledger",
   },
-  hash256: {
+  sha256d: {
     icon: "i-token-btc",
     blurb: "SHA-256 twice, every txid and block hash",
     usedBy: "Bitcoin",

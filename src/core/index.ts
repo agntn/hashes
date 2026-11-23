@@ -76,7 +76,7 @@ export {
   Sha256Hasher,
   Sha384Hasher,
   Sha512Hasher,
-  hash256,
+  sha256d,
   sha224,
   sha256,
   sha256Bits,

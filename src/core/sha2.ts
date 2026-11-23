@@ -390,6 +390,6 @@ export function sha512(data: Uint8Array): Uint8Array {
  * @param data - Bytes to hash.
  * @returns {Uint8Array} 32 bytes.
  */
-export function hash256(data: Uint8Array): Uint8Array {
+export function sha256d(data: Uint8Array): Uint8Array {
   return sha256(sha256(data));
 }

@@ -59,7 +59,7 @@ import {
   evpBytesToKey,
   has,
   hash160,
-  hash256,
+  sha256d,
   hashCategories,
   hkdf,
   hkdfExpand,
@@ -174,7 +174,7 @@ describe("registry", () => {
       "sha3-512",
       "shake128",
       "shake256",
-      "hash256",
+      "sha256d",
       "sha1",
       "sha0",
     ]);
@@ -343,58 +343,6 @@ describe("registry", () => {
     expect(() => resolveAlgorithm("XXH-32")).toThrow(UnknownAlgorithmError);
   });
 
-  it.each(["sha256d", "SHA256D", "sha-256d"])(
-    "resolves %s, as Bitcoin code spells double SHA-256, to hash256",
-    (name) => {
-      const inner = createHash("sha256")
-        .update(new Uint8Array([0]))
-        .digest();
-      const expected = createHash("sha256").update(inner).digest("hex");
-      expect(resolveAlgorithm(name).name()).toBe("hash256");
-      expect(resolveAlgorithm(name).hash(new Uint8Array([0])).digest).toBe(expected);
-    },
-  );
-
-  it("refuses sha256d when two registrations spell it, alias or not", () => {
-    class Md4AsSha256d extends FixedHash {
-      static readonly key = "md4";
-      protected readonly about = {
-        label: "SHA256D",
-        description: "MD4 under Bitcoin's name for hash256",
-        family: "MD",
-        category: "legacy",
-        digestLength: 16,
-      } as const;
-
-      protected digest(bytes: Uint8Array): Uint8Array {
-        return createHash("md4").update(bytes).digest();
-      }
-    }
-    class Md5AsSha256d extends FixedHash {
-      static readonly key = "md5";
-      protected readonly about = {
-        label: "SHA-256d",
-        description: "MD5 under Bitcoin's name for hash256",
-        family: "MD",
-        category: "legacy",
-        digestLength: 16,
-      } as const;
-
-      protected digest(bytes: Uint8Array): Uint8Array {
-        return createHash("md5").update(bytes).digest();
-      }
-    }
-    register(Md4AsSha256d);
-    try {
-      expect(resolveAlgorithm("sha256d").name()).toBe("md4");
-      register(Md5AsSha256d);
-      expect(() => resolveAlgorithm("sha256d")).toThrow(UnknownAlgorithmError);
-    } finally {
-      register(Md4);
-      register(Md5);
-    }
-  });
-
   it("refuses a spelling two algorithms share", () => {
     class Md4AsMd5 extends FixedHash {
       static readonly key = "md4";
@@ -532,7 +480,7 @@ describe("digests", () => {
       "blake3",
       "blake256",
       "hash160",
-      "hash256",
+      "sha256d",
       "ntlm",
       "crc32",
       "crc64",
@@ -782,12 +730,12 @@ describe("hashes chains use", () => {
     expect(create("hash160").hash(key).digest).toBe("751e76e8199196d454941c45d1b3a323f1433bd6");
   });
 
-  it("hash256 gives the genesis block hash, byte-reversed as explorers print it", () => {
+  it("sha256d gives the genesis block hash, byte-reversed as explorers print it", () => {
     const header = Buffer.from(
       "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c",
       "hex",
     );
-    const digest = create("hash256").hash(header, { encoding: "binary" }).digest as Uint8Array;
+    const digest = create("sha256d").hash(header, { encoding: "binary" }).digest as Uint8Array;
     expect(Buffer.from(digest).reverse().toString("hex")).toBe(
       "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
     );
@@ -1315,7 +1263,7 @@ describe("byte functions", () => {
       expect(sha512(bytes).toHex()).toBe(createHash("sha512").update(bytes).digest("hex"));
       expect(ripemd160(bytes).toHex()).toBe(createHash("ripemd160").update(bytes).digest("hex"));
       expect(hash160(bytes).toHex()).toBe(createHash("ripemd160").update(inner).digest("hex"));
-      expect(hash256(bytes).toHex()).toBe(createHash("sha256").update(inner).digest("hex"));
+      expect(sha256d(bytes).toHex()).toBe(createHash("sha256").update(inner).digest("hex"));
       expect(keccak256(bytes).toHex()).toBe(createHash("keccak-256").update(bytes).digest("hex"));
       expect(sha3_256(bytes).toHex()).toBe(createHash("sha3-256").update(bytes).digest("hex"));
       expect(sha3_512(bytes).toHex()).toBe(createHash("sha3-512").update(bytes).digest("hex"));
@@ -2085,7 +2033,7 @@ describe("byte function subpaths", () => {
       "Sha256Hasher",
       "Sha384Hasher",
       "Sha512Hasher",
-      "hash256",
+      "sha256d",
       "sha224",
       "sha256",
       "sha256Bits",

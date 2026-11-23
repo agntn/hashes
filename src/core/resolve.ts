@@ -19,7 +19,7 @@ export function normalizeAlgorithmName(name: string): string {
 }
 
 /**
- * Resolves a key, label or alias, case and punctuation aside: `SHA-256` finds `sha256`.
+ * Resolves an algorithm by key or label, case and punctuation aside: `SHA-256` finds `sha256`.
  *
  * @param preferred - Algorithm name or label.
  * @returns {Hash} The matching algorithm.
@@ -102,50 +102,32 @@ function variantSuggestions(name: string): AlgorithmSuggestion[] {
  */
 function knownAlgorithm(name: string): string | undefined {
   const normalized = normalizeAlgorithmName(name);
-  if (has(normalized)) return normalized;
-  const spelled = spelledAlgorithms(name);
-  if (spelled.length === 0) return aliasedAlgorithm(name);
-  return spelled.length === 1 ? spelled[0] : undefined;
-}
-
-/** Names other code gives a key, compacted: Bitcoin Core calls hash256 sha256d. */
-const KEY_ALIASES: Readonly<Record<string, string>> = {
-  sha256d: "hash256",
-};
-
-/**
- * Reads a name as another code's name for a built-in key, once no key or label answers to it.
- *
- * @param name - Name as typed.
- * @returns {string | undefined} The key the alias stands for, or nothing.
- */
-function aliasedAlgorithm(name: string): string | undefined {
-  const compact = compactName(name);
-  return Object.hasOwn(KEY_ALIASES, compact) ? KEY_ALIASES[compact] : undefined;
+  return has(normalized) ? normalized : spelledAlgorithm(name);
 }
 
 /**
  * Drops case and everything but letters and digits from a name.
  *
  * @param name - Key, label or name as typed.
- * @returns {string} The name as `spelledAlgorithms` compares it.
+ * @returns {string} The name as `spelledAlgorithm` compares it.
  */
 function compactName(name: string): string {
   return name.toLowerCase().replaceAll(/[^a-z\d]/g, "");
 }
 
 /**
- * Finds the algorithms whose key or label matches a name once punctuation is gone.
+ * Finds the one algorithm whose key or label matches a name once punctuation is gone.
  *
  * @param name - Name as typed.
- * @returns {string[]} Their keys; more than one makes the name ambiguous.
+ * @returns {string | undefined} The algorithm's key, or nothing when none or several match.
  */
-function spelledAlgorithms(name: string): string[] {
+function spelledAlgorithm(name: string): string | undefined {
   const wanted = compactName(name);
-  if (wanted === "") return [];
-  return algorithms().filter(
+  if (wanted === "") return undefined;
+  const matches = algorithms().filter(
     (key) => compactName(key) === wanted || compactName(create(key).info().label) === wanted,
   );
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 /** Which algorithms `algorithmInfos` keeps; each field left out keeps them all. */
