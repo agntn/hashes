@@ -343,6 +343,18 @@ describe("registry", () => {
     expect(() => resolveAlgorithm("XXH-32")).toThrow(UnknownAlgorithmError);
   });
 
+  it.each(["sha256d", "SHA256D", "dsha256", "double SHA-256"])(
+    "resolves %s, as Bitcoin code spells double SHA-256, to hash256",
+    (name) => {
+      const inner = createHash("sha256")
+        .update(new Uint8Array([0]))
+        .digest();
+      const expected = createHash("sha256").update(inner).digest("hex");
+      expect(resolveAlgorithm(name).name()).toBe("hash256");
+      expect(resolveAlgorithm(name).hash(new Uint8Array([0])).digest).toBe(expected);
+    },
+  );
+
   it("refuses a spelling two algorithms share", () => {
     class Md4AsMd5 extends FixedHash {
       static readonly key = "md4";

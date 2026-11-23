@@ -19,7 +19,7 @@ export function normalizeAlgorithmName(name: string): string {
 }
 
 /**
- * Resolves an algorithm by key or label, case and punctuation aside: `SHA-256` finds `sha256`.
+ * Resolves a key, label or alias, case and punctuation aside: `SHA-256` finds `sha256`.
  *
  * @param preferred - Algorithm name or label.
  * @returns {Hash} The matching algorithm.
@@ -102,7 +102,25 @@ function variantSuggestions(name: string): AlgorithmSuggestion[] {
  */
 function knownAlgorithm(name: string): string | undefined {
   const normalized = normalizeAlgorithmName(name);
-  return has(normalized) ? normalized : spelledAlgorithm(name);
+  return has(normalized) ? normalized : (spelledAlgorithm(name) ?? aliasedAlgorithm(name));
+}
+
+/** Names other code gives a key, compacted: Bitcoin Core calls hash256 sha256d. */
+const KEY_ALIASES: Readonly<Record<string, string>> = {
+  sha256d: "hash256",
+  dsha256: "hash256",
+  doublesha256: "hash256",
+};
+
+/**
+ * Reads a name as another code's name for a built-in key, once no key or label answers to it.
+ *
+ * @param name - Name as typed.
+ * @returns {string | undefined} The key the alias stands for, or nothing.
+ */
+function aliasedAlgorithm(name: string): string | undefined {
+  const compact = compactName(name);
+  return Object.hasOwn(KEY_ALIASES, compact) ? KEY_ALIASES[compact] : undefined;
 }
 
 /**
