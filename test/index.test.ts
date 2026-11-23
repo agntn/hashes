@@ -343,7 +343,7 @@ describe("registry", () => {
     expect(() => resolveAlgorithm("XXH-32")).toThrow(UnknownAlgorithmError);
   });
 
-  it.each(["sha256d", "SHA256D", "dsha256", "double SHA-256"])(
+  it.each(["sha256d", "SHA256D", "sha-256d"])(
     "resolves %s, as Bitcoin code spells double SHA-256, to hash256",
     (name) => {
       const inner = createHash("sha256")
@@ -354,6 +354,46 @@ describe("registry", () => {
       expect(resolveAlgorithm(name).hash(new Uint8Array([0])).digest).toBe(expected);
     },
   );
+
+  it("refuses sha256d when two registrations spell it, alias or not", () => {
+    class Md4AsSha256d extends FixedHash {
+      static readonly key = "md4";
+      protected readonly about = {
+        label: "SHA256D",
+        description: "MD4 under Bitcoin's name for hash256",
+        family: "MD",
+        category: "legacy",
+        digestLength: 16,
+      } as const;
+
+      protected digest(bytes: Uint8Array): Uint8Array {
+        return createHash("md4").update(bytes).digest();
+      }
+    }
+    class Md5AsSha256d extends FixedHash {
+      static readonly key = "md5";
+      protected readonly about = {
+        label: "SHA-256d",
+        description: "MD5 under Bitcoin's name for hash256",
+        family: "MD",
+        category: "legacy",
+        digestLength: 16,
+      } as const;
+
+      protected digest(bytes: Uint8Array): Uint8Array {
+        return createHash("md5").update(bytes).digest();
+      }
+    }
+    register(Md4AsSha256d);
+    try {
+      expect(resolveAlgorithm("sha256d").name()).toBe("md4");
+      register(Md5AsSha256d);
+      expect(() => resolveAlgorithm("sha256d")).toThrow(UnknownAlgorithmError);
+    } finally {
+      register(Md4);
+      register(Md5);
+    }
+  });
 
   it("refuses a spelling two algorithms share", () => {
     class Md4AsMd5 extends FixedHash {
